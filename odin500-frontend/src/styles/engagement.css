@@ -1,0 +1,222 @@
+/* Product tour (driver.js) + engagement signup modal */
+
+.product-tour-active {
+  overflow: hidden;
+}
+
+/* Do not override driver.js z-index — v1 manages popover/overlay stacking internally. */
+.odin-tour-popover {
+  --odin-tour-bg: rgba(15, 23, 42, 0.98);
+  --odin-tour-text: #e2e8f0;
+  --odin-tour-muted: #94a3b8;
+  --odin-tour-border: rgba(59, 130, 246, 0.45);
+  --odin-tour-btn: #3b82f6;
+  background: var(--odin-tour-bg) !important;
+  color: var(--odin-tour-text) !important;
+  border: 1px solid var(--odin-tour-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45) !important;
+  max-width: min(360px, calc(100vw - 24px)) !important;
+}
+
+.odin-tour-popover--light {
+  --odin-tour-bg: #ffffff;
+  --odin-tour-text: #0f172a;
+  --odin-tour-muted: #475569;
+  --odin-tour-border: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.12) !important;
+}
+
+.odin-tour-popover .driver-popover-title {
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  color: var(--odin-tour-text) !important;
+  padding-right: 2rem !important;
+}
+
+.odin-tour-popover .driver-popover-description {
+  font-size: 0.875rem !important;
+  line-height: 1.45 !important;
+  color: var(--odin-tour-muted) !important;
+}
+
+.odin-tour-popover .driver-popover-progress-text {
+  color: var(--odin-tour-muted) !important;
+  font-size: 0.75rem !important;
+}
+
+.odin-tour-popover button {
+  border-radius: 8px !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+}
+
+.odin-tour-popover .driver-popover-next-btn {
+  background: var(--odin-tour-btn) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.odin-tour-popover .driver-popover-prev-btn {
+  background: transparent !important;
+  color: var(--odin-tour-muted) !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+}
+
+.odin-tour-popover .driver-popover-close-btn {
+  box-sizing: border-box;
+  position: absolute !important;
+  top: 5px !important;
+  right: 5px !important;
+  z-index: 3 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 28px !important;
+  height: 28px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 1.25rem !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  color: var(--odin-tour-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  text-shadow: none !important;
+  pointer-events: auto !important;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.odin-tour-popover .driver-popover-arrow {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.odin-tour-popover .driver-popover-title,
+.odin-tour-popover .driver-popover-description {
+  position: relative;
+  z-index: 1;
+}
+
+.odin-tour-popover .driver-popover-close-btn:hover,
+.odin-tour-popover .driver-popover-close-btn:focus-visible {
+  color: var(--odin-tour-text) !important;
+  background: rgba(148, 163, 184, 0.12) !important;
+}
+
+.odin-tour-popover .driver-popover-footer,
+.odin-tour-popover .driver-popover-footer button {
+  pointer-events: auto !important;
+}
+
+body.engagement-signup-lock {
+  overflow: hidden;
+}
+
+.engagement-signup-overlay--blocking {
+  z-index: 10060 !important;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.engagement-signup-modal {
+  max-width: min(460px, calc(100vw - 24px));
+}
+
+.engagement-signup-modal__head {
+  padding-right: 1rem;
+}
+
+.engagement-signup-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.engagement-signup-modal__lead {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+[data-theme='light'] .engagement-signup-modal__lead {
+  color: #334155;
+}
+
+.engagement-signup-modal__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+[data-theme='light'] .engagement-signup-modal__list {
+  color: #475569;
+}
+
+.engagement-signup-modal__list li + li {
+  margin-top: 0.35rem;
+}
+
+.engagement-signup-modal__list strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+[data-theme='light'] .engagement-signup-modal__list strong {
+  color: #0f172a;
+}
+
+.engagement-signup-modal__cta-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+[data-theme='light'] .engagement-signup-modal__cta-hint {
+  color: #475569;
+}
+
+.engagement-signup-modal__foot {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+[data-theme='light'] .engagement-signup-overlay--blocking .wl-manage-modal {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme='light'] .engagement-signup-overlay--blocking .wl-manage-modal__head,
+[data-theme='light'] .engagement-signup-overlay--blocking .wl-manage-modal__foot {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 768px) {
+  .engagement-signup-overlay--blocking {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .engagement-signup-modal {
+    max-height: min(92vh, 720px);
+  }
+
+  .engagement-signup-modal__foot {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .engagement-signup-modal__foot .wl-manage-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,316 @@
+/* Stock splits tracker + ticker banner */
+
+.stock-splits-page {
+  max-width: auto;
+  /* margin: 0 auto; */
+  padding: 1.25rem 1rem 2.5rem;
+  color: #e2e8f0;
+}
+
+html[data-theme='light'] .stock-splits-page {
+  color: #0f172a;
+}
+
+.stock-splits-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.stock-splits-page__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stock-splits-page__lead {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+html[data-theme='light'] .stock-splits-page__lead {
+  color: #475569;
+}
+
+.stock-splits-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.stock-splits-page__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stock-splits-page__filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.stock-splits-page__select--index {
+  min-width: 13rem;
+}
+
+.stock-splits-page__select {
+  min-width: 8rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  font-size: 0.875rem;
+}
+
+html[data-theme='light'] .stock-splits-page__select {
+  background: #fff;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.15);
+}
+
+.stock-splits-page__sync-btn {
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stock-splits-page__sync-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.28);
+}
+
+.stock-splits-page__sync-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+html[data-theme='light'] .stock-splits-page__sync-btn {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.stock-splits-page__meta {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.stock-splits-page__loading,
+.stock-splits-page__empty {
+  padding: 2rem 0;
+  color: #94a3b8;
+}
+
+.stock-splits-page__error {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 0.875rem;
+}
+
+.stock-splits-page__table-wrap {
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+html[data-theme='light'] .stock-splits-page__table-wrap {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+.stock-splits-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.stock-splits-page__table th,
+.stock-splits-page__table td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.stock-splits-page__table th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+html[data-theme='light'] .stock-splits-page__table th {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.stock-splits-page__sym {
+  font-weight: 700;
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.stock-splits-page__sym:hover {
+  text-decoration: underline;
+}
+
+html[data-theme='light'] .stock-splits-page__sym {
+  color: #2563eb;
+}
+
+.stock-splits-page__ratio {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-splits-page__type {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.stock-splits-page__type--reverse {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+html[data-theme='light'] .stock-splits-page__type--reverse {
+  color: #b45309;
+}
+
+.stock-split-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+html[data-theme='light'] .stock-split-banner {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(180, 83, 9, 0.25);
+}
+
+.stock-split-banner__icon {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.2);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.stock-split-banner__body {
+  min-width: 0;
+}
+
+.stock-split-banner__title {
+  margin: 0 0 0.2rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+html[data-theme='light'] .stock-split-banner__title {
+  color: #92400e;
+}
+
+.stock-split-banner__meta {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #fcd34d;
+}
+
+html[data-theme='light'] .stock-split-banner__meta {
+  color: #a16207;
+}
+
+.stock-split-banner__link {
+  margin-left: 0.35rem;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stock-split-banner__warn {
+  color: #fbbf24;
+  font-weight: 500;
+}
+
+html[data-theme='light'] .stock-split-banner__warn {
+  color: #b45309;
+}
+
+.stock-split-banner--upcoming {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+html[data-theme='light'] .stock-split-banner--upcoming {
+  background: rgba(2, 132, 199, 0.08);
+  border-color: rgba(2, 132, 199, 0.25);
+}
+
+.stock-split-banner--upcoming .stock-split-banner__icon {
+  background: rgba(56, 189, 248, 0.2);
+}
+
+.stock-split-banner--upcoming .stock-split-banner__meta {
+  color: #7dd3fc;
+}
+
+html[data-theme='light'] .stock-split-banner--upcoming .stock-split-banner__meta {
+  color: #0369a1;
+}
+
+.stock-splits-page__upcoming-badge {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.15);
+  vertical-align: middle;
+}
+
+html[data-theme='light'] .stock-splits-page__upcoming-badge {
+  color: #0369a1;
+  background: rgba(2, 132, 199, 0.12);
+}

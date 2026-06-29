@@ -1,0 +1,206 @@
+@import "../index.css";
+@import "../styles/engagement.css";
+@import "../styles/stock-splits.css";
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* SSR fallback: visible until client app hydrates, then hidden (progressive enhancement). */
+.ssr-page-shell {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.ssr-page-shell a {
+  color: #59a9ff;
+}
+
+.ssr-page-shell .seo-server-table th,
+.ssr-page-shell .seo-server-table td {
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+/* SSR primary content — visible in HTML before client enhance layer. */
+.ssr-page-content {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.ssr-page-content a {
+  color: #59a9ff;
+}
+
+.ssr-page-content .seo-server-table th,
+.ssr-page-content .seo-server-table td {
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+html[data-app-hydrated='true'] .ssr-page-shell,
+html[data-app-hydrated='true'] .ssr-internal-links {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* SSR + enhance: per-chart slots (SVG in HTML, canvas on top after hydrate). */
+.chart-enhance-slot {
+  position: relative;
+  min-height: 1px;
+}
+
+.chart-enhance-slot__ssr {
+  position: relative;
+  z-index: 0;
+}
+
+.chart-enhance-slot__client {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.chart-enhance-slot__client[data-chart-enhanced='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chart-enhance-slot:has([data-chart-enhanced='true']) .chart-enhance-slot__ssr {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* SSR + enhance: full-page routes — server visible without JS, client after hydrate. */
+.full-ssr-page {
+  position: relative;
+}
+
+.full-ssr-page__server {
+  display: block;
+}
+
+.full-ssr-page__client {
+  display: none;
+}
+
+html[data-app-hydrated='true'] .full-ssr-page__server {
+  display: none;
+}
+
+html[data-app-hydrated='true'] .full-ssr-page__client {
+  display: block;
+}
+
+/* Server app chrome — sidebar nav in HTML before client shell hydrates. */
+.ssr-app-chrome {
+  display: block;
+  width: 220px;
+  flex-shrink: 0;
+  padding: 1rem 0.75rem;
+  background: #0b1220;
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+  font-size: 0.875rem;
+}
+
+.ssr-app-chrome__brand {
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.ssr-app-chrome__brand-link {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #59a9ff;
+  text-decoration: none;
+}
+
+.ssr-app-chrome__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ssr-app-chrome__link {
+  display: block;
+  padding: 0.4rem 0.5rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.ssr-app-chrome__link:hover {
+  background: rgba(89, 169, 255, 0.12);
+  color: #59a9ff;
+}
+
+html[data-app-hydrated='true'] .ssr-app-chrome {
+  display: none;
+}
+
+.app-shell--ssr-chrome {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-shell--ssr-chrome .app-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-layout-ssr {
+  display: flex;
+  min-height: 100vh;
+}
+
+.auth-layout-ssr__main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Legacy overlay pattern (chart slots still use this). */
+.ssr-enhance-page {
+  position: relative;
+}
+
+.ssr-enhance-page__server {
+  position: relative;
+  z-index: 0;
+}
+
+.ssr-enhance-page__client {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+html[data-ssr-enhanced='true'] .ssr-enhance-page__client {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-ssr-enhanced='true'] .ssr-enhance-page__server {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ssr-internal-links {
+  padding: 1rem 1rem 1.5rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}

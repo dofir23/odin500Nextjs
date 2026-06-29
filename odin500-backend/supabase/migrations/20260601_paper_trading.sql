@@ -1,0 +1,5 @@
+-- Deprecated: use your manual schema (ENUMs + paper_* tables) or see 20260603_paper_schema_reference.sql.
+-- Backend services/paper/* target:
+--   paper_fills (qty, fill_price, market_price_at_fill, ticker, side)
+--   paper_portfolio_snapshots (equity, cash)
+--   paper_accounts (name, cash_balance, optional starting_capital)

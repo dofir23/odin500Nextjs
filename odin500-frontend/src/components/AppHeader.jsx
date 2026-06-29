@@ -1,0 +1,361 @@
+'use client';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { Odin500BrandLink } from './Odin500BrandLink.jsx';
+import { useGeneralNewsFeed } from '../hooks/useGeneralNewsFeed.js';
+import { useHeaderProfile } from '../hooks/useHeaderProfile.js';
+import { prefetchRouteChunks } from '../utils/routePrefetch.js';
+import {
+  DEFAULT_INDEX_ROUTE_SLUG,
+  DEFAULT_TICKER_ROUTE_SYMBOL,
+  isMainIndicesRoutePath,
+  isMainTickerRoutePath
+} from '../utils/tickerUrlSync.js';
+
+const NAV_ITEMS = [
+  { to: '/market', label: 'Market', end: true },
+  { to: `/ticker/${DEFAULT_TICKER_ROUTE_SYMBOL}`, label: 'Ticker', activePrefix: '/ticker' },
+  { to: `/indices/${DEFAULT_INDEX_ROUTE_SLUG}`, label: 'Indices', activePrefix: '/indices' },
+  { to: '/market-movers', label: 'Market Movers' },
+  { to: '/heatmap', label: 'Heatmap' },
+  { to: '/odin-signals', label: 'Odin Signals' },
+  { to: '/accounts', label: 'Accounts' },
+  { to: '/premium', label: 'Premium' },
+  { to: '/about', label: 'About' }
+];
+
+const HEADER_NEWS_LIMIT = 5;
+
+function IconSearchInset() {
+  return (
+    <svg className="header-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M20 20l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconBell() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+      />
+    </svg>
+  );
+}
+
+function IconSun() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="4" fill="currentColor" />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l-1.5-1.5M20.5 20.5 19 19M19 5l1.5-1.5M5 19l-1.5 1.5"
+      />
+    </svg>
+  );
+}
+
+function IconMoon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconHelpCircle() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9.8 9.2a2.3 2.3 0 1 1 4.2 1.35c-.45.64-1.02.95-1.5 1.35-.44.36-.76.8-.76 1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="17.35" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = null }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const { loggedIn, profileName, initials, avatarUrl, handleSignOut, goToSignIn } =
+    useHeaderProfile();
+  const { busy: newsBusy, error: newsError, items: feedItems } = useGeneralNewsFeed();
+  const newsItems = feedItems.slice(0, HEADER_NEWS_LIMIT);
+  const profileWrapRef = useRef(null);
+  const bellWrapRef = useRef(null);
+
+  const handleNavClick = (event, to) => {
+    // Keep browser affordances (new tab, middle click) intact.
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+    event.preventDefault();
+    setProfileOpen(false);
+    setBellOpen(false);
+    navigate(to);
+  };
+
+  useEffect(() => {
+    const onDown = (e) => {
+      const t = e.target;
+      if (profileWrapRef.current && !profileWrapRef.current.contains(t)) setProfileOpen(false);
+      if (bellWrapRef.current && !bellWrapRef.current.contains(t)) setBellOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  if (compact) {
+    return (
+      <header className="app-header app-header--figma app-header--compact">
+        <div className="app-header-top-accent" aria-hidden />
+        <div className="app-header-inner app-header-inner--figma">
+          <div className="app-header-left-figma">
+            <Odin500BrandLink
+              theme={theme}
+              className="app-header-wordmark-link"
+              imgClassName="app-header-logo-img"
+              onMouseEnter={() => prefetchRouteChunks('/market')}
+              onFocus={() => prefetchRouteChunks('/market')}
+            />
+          </div>
+
+          <nav className="app-header-nav-figma" aria-label="Primary">
+            {NAV_ITEMS.map((item) => {
+              const prefixActive =
+                item.activePrefix === '/ticker'
+                  ? isMainTickerRoutePath(location.pathname)
+                  : item.activePrefix === '/indices'
+                    ? isMainIndicesRoutePath(location.pathname)
+                    : null;
+              const warm = () => prefetchRouteChunks(item.to);
+              return (
+                <NavLink
+                  key={item.to + item.label}
+                  to={item.to}
+                  end={item.end === true}
+                  className={({ isActive }) => {
+                    const on = prefixActive != null ? prefixActive : isActive;
+                    return 'app-header-nav-link' + (on ? ' app-header-nav-link--active' : '');
+                  }}
+                  onClick={(e) => handleNavClick(e, item.to)}
+                  onMouseEnter={warm}
+                  onFocus={warm}
+                >
+                  {item.label}
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          <div className="app-header-utilities">
+            <div className="header-search-field">
+              <input className="header-search-input" type="search" placeholder="Search" aria-label="Search" />
+              <button type="button" className="header-search-icon-btn" aria-label="Submit search">
+                <IconSearchInset />
+              </button>
+            </div>
+            <div className="header-util-wrap" ref={profileWrapRef}>
+              <button
+                type="button"
+                className={'header-avatar-btn' + (profileOpen ? ' header-avatar-btn--active' : '')}
+                aria-label="Profile"
+                aria-expanded={profileOpen}
+                onClick={() => {
+                  setProfileOpen((v) => !v);
+                  setBellOpen(false);
+                }}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="header-avatar-image" aria-hidden />
+                ) : (
+                  <span className="header-avatar-placeholder">{initials}</span>
+                )}
+              </button>
+              {profileOpen ? (
+                <div className="header-pop header-pop--profile" role="menu" aria-label="Profile menu">
+                  <div className="header-pop__profile-top">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="" className="header-pop__profile-image" aria-hidden />
+                    ) : (
+                      <span className="header-pop__profile-icon" aria-hidden>{initials}</span>
+                    )}
+                    <span className="header-pop__profile-name">{profileName}</span>
+                  </div>
+                  {loggedIn ? (
+                    <>
+                      <button
+                        type="button"
+                        className="header-pop__item"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          navigate('/about');
+                        }}
+                      >
+                        Your Profile
+                      </button>
+                      <button type="button" className="header-pop__item" onClick={() => setProfileOpen(false)}>
+                        Setting
+                      </button>
+                      <button
+                        type="button"
+                        className="header-pop__item header-pop__item--danger"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          handleSignOut();
+                        }}
+                      >
+                        Sign out
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="header-pop__item"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        goToSignIn();
+                      }}
+                    >
+                      Sign in
+                    </button>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <div className="header-util-wrap" ref={bellWrapRef}>
+              <button
+                type="button"
+                className={'header-bell-btn' + (bellOpen ? ' header-bell-btn--active' : '')}
+                aria-label="Notifications"
+                aria-expanded={bellOpen}
+                onClick={() => {
+                  setBellOpen((v) => !v);
+                  setProfileOpen(false);
+                }}
+              >
+                <IconBell />
+                <span className="header-bell-badge">{Math.min(newsItems.length, HEADER_NEWS_LIMIT)}</span>
+              </button>
+              {bellOpen ? (
+                <div className="header-pop header-pop--news" role="dialog" aria-label="Latest news">
+                  <div className="header-pop__title-row">
+                    <strong>Latest News</strong>
+                  </div>
+                  {newsBusy ? <div className="header-pop__status">Loading news...</div> : null}
+                  {!newsBusy && newsError ? <div className="header-pop__status">{newsError}</div> : null}
+                  {!newsBusy && !newsError && !newsItems.length ? (
+                    <div className="header-pop__status">No headlines yet.</div>
+                  ) : null}
+                  <ul className="header-news-list">
+                    {newsItems.map((n) => (
+                      <li key={n.id} className="header-news-list__li">
+                        <a
+                          className="header-news-list__a"
+                          href={n.url || '#'}
+                          target={n.url ? '_blank' : undefined}
+                          rel={n.url ? 'noopener noreferrer' : undefined}
+                          onClick={(e) => {
+                            if (!n.url) e.preventDefault();
+                          }}
+                        >
+                          {n.headline}
+                        </a>
+                        <span className="header-news-list__meta">
+                          {n.source} · {n.time}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className={'header-theme-switch' + (theme === 'light' ? ' header-theme-switch--light' : '')}
+              aria-label="Toggle theme"
+              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              onClick={onToggleTheme || undefined}
+            >
+              <span className="header-theme-switch-track">
+                <span className="header-theme-switch-thumb">{theme === 'light' ? <IconSun /> : <IconMoon />}</span>
+              </span>
+            </button>
+            <button type="button" className="header-help-center-btn" aria-label="Help Center" title="Help Center">
+              <IconHelpCircle />
+              <span>Help Center</span>
+            </button>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="app-header">
+      <div className="app-header-inner">
+        <div className="brand">
+          <Odin500BrandLink
+            theme={theme}
+            className="app-header-wordmark-link"
+            imgClassName="brand-logo"
+            onMouseEnter={() => prefetchRouteChunks('/market')}
+            onFocus={() => prefetchRouteChunks('/market')}
+          />
+        </div>
+
+        <nav className="main-nav">
+          {NAV_ITEMS.map((item) => {
+            const prefixActive =
+              item.activePrefix === '/ticker'
+                ? isMainTickerRoutePath(location.pathname)
+                : item.activePrefix === '/indices'
+                  ? isMainIndicesRoutePath(location.pathname)
+                  : null;
+            const warm = () => prefetchRouteChunks(item.to);
+            return (
+              <NavLink
+                key={item.to + item.label}
+                to={item.to}
+                end={item.end === true}
+                className={({ isActive }) => {
+                  const on = prefixActive != null ? prefixActive : isActive;
+                  return 'main-nav-link' + (on ? ' active' : '');
+                }}
+                onClick={(e) => handleNavClick(e, item.to)}
+                onMouseEnter={warm}
+                onFocus={warm}
+              >
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        <div className="header-actions">
+          <input className="header-search" type="text" placeholder="Search" />
+        </div>
+      </div>
+    </header>
+  );
+}

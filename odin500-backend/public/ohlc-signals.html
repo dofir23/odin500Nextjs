@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" />
+  <title>OHLC Signals Indicator</title>
+  <style>
+    :root {
+      --bg: #111827;
+      --panel: #1f2937;
+      --muted: #9ca3af;
+      --text: #f3f4f6;
+      --accent: #2563eb;
+      --error: #ef4444;
+      --ok: #10b981;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .panel {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input, button, select {
+      height: 38px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: #0f172a;
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.btn-secondary {
+      background: #374151;
+    }
+    button.btn-secondary:hover { filter: brightness(1.08); }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .filters.auth-row {
+      margin-top: 12px;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+    }
+    .ticker-search-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .ticker-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 8px;
+      background: #0b1220;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+      z-index: 40;
+      padding: 4px;
+    }
+    .ticker-menu.hidden {
+      display: none;
+    }
+    .ticker-option {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .ticker-option:hover,
+    .ticker-option.active {
+      background: rgba(59, 130, 246, 0.22);
+    }
+    .ticker-empty {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 8px 10px;
+    }
+    .filters.odin-row {
+      margin-top: 12px;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+    }
+    .auth-status {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+      padding-top: 4px;
+    }
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+    }
+    #chart {
+      width: 100%;
+      height: 560px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .ohlc-hover {
+      position: absolute;
+      top: 10px;
+      right: 56px;
+      z-index: 20;
+      min-width: 140px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      line-height: 1.45;
+      color: var(--text);
+      pointer-events: none;
+      white-space: pre-line;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+    .ohlc-hover .ohlc-muted {
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+    .status {
+      margin-top: 8px;
+      min-height: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .status.error { color: var(--error); }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: #f59e0b; }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+    @media (max-width: 900px) {
+      .filters { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ── Multi-signal select ─────────────────────────── */
+    .ms-wrap { position: relative; }
+    .ms-box {
+      min-height: 38px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: #0f172a;
+      padding: 4px 8px;
+      cursor: pointer;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      user-select: none;
+    }
+    .ms-box:focus-within { border-color: var(--accent); }
+    .ms-placeholder { color: var(--muted); font-size: 12px; }
+    .ms-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+    .ms-tag-remove {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.75);
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      height: auto;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+    }
+    .ms-tag-remove:hover { color: #fff; }
+    .ms-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #0b1220;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 8px;
+      z-index: 60;
+      padding: 6px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .ms-dropdown.hidden { display: none; }
+    .ms-group-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 6px 4px 3px;
+      border-top: 1px solid rgba(148,163,184,0.12);
+      margin-top: 2px;
+    }
+    .ms-group-label:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+    .ms-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .ms-option:hover { background: rgba(59, 130, 246, 0.18); }
+    .ms-option input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+    .ms-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .ms-option-label { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>OHLC + Signals Indicator Chart</h1>
+
+    <div class="panel">
+      <div class="filters">
+        <div class="field">
+          <label for="tickerInput">Ticker (searchable)</label>
+          <div class="ticker-search-wrap">
+            <input id="tickerInput" type="text" value="AAPL" placeholder="Type symbol e.g. AAPL" autocomplete="off" />
+            <div id="tickerMenu" class="ticker-menu hidden"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="startDate">Start Date</label>
+          <input id="startDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="endDate">End Date</label>
+          <input id="endDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="executionModeSelect">Execution Mode</label>
+          <select id="executionModeSelect">
+            <option value="T+1" selected>T+1 (Next-Day Open)</option>
+            <option value="T">T (Signal-Day Close)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="loadBtn">&nbsp;</label>
+          <button type="button" id="loadBtn">Load Chart</button>
+        </div>
+      </div>
+      <div class="filters odin-row">
+        <div class="field">
+          <label>Entry Long Signals</label>
+          <div class="ms-wrap" id="msWrap_entryLong"></div>
+          <input type="hidden" id="entryLongSignalsInput" value="L11" />
+        </div>
+        <div class="field">
+          <label>Exit Long Signals</label>
+          <div class="ms-wrap" id="msWrap_exitLong"></div>
+          <input type="hidden" id="exitLongSignalsInput" value="N,S11,S12,S21,S22,S31,S32" />
+        </div>
+        <div class="field">
+          <label>Entry Short Signals</label>
+          <div class="ms-wrap" id="msWrap_entryShort"></div>
+          <input type="hidden" id="entryShortSignalsInput" value="S11" />
+        </div>
+        <div class="field">
+          <label>Exit Short Signals</label>
+          <div class="ms-wrap" id="msWrap_exitShort"></div>
+          <input type="hidden" id="exitShortSignalsInput" value="" />
+        </div>
+      </div>
+      <div class="filters auth-row">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="username" placeholder="Account email" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" placeholder="Password" />
+        </div>
+        <div class="field">
+          <label for="loginBtn">&nbsp;</label>
+          <button type="button" id="loginBtn">Sign in</button>
+        </div>
+        <div class="field">
+          <label for="logoutBtn">&nbsp;</label>
+          <button type="button" id="logoutBtn" class="btn-secondary" disabled>Sign out</button>
+        </div>
+        <div class="field">
+          <label>Session</label>
+          <div id="authStatus" class="auth-status">Not signed in</div>
+        </div>
+      </div>
+      <div class="hint">
+        Auth: Supabase session (persisted, auto-refresh). API base:
+        <code id="apiOriginHint"></code>
+        — chart markers come from <code>POST /api/analytics/odin-index</code> trades
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="panel">
+      <div class="chart-wrap">
+        <div id="chart"></div>
+        <div id="ohlcHover" class="ohlc-hover" aria-live="polite">
+          <div class="ohlc-muted">Crosshair</div>
+          <span>Move over the chart…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase UMD: createClient on global `supabase` -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- Pin v4: v5+ removes chart.addCandlestickSeries -->
+  <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+    // ── Multi-Signal Select Component ────────────────────────────────────────
+    const MS_SIGNAL_GROUPS = [
+      {
+        label: 'Classic',
+        signals: ['L1','L2','L3','S1','S2','S3','N']
+      },
+      {
+        label: 'MA200 Dashboard 1',
+        signals: ['L11','L21','L31','S11','S21','S31']
+      },
+      {
+        label: 'MA200 Dashboard 2',
+        signals: ['L12','L22','L32','S12','S22','S32']
+      }
+    ];
+
+    const MS_COLORS = {
+      L1:'#4d7c0f', L2:'#16a34a', L3:'#84cc16',
+      S1:'#ef4444', S2:'#f97316', S3:'#fb923c',
+      N: '#6b7280',
+      L11:'#166534', L21:'#15803d', L31:'#4ade80',
+      S11:'#dc2626', S21:'#ea580c', S31:'#f97316',
+      L12:'#14532d', L22:'#16a34a', L32:'#86efac',
+      S12:'#b91c1c', S22:'#c2410c', S32:'#fb923c'
+    };
+
+    function msColor(sig) {
+      return MS_COLORS[sig] || '#4b5563';
+    }
+
+    function createMultiSignalSelect(wrapEl, hiddenInput) {
+      let selected = new Set(
+        String(hiddenInput.value || '').split(',').map(s => s.trim()).filter(Boolean)
+      );
+      let open = false;
+
+      // Build DOM
+      const box = document.createElement('div');
+      box.className = 'ms-box';
+      box.tabIndex = 0;
+
+      const dropdown = document.createElement('div');
+      dropdown.className = 'ms-dropdown hidden';
+
+      // Build grouped checkboxes
+      MS_SIGNAL_GROUPS.forEach(function(group) {
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'ms-group-label';
+        groupLabel.textContent = group.label;
+        dropdown.appendChild(groupLabel);
+
+        group.signals.forEach(function(sig) {
+          const opt = document.createElement('label');
+          opt.className = 'ms-option';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = sig;
+          cb.checked = selected.has(sig);
+
+          const dot = document.createElement('span');
+          dot.className = 'ms-dot';
+          dot.style.background = msColor(sig);
+
+          const lbl = document.createElement('span');
+          lbl.className = 'ms-option-label';
+          lbl.textContent = sig;
+
+          opt.appendChild(cb);
+          opt.appendChild(dot);
+          opt.appendChild(lbl);
+          dropdown.appendChild(opt);
+
+          cb.addEventListener('change', function() {
+            if (cb.checked) selected.add(sig);
+            else selected.delete(sig);
+            syncValue();
+            renderTags();
+          });
+
+          // Stop click on label from toggling twice
+          opt.addEventListener('click', function(e) {
+            if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+          });
+        });
+      });
+
+      wrapEl.appendChild(box);
+      wrapEl.appendChild(dropdown);
+
+      function renderTags() {
+        box.innerHTML = '';
+        if (selected.size === 0) {
+          const ph = document.createElement('span');
+          ph.className = 'ms-placeholder';
+          ph.textContent = 'Select signals…';
+          box.appendChild(ph);
+          return;
+        }
+        // Render tags in insertion order matching the groups
+        const ordered = [];
+        MS_SIGNAL_GROUPS.forEach(function(g) {
+          g.signals.forEach(function(s) { if (selected.has(s)) ordered.push(s); });
+        });
+        // Also add any signals not in groups (N handled separately)
+        if (selected.has('N') && !ordered.includes('N')) ordered.unshift('N');
+
+        ordered.forEach(function(sig) {
+          const tag = document.createElement('span');
+          tag.className = 'ms-tag';
+          tag.style.background = msColor(sig);
+          tag.textContent = sig;
+
+          const rm = document.createElement('button');
+          rm.className = 'ms-tag-remove';
+          rm.type = 'button';
+          rm.textContent = '×';
+          rm.addEventListener('click', function(e) {
+            e.stopPropagation();
+            selected.delete(sig);
+            // Uncheck in dropdown
+            dropdown.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+              if (cb.value === sig) cb.checked = false;
+            });
+            syncValue();
+            renderTags();
+          });
+
+          tag.appendChild(rm);
+          box.appendChild(tag);
+        });
+      }
+
+      function syncValue() {
+        const ordered = [];
+        MS_SIGNAL_GROUPS.forEach(function(g) {
+          g.signals.forEach(function(s) { if (selected.has(s)) ordered.push(s); });
+        });
+        if (selected.has('N') && !ordered.includes('N')) ordered.unshift('N');
+        hiddenInput.value = ordered.join(',');
+        hiddenInput.dispatchEvent(new Event('change'));
+      }
+
+      function openDropdown() {
+        open = true;
+        dropdown.classList.remove('hidden');
+      }
+
+      function closeDropdown() {
+        open = false;
+        dropdown.classList.add('hidden');
+      }
+
+      box.addEventListener('click', function() {
+        open ? closeDropdown() : openDropdown();
+      });
+
+      box.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open ? closeDropdown() : openDropdown(); }
+        if (e.key === 'Escape') closeDropdown();
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!wrapEl.contains(e.target)) closeDropdown();
+      });
+
+      renderTags();
+    }
+
+    // Initialise after DOM is ready (called at end of script)
+    function initMultiSignalSelects() {
+      createMultiSignalSelect(
+        document.getElementById('msWrap_entryLong'),
+        document.getElementById('entryLongSignalsInput')
+      );
+      createMultiSignalSelect(
+        document.getElementById('msWrap_exitLong'),
+        document.getElementById('exitLongSignalsInput')
+      );
+      createMultiSignalSelect(
+        document.getElementById('msWrap_entryShort'),
+        document.getElementById('entryShortSignalsInput')
+      );
+      createMultiSignalSelect(
+        document.getElementById('msWrap_exitShort'),
+        document.getElementById('exitShortSignalsInput')
+      );
+    }
+    // ── End Multi-Signal Select ──────────────────────────────────────────────
+
+    /** Deployed backend (no trailing slash). Override with window.TRADING_API_ORIGIN or localStorage. */
+    var PRODUCTION_API_ORIGIN = 'https://trading-backend-xlh9.onrender.com';
+
+    function normalizeApiOrigin(url) {
+      return String(url || '').replace(/\/$/, '');
+    }
+
+    function isPrivateLanHost(hostname) {
+      if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+      return /^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+    }
+
+    function computeDefaultApiOrigin() {
+      if (window.TRADING_API_ORIGIN) {
+        return normalizeApiOrigin(window.TRADING_API_ORIGIN);
+      }
+      try {
+        var saved = localStorage.getItem('trading_api_origin');
+        if (saved) return normalizeApiOrigin(saved);
+      } catch (e) {}
+
+      var loc = window.location;
+      if (loc.protocol === 'file:') {
+        return PRODUCTION_API_ORIGIN;
+      }
+
+      var host = loc.hostname;
+      var port = loc.port || '';
+
+      if (host === 'trading-backend-xlh9.onrender.com') {
+        return loc.origin;
+      }
+
+      if (port === '5000' && (host === 'localhost' || host === '127.0.0.1')) {
+        return loc.origin;
+      }
+
+      if (host === 'localhost' || host === '127.0.0.1') {
+        if (port && port !== '5000') {
+          return 'http://localhost:5000';
+        }
+      }
+
+      if (port && port !== '5000' && isPrivateLanHost(host)) {
+        return normalizeApiOrigin(loc.protocol + '//' + host + ':5000');
+      }
+
+      return PRODUCTION_API_ORIGIN;
+    }
+
+    var API_ORIGIN = computeDefaultApiOrigin();
+    var CONFIG_URL = API_ORIGIN + '/api/public/supabase-config';
+    var MARKET_OHLC_API_URL = API_ORIGIN + '/api/market/ohlc-signals-indicator';
+    var ODIN_INDEX_API_URL = API_ORIGIN + '/api/analytics/odin-index';
+    var TICKER_GROUPS_API_URL = API_ORIGIN + '/api/tickers/groups';
+    var TICKER_GROUP_API_PREFIX = API_ORIGIN + '/api/tickers/group/';
+
+    const SIGNAL_COLORS = {
+      // Old signals (sp500data1.test)
+      S1: '#ef4444', S2: '#f97316', S3: '#fb923c',
+      L1: '#4d7c0f', L2: '#16a34a', L3: '#84cc16',
+      // MA200 Dashboard 1 signals (MA200_dashboard_1_signals)
+      S11: '#dc2626', S21: '#ea580c', S31: '#f97316',
+      L11: '#166534', L21: '#15803d', L31: '#4ade80',
+      // MA200 Dashboard 2 signals (MA200_dashboard_2_signals)
+      S12: '#b91c1c', S22: '#c2410c', S32: '#fb923c',
+      L12: '#14532d', L22: '#16a34a', L32: '#86efac',
+      N: '#6b7280'
+    };
+
+    const tickerInputEl = document.getElementById('tickerInput');
+    const tickerMenuEl = document.getElementById('tickerMenu');
+    const startDateEl = document.getElementById('startDate');
+    const endDateEl = document.getElementById('endDate');
+    const entryLongSignalsInputEl = document.getElementById('entryLongSignalsInput');
+    const exitLongSignalsInputEl = document.getElementById('exitLongSignalsInput');
+    const entryShortSignalsInputEl = document.getElementById('entryShortSignalsInput');
+    const exitShortSignalsInputEl = document.getElementById('exitShortSignalsInput');
+    const emailEl = document.getElementById('email');
+    const passwordEl = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const authStatusEl = document.getElementById('authStatus');
+    const executionModeSelectEl = document.getElementById('executionModeSelect');
+    const loadBtn = document.getElementById('loadBtn');
+    const statusEl = document.getElementById('status');
+    const chartContainer = document.getElementById('chart');
+    const ohlcHoverEl = document.getElementById('ohlcHover');
+    const apiOriginHintEl = document.getElementById('apiOriginHint');
+    if (apiOriginHintEl) apiOriginHintEl.textContent = API_ORIGIN;
+
+    let sb = null;
+    let currentOdinPayloadKey = '';
+    const odinTradeMarkersByTicker = new Map();
+    /** Keep last good series so failed/empty reloads do not wipe the chart */
+    let lastGoodCandles = null;
+    let lastGoodMarkers = null;
+    /** Abort previous fetch when a new Load starts (avoids stale response overwriting the chart) */
+    let chartLoadAbort = null;
+    let currentAppliedMarkers = [];
+    let allTickerSymbols = [];
+    let filteredTickerSymbols = [];
+
+    const today = new Date();
+    const prior = new Date();
+    prior.setDate(today.getDate() - 100);
+    startDateEl.value = toDateInput(prior);
+    endDateEl.value = toDateInput(today);
+
+    function clampDateRange() {
+      var s = startDateEl.value;
+      var e = endDateEl.value;
+      if (!s || !e) return;
+      if (s > e) {
+        endDateEl.value = s;
+      }
+    }
+    startDateEl.addEventListener('change', clampDateRange);
+    endDateEl.addEventListener('change', clampDateRange);
+
+    tickerInputEl.value = localStorage.getItem('market_api_ticker') || tickerInputEl.value;
+    emailEl.value = localStorage.getItem('market_api_email') || '';
+
+    const chart = LightweightCharts.createChart(chartContainer, {
+      layout: {
+        background: { color: '#0b1220' },
+        textColor: '#d1d5db'
+      },
+      grid: {
+        vertLines: { color: 'rgba(148, 163, 184, 0.2)' },
+        horzLines: { color: 'rgba(148, 163, 184, 0.2)' }
+      },
+      rightPriceScale: { borderColor: 'rgba(148, 163, 184, 0.35)' },
+      timeScale: { borderColor: 'rgba(148, 163, 184, 0.35)' },
+      width: chartContainer.clientWidth,
+      height: 560
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: '#16a34a',
+      downColor: '#dc2626',
+      borderVisible: false,
+      wickUpColor: '#16a34a',
+      wickDownColor: '#dc2626'
+    });
+
+    const ma200Series = chart.addLineSeries({
+      color: '#3b82f6',
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      crosshairMarkerVisible: false,
+      title: 'MA200'
+    });
+
+    function formatChartTime(t) {
+      if (t == null) return '—';
+      if (typeof t === 'string') return t;
+      if (typeof t === 'number') {
+        return new Date(t * 1000).toISOString().slice(0, 10);
+      }
+      if (typeof t === 'object' && 'year' in t && 'month' in t && 'day' in t) {
+        const m = String(t.month).padStart(2, '0');
+        const d = String(t.day).padStart(2, '0');
+        return t.year + '-' + m + '-' + d;
+      }
+      return String(t);
+    }
+
+    function formatPrice(n) {
+      if (n == null || Number.isNaN(Number(n))) return '—';
+      const x = Number(n);
+      const abs = Math.abs(x);
+      const digits = abs >= 1000 ? 2 : abs >= 1 ? 4 : 6;
+      return x.toFixed(digits);
+    }
+
+    function setOhlcHoverIdle() {
+      ohlcHoverEl.innerHTML =
+        '<div class="ohlc-muted">Crosshair</div><span>Move over the chart…</span>';
+    }
+
+    chart.subscribeCrosshairMove(function (param) {
+      if (!param || param.time === undefined || param.point === undefined) {
+        setOhlcHoverIdle();
+        return;
+      }
+      const bar = param.seriesData.get(candleSeries);
+      if (!bar || bar.open === undefined) {
+        setOhlcHoverIdle();
+        return;
+      }
+      const dateStr = formatChartTime(param.time);
+      ohlcHoverEl.innerHTML =
+        '<div class="ohlc-muted">' +
+        dateStr +
+        '</div>' +
+        'O ' +
+        formatPrice(bar.open) +
+        '\nH ' +
+        formatPrice(bar.high) +
+        '\nL ' +
+        formatPrice(bar.low) +
+        '\nC ' +
+        formatPrice(bar.close);
+    });
+
+    function setStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function updateAuthUI(session) {
+      if (session && session.user) {
+        authStatusEl.textContent = 'Signed in as ' + session.user.email;
+        logoutBtn.disabled = false;
+      } else {
+        authStatusEl.textContent = 'Not signed in';
+        logoutBtn.disabled = true;
+      }
+    }
+
+    async function initSupabase() {
+      if (typeof supabase === 'undefined' || !supabase.createClient) {
+        setStatus('Supabase library failed to load.', 'error');
+        return;
+      }
+      try {
+        const res = await fetch(CONFIG_URL);
+        const cfg = await res.json();
+        if (!cfg.url || !cfg.anonKey) {
+          setStatus(
+            'Missing Supabase config on server (set SUPABASE_URL and SUPABASE_KEY in .env).',
+            'error'
+          );
+          return;
+        }
+        sb = supabase.createClient(cfg.url, cfg.anonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storage: window.localStorage
+          }
+        });
+        sb.auth.onAuthStateChange(function (_event, session) {
+          updateAuthUI(session);
+        });
+        const { data: sessionData } = await sb.auth.getSession();
+        updateAuthUI(sessionData.session);
+        if (sessionData.session) {
+          fetchAllTickersForDatalist(sessionData.session.access_token).catch(function () {});
+        }
+      } catch (e) {
+        setStatus('Could not load auth config: ' + e.message, 'error');
+      }
+    }
+
+    async function handleLogin() {
+      if (!sb) {
+        setStatus('Auth not initialized.', 'error');
+        return;
+      }
+      const email = emailEl.value.trim();
+      const password = passwordEl.value;
+      if (!email || !password) {
+        setStatus('Enter email and password.', 'error');
+        return;
+      }
+      loginBtn.disabled = true;
+      try {
+        const { error } = await sb.auth.signInWithPassword({ email: email, password: password });
+        if (error) {
+          setStatus(error.message, 'error');
+          return;
+        }
+        localStorage.setItem('market_api_email', email);
+        passwordEl.value = '';
+        setStatus('Signed in.', 'ok');
+      } finally {
+        loginBtn.disabled = false;
+      }
+    }
+
+    async function handleLogout() {
+      if (!sb) return;
+      logoutBtn.disabled = true;
+      try {
+        await sb.auth.signOut();
+        setStatus('Signed out.', 'ok');
+      } finally {
+        logoutBtn.disabled = true;
+      }
+    }
+
+    function toDateInput(d) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    function pickNumber(row, keys) {
+      for (const key of keys) {
+        if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+          const n = Number(row[key]);
+          if (!Number.isNaN(n)) return n;
+        }
+      }
+      return null;
+    }
+
+    function rowDateToTimeKey(row) {
+      const d = row.Date != null ? row.Date : row.date;
+      if (d == null || d === '') return '';
+      if (typeof d === 'string') {
+        const m = d.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (m) return m[1];
+        const parsed = Date.parse(d);
+        if (!Number.isNaN(parsed)) {
+          return new Date(parsed).toISOString().slice(0, 10);
+        }
+        return d.slice(0, 10);
+      }
+      if (typeof d === 'object' && d !== null) {
+        if (typeof d.value === 'string') return rowDateToTimeKey({ Date: d.value });
+        if (d.year != null && d.month != null && d.day != null) {
+          return (
+            d.year +
+            '-' +
+            String(d.month).padStart(2, '0') +
+            '-' +
+            String(d.day).padStart(2, '0')
+          );
+        }
+      }
+      return '';
+    }
+
+    function normalizeCandles(candles) {
+      const byTime = new Map();
+      for (let i = 0; i < candles.length; i++) {
+        const c = candles[i];
+        if (!c || !c.time) continue;
+        byTime.set(c.time, c);
+      }
+      return Array.from(byTime.keys())
+        .sort()
+        .map(function (t) {
+          return byTime.get(t);
+        });
+    }
+
+    function filterMarkersForCandles(markers, candles) {
+      const times = new Set();
+      for (let i = 0; i < candles.length; i++) {
+        times.add(candles[i].time);
+      }
+      return markers.filter(function (m) {
+        return times.has(m.time);
+      });
+    }
+
+    function mapRowsToCandles(rows) {
+      const candles = [];
+
+      for (const row of rows) {
+        const time = rowDateToTimeKey(row);
+        if (!time) continue;
+
+        const open = pickNumber(row, ['Open', 'open', 'OPEN']);
+        const high = pickNumber(row, ['High', 'high', 'HIGH']);
+        const low = pickNumber(row, ['Low', 'low', 'LOW']);
+        const close = pickNumber(row, ['Close', 'close', 'CLOSE']);
+        if ([open, high, low, close].some((v) => v == null)) continue;
+
+        candles.push({ time: time, open: open, high: high, low: low, close: close });
+      }
+
+      return normalizeCandles(candles);
+    }
+
+    function parseCsvList(input) {
+      return String(input || '')
+        .split(',')
+        .map(function (s) { return s.trim().toUpperCase(); })
+        .filter(Boolean);
+    }
+
+    function setTickerOptions(symbols) {
+      const unique = [];
+      const seen = new Set();
+      for (let i = 0; i < symbols.length; i++) {
+        const s = String(symbols[i] || '').trim().toUpperCase();
+        if (!s || seen.has(s)) continue;
+        seen.add(s);
+        unique.push(s);
+      }
+      unique.sort();
+      allTickerSymbols = unique;
+      renderTickerMenu(unique.slice(0, 30));
+    }
+
+    function renderTickerMenu(symbols) {
+      filteredTickerSymbols = symbols;
+      tickerMenuEl.innerHTML = '';
+      if (!symbols.length) {
+        const empty = document.createElement('div');
+        empty.className = 'ticker-empty';
+        empty.textContent = 'No tickers found';
+        tickerMenuEl.appendChild(empty);
+        return;
+      }
+      for (let i = 0; i < symbols.length; i++) {
+        const sym = symbols[i];
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ticker-option';
+        btn.textContent = sym;
+        btn.addEventListener('click', function () {
+          tickerInputEl.value = sym;
+          hideTickerMenu();
+          invalidateCachedOdinPayload();
+        });
+        tickerMenuEl.appendChild(btn);
+      }
+    }
+
+    function showTickerMenu() {
+      tickerMenuEl.classList.remove('hidden');
+    }
+
+    function hideTickerMenu() {
+      tickerMenuEl.classList.add('hidden');
+    }
+
+    function filterTickerMenu() {
+      const q = String(tickerInputEl.value || '').trim().toUpperCase();
+      const matches = q
+        ? allTickerSymbols.filter(function (s) { return s.indexOf(q) !== -1; }).slice(0, 60)
+        : allTickerSymbols.slice(0, 30);
+      renderTickerMenu(matches);
+      showTickerMenu();
+    }
+
+    async function fetchAllTickersForDatalist(token) {
+      const groupsRes = await fetch(TICKER_GROUPS_API_URL, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const groupsPayload = await groupsRes.json();
+      if (!groupsRes.ok) {
+        throw new Error(groupsPayload.error || 'Failed to load ticker groups');
+      }
+      const groups = Array.isArray(groupsPayload) ? groupsPayload : [];
+      const symbols = [];
+      for (let i = 0; i < groups.length; i++) {
+        const code = String(groups[i].code || '').trim();
+        if (!code) continue;
+        const r = await fetch(TICKER_GROUP_API_PREFIX + encodeURIComponent(code), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const p = await r.json();
+        if (!r.ok) continue;
+        const list = Array.isArray(p.tickers) ? p.tickers : [];
+        for (let j = 0; j < list.length; j++) {
+          const sym = String(list[j].symbol || '').trim().toUpperCase();
+          if (sym) symbols.push(sym);
+        }
+      }
+      setTickerOptions(symbols);
+    }
+
+    function stableStringify(value) {
+      if (Array.isArray(value)) {
+        return '[' + value.map(stableStringify).join(',') + ']';
+      }
+      if (value && typeof value === 'object') {
+        const keys = Object.keys(value).sort();
+        return '{' + keys.map(function (k) { return JSON.stringify(k) + ':' + stableStringify(value[k]); }).join(',') + '}';
+      }
+      return JSON.stringify(value);
+    }
+
+    function buildOdinPayload() {
+      const ticker = String(tickerInputEl.value || '').trim().toUpperCase();
+      const mode = executionModeSelectEl ? executionModeSelectEl.value : 'T+1';
+      return {
+        start_date: startDateEl.value,
+        end_date: endDateEl.value,
+        tickers: ticker ? [ticker] : [],
+        entry_long_signals: parseCsvList(entryLongSignalsInputEl.value),
+        exit_long_signals: parseCsvList(exitLongSignalsInputEl.value),
+        entry_short_signals: parseCsvList(entryShortSignalsInputEl.value),
+        exit_short_signals: parseCsvList(exitShortSignalsInputEl.value),
+        initial_portfolio: 1000,
+        include_neutral_rows: true,
+        chunk_size: 30,
+        execution_mode: mode
+      };
+    }
+
+    function markerFromTradeEvent(evt) {
+      const isOpen = evt.kind === 'open';
+      const isLong = evt.tradeType === 'long';
+      if (isOpen) {
+        return {
+          time: evt.time,
+          position: isLong ? 'belowBar' : 'aboveBar',
+          color: isLong ? '#22c55e' : '#ef4444',
+          shape: isLong ? 'arrowUp' : 'arrowDown',
+          text: (isLong ? 'OPEN L' : 'OPEN S') + (evt.signal ? ':' + evt.signal : '')
+        };
+      }
+      return {
+        time: evt.time,
+        position: isLong ? 'aboveBar' : 'belowBar',
+        color: '#f59e0b',
+        shape: 'circle',
+        text: 'CLOSE' + (evt.signal ? ':' + evt.signal : '')
+      };
+    }
+
+    function normalizeTradeMarkers(markers) {
+      const byTime = new Map();
+      for (let i = 0; i < markers.length; i++) {
+        const m = markers[i];
+        if (!m || !m.time) continue;
+        if (!byTime.has(m.time)) byTime.set(m.time, []);
+        byTime.get(m.time).push(m);
+      }
+      const normalized = [];
+      const times = Array.from(byTime.keys()).sort();
+      for (let i = 0; i < times.length; i++) {
+        const time = times[i];
+        const items = byTime.get(time);
+        const below = items.filter(function (x) { return x.position === 'belowBar'; });
+        const above = items.filter(function (x) { return x.position === 'aboveBar'; });
+        if (below.length) {
+          normalized.push({
+            time: time,
+            position: 'belowBar',
+            color: below[below.length - 1].color,
+            shape: below[below.length - 1].shape,
+            text: below.map(function (x) { return x.text; }).join(' | ')
+          });
+        }
+        if (above.length) {
+          normalized.push({
+            time: time,
+            position: 'aboveBar',
+            color: above[above.length - 1].color,
+            shape: above[above.length - 1].shape,
+            text: above.map(function (x) { return x.text; }).join(' | ')
+          });
+        }
+      }
+      return normalized.sort(function (a, b) {
+        if (a.time < b.time) return -1;
+        if (a.time > b.time) return 1;
+        if (a.position === b.position) return 0;
+        return a.position === 'belowBar' ? -1 : 1;
+      });
+    }
+
+    function extractOdinMarkersByTicker(payload) {
+      const byTicker = new Map();
+      const headers = Array.isArray(payload && payload.headers) ? payload.headers : [];
+      const idx = {};
+      headers.forEach(function (h, i) { idx[String(h)] = i; });
+      const iTradeId = idx['#'];
+      const iTradeType = idx['Trade Type'];
+      const iEntrySignal = idx['Entry Signal'];
+      // T+1 mode uses Execution Date columns; T mode uses Signal Date (same day as execution)
+      const iEntryExecDate = idx['Execution Date (Entry-T+1)'] != null
+        ? idx['Execution Date (Entry-T+1)']
+        : idx['Signal Date (Entry-T)'];
+      const iExitSignal = idx['Exit Signal'];
+      const iExitExecDate = idx['Execution Date (Exit-T+1)'] != null
+        ? idx['Execution Date (Exit-T+1)']
+        : idx['Signal Date (Exit-T)'];
+
+      const results = Array.isArray(payload && payload.results_by_ticker) ? payload.results_by_ticker : [];
+      for (let r = 0; r < results.length; r++) {
+        const ticker = String(results[r].ticker || '').toUpperCase();
+        const rows = Array.isArray(results[r].rows) ? results[r].rows : [];
+        const events = [];
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const tradeId = iTradeId == null ? null : row[iTradeId];
+          if (!Number.isFinite(Number(tradeId)) || Number(tradeId) <= 0) continue;
+          const tradeType = String(iTradeType == null ? '' : row[iTradeType]).toLowerCase();
+          const entryExec = iEntryExecDate == null ? '' : String(row[iEntryExecDate] || '').slice(0, 10);
+          const exitExec = iExitExecDate == null ? '' : String(row[iExitExecDate] || '').slice(0, 10);
+          const entrySignal = iEntrySignal == null ? '' : String(row[iEntrySignal] || '').toUpperCase();
+          const exitSignal = iExitSignal == null ? '' : String(row[iExitSignal] || '').toUpperCase();
+          if (entryExec) events.push({ kind: 'open', time: entryExec, tradeType: tradeType, signal: entrySignal });
+          if (exitExec) events.push({ kind: 'close', time: exitExec, tradeType: tradeType, signal: exitSignal });
+        }
+        byTicker.set(ticker, normalizeTradeMarkers(events.map(markerFromTradeEvent)));
+      }
+      return byTicker;
+    }
+
+    async function fetchAndRenderOhlcForTicker(ticker, start_date, end_date, token) {
+      const response = await fetch(MARKET_OHLC_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ ticker, start_date, end_date }),
+        signal: chartLoadAbort ? chartLoadAbort.signal : undefined
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || payload.message || 'OHLC request failed');
+      }
+
+      const rows = Array.isArray(payload.data) ? payload.data : [];
+      const candles = mapRowsToCandles(rows);
+      const tradeMarkers = odinTradeMarkersByTicker.get(ticker) || [];
+      const markers = normalizeTradeMarkers(filterMarkersForCandles(tradeMarkers, candles));
+
+      if (candles.length === 0 && lastGoodCandles && lastGoodCandles.length > 0) {
+        setStatus(
+          'No OHLC rows in this date range — previous chart kept.',
+          'warn'
+        );
+        return;
+      }
+
+      const ma200Data = Array.isArray(payload.ma200)
+        ? payload.ma200
+            .filter(function (r) { return r.date && r.value != null; })
+            .map(function (r) { return { time: r.date, value: r.value }; })
+            .sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : 0; })
+        : [];
+
+      candleSeries.setData(candles);
+      candleSeries.setMarkers(markers);
+      ma200Series.setData(ma200Data);
+      currentAppliedMarkers = markers;
+      chart.timeScale().fitContent();
+      lastGoodCandles = candles;
+      lastGoodMarkers = markers;
+      setStatus(
+        'Loaded ' + candles.length + ' candles, ' + markers.length + ' trade markers' +
+        (ma200Data.length ? ', MA200 (' + ma200Data.length + ' pts)' : '') + '.',
+        'ok'
+      );
+    }
+
+    async function loadData() {
+      clampDateRange();
+      const start_date = startDateEl.value;
+      const end_date = endDateEl.value;
+      const odinPayload = buildOdinPayload();
+
+      if (!start_date || !end_date) {
+        setStatus('Start date and end date are required.', 'error');
+        return;
+      }
+      if (start_date > end_date) {
+        setStatus('Start date must be on or before end date.', 'error');
+        return;
+      }
+      if (!odinPayload.tickers.length) {
+        setStatus('Provide one ticker in Ticker input.', 'error');
+        return;
+      }
+      if (!sb) {
+        setStatus('Auth not ready yet.', 'error');
+        return;
+      }
+      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        setStatus('Sign in to load the chart.', 'error');
+        return;
+      }
+      const token = sessionData.session.access_token;
+
+      const selectedTicker = String(odinPayload.tickers[0] || '').toUpperCase();
+      localStorage.setItem('market_api_ticker', selectedTicker);
+
+      if (chartLoadAbort) {
+        chartLoadAbort.abort();
+      }
+      chartLoadAbort = new AbortController();
+
+      setStatus('Loading data...');
+      loadBtn.disabled = true;
+
+      try {
+        const payloadKey = stableStringify(odinPayload);
+        if (currentOdinPayloadKey !== payloadKey || odinTradeMarkersByTicker.size === 0) {
+          const odinResponse = await fetch(ODIN_INDEX_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(odinPayload),
+            signal: chartLoadAbort.signal
+          });
+          const odinPayloadResp = await odinResponse.json();
+          if (!odinResponse.ok || !odinPayloadResp.success) {
+            throw new Error(
+              (odinPayloadResp && (odinPayloadResp.error || odinPayloadResp.message)) || 'Odin index request failed'
+            );
+          }
+          odinTradeMarkersByTicker.clear();
+          const extracted = extractOdinMarkersByTicker(odinPayloadResp);
+          extracted.forEach(function (v, k) {
+            odinTradeMarkersByTicker.set(k, v);
+          });
+          currentOdinPayloadKey = payloadKey;
+        }
+
+        await fetchAndRenderOhlcForTicker(selectedTicker, start_date, end_date, token);
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return;
+        }
+        if (lastGoodCandles && lastGoodCandles.length > 0) {
+          setStatus(
+            'Load failed — keeping previous chart. ' + err.message,
+            'error'
+          );
+        } else {
+          setStatus('Failed to load chart: ' + err.message, 'error');
+        }
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    
+
+    function invalidateCachedOdinPayload() {
+      currentOdinPayloadKey = '';
+      odinTradeMarkersByTicker.clear();
+    }
+
+    tickerInputEl.addEventListener('change', invalidateCachedOdinPayload);
+    tickerInputEl.addEventListener('input', function () {
+      invalidateCachedOdinPayload();
+      filterTickerMenu();
+    });
+    tickerInputEl.addEventListener('focus', function () {
+      filterTickerMenu();
+    });
+    tickerInputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        hideTickerMenu();
+        return;
+      }
+      if (e.key === 'Enter' && filteredTickerSymbols.length > 0) {
+        e.preventDefault();
+        tickerInputEl.value = filteredTickerSymbols[0];
+        hideTickerMenu();
+        invalidateCachedOdinPayload();
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (!tickerMenuEl.contains(e.target) && e.target !== tickerInputEl) {
+        hideTickerMenu();
+      }
+    });
+    entryLongSignalsInputEl.addEventListener('change', invalidateCachedOdinPayload);
+    exitLongSignalsInputEl.addEventListener('change', invalidateCachedOdinPayload);
+    entryShortSignalsInputEl.addEventListener('change', invalidateCachedOdinPayload);
+    exitShortSignalsInputEl.addEventListener('change', invalidateCachedOdinPayload);
+    startDateEl.addEventListener('change', invalidateCachedOdinPayload);
+    endDateEl.addEventListener('change', invalidateCachedOdinPayload);
+    executionModeSelectEl.addEventListener('change', invalidateCachedOdinPayload);
+    loadBtn.addEventListener('click', loadData);
+    loginBtn.addEventListener('click', handleLogin);
+    logoutBtn.addEventListener('click', handleLogout);
+    window.addEventListener('resize', () => {
+      chart.applyOptions({ width: chartContainer.clientWidth });
+      if (currentAppliedMarkers && currentAppliedMarkers.length > 0) {
+        candleSeries.setMarkers(currentAppliedMarkers);
+      }
+    });
+    chart.timeScale().subscribeVisibleTimeRangeChange(function () {
+      if (currentAppliedMarkers && currentAppliedMarkers.length > 0) {
+        candleSeries.setMarkers(currentAppliedMarkers);
+      }
+    });
+
+    initMultiSignalSelects();
+
+    initSupabase().then(function () {
+      loadData();
+    });
+  </script>
+</body>
+</html>
