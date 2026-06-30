@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import AdminPortfoliosPage from '@/views/Admin/AdminPortfoliosPage.jsx';
+import AdminPortfoliosPage from '@/views/admin/AdminPortfoliosPage.jsx';
 
 export const metadata: Metadata = {
   title: 'Admin Published Portfolios',

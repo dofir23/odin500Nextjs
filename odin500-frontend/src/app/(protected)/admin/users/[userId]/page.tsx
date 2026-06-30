@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import AdminUserDetailPage from '@/views/Admin/AdminUserDetailPage.jsx';
+import AdminUserDetailPage from '@/views/admin/AdminUserDetailPage.jsx';
 
 export const metadata: Metadata = {
   title: 'Admin User',

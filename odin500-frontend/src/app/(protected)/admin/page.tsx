@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import AdminDashboardPage from '@/views/Admin/AdminDashboardPage.jsx';
+import AdminDashboardPage from '@/views/admin/AdminDashboardPage.jsx';
 
 export const metadata: Metadata = {
   title: 'Admin Dashboard',
