@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { useLoginGateOptional } from './LoginGateContext.jsx';
 
-/** @typedef {'watchlist' | 'news' | 'market-movers'} RightRailDockPanel */
+/** @typedef {'watchlist' | 'news' | 'market-movers' | 'notifications'} RightRailDockPanel */
 
 /**
  * @typedef {{
@@ -13,6 +13,7 @@ import { useLoginGateOptional } from './LoginGateContext.jsx';
  *   toggleWatchlist: () => void;
  *   toggleNews: () => void;
  *   toggleMarketMovers: () => void;
+ *   toggleNotifications: () => void;
  *   close: () => void;
  * }} RightRailDockValue */
 
@@ -59,6 +60,10 @@ export function WatchlistDockProvider({ children }) {
     setActivePanel((p) => (p === 'market-movers' ? null : 'market-movers'));
   }, []);
 
+  const toggleNotifications = useCallback(() => {
+    gateWatchlist(() => setActivePanel((p) => (p === 'notifications' ? null : 'notifications')));
+  }, [gateWatchlist]);
+
   useEffect(() => {
     const onOpen = () => gateWatchlist(() => setActivePanel('watchlist'));
     window.addEventListener('ticker:open-watchlist', onOpen);
@@ -87,9 +92,10 @@ export function WatchlistDockProvider({ children }) {
       toggleWatchlist,
       toggleNews,
       toggleMarketMovers,
+      toggleNotifications,
       close
     }),
-    [activePanel, openWatchlist, toggleWatchlist, toggleNews, toggleMarketMovers, close]
+    [activePanel, openWatchlist, toggleWatchlist, toggleNews, toggleMarketMovers, toggleNotifications, close]
   );
 
   return <WatchlistDockContext.Provider value={value}>{children}</WatchlistDockContext.Provider>;

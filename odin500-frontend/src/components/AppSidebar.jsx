@@ -8,6 +8,15 @@ import { useRouteWarm } from '../hooks/useRouteWarm.js';
 import { buildRelativePerformanceDefaultHref } from '../utils/relativeStrengthNavigation.js';
 import { DEFAULT_TICKER_ROUTE_SYMBOL, isMainTickerRoutePath } from '../utils/tickerUrlSync.js';
 import { useLoginGateOptional } from '../context/LoginGateContext.jsx';
+import { useAdmin } from '../hooks/useAdmin.js';
+
+function IconShield() {
+  return (
+    <svg className="app-sidebar__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function IconGlobe() {
   return (
@@ -177,7 +186,7 @@ function Sparkle() {
   );
 }
 
-function NavRow({ to, onClick, icon: Icon, label, badge, badgeTone, active = false }) {
+function NavRow({ to, onClick, icon: Icon, label, badge, badgeTone, active = false, end = false }) {
   const warmRoute = useRouteWarm();
   const content = (
     <>
@@ -196,7 +205,7 @@ function NavRow({ to, onClick, icon: Icon, label, badge, badgeTone, active = fal
     return (
       <NavLink
         to={to}
-        end={to === '/market'}
+        end={end || to === '/market'}
         className={({ isActive }) => 'app-sidebar__row' + (isActive || active ? ' app-sidebar__row--active' : '')}
         onClick={onClick}
         onMouseEnter={warm}
@@ -225,6 +234,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
     signedInFallback: 'Account'
   });
   const loginGate = useLoginGateOptional();
+  const { isAdmin } = useAdmin({ enabled: loggedIn });
   const accountWrapRef = useRef(null);
 
   const onPaperTradingNavClick = useCallback(
@@ -336,9 +346,14 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   const isReturnTableRoute =
     location.pathname === '/return-table' || location.pathname.startsWith('/return-table/');
   const isRelativePerformanceGroupRoute = isRelativePerformanceRoute || isReturnTableRoute;
+  const isPaperYourRoute = location.pathname === '/paper-trading';
+  const isPaperPublicRoute = location.pathname.startsWith('/paper-trading/public');
+  const isPaperRoute = isPaperYourRoute || isPaperPublicRoute;
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const [indicesOpen, setIndicesOpen] = useState(isIndicesRoute);
   const [statsOpen, setStatsOpen] = useState(isStatsRoute);
   const [relativePerformanceOpen, setRelativePerformanceOpen] = useState(isRelativePerformanceGroupRoute);
+  const [paperOpen, setPaperOpen] = useState(isPaperRoute);
 
 
   useEffect(() => {
@@ -352,6 +367,10 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   useEffect(() => {
     if (isRelativePerformanceGroupRoute) setRelativePerformanceOpen(true);
   }, [isRelativePerformanceGroupRoute]);
+
+  useEffect(() => {
+    if (isPaperRoute) setPaperOpen(true);
+  }, [isPaperRoute]);
 
   return (
     <aside
@@ -478,12 +497,85 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 active={isMainTickerRoutePath(location.pathname)}
               />
             </nav>
-              <NavRow
-                to="/paper-trading"
-                icon={IconWallet}
-                label="Paper Trading"
-                onClick={onPaperTradingNavClick}
-              />
+              <div
+                className={
+                  'app-sidebar__row app-sidebar__row--indices app-sidebar__row--indices-split' +
+                  (isPaperRoute ? ' app-sidebar__row--active' : '')
+                }
+                role="group"
+                aria-label="Paper trading"
+                onMouseEnter={() => {
+                  warmRoute('/paper-trading');
+                  warmRoute('/paper-trading/public');
+                }}
+              >
+                <NavLink
+                  to="/paper-trading"
+                  className="app-sidebar__indices-main"
+                  onClick={(e) => {
+                    onPaperTradingNavClick(e);
+                    setPaperOpen(true);
+                    closeMobileSidebar();
+                  }}
+                  onFocus={() => {
+                    warmRoute('/paper-trading');
+                    warmRoute('/paper-trading/public');
+                  }}
+                  title="Your paper portfolio (opens menu)"
+                >
+                  <span className="app-sidebar__row-icon">
+                    <IconWallet />
+                  </span>
+                  <span className="app-sidebar__row-label">Paper Trading</span>
+                </NavLink>
+                <button
+                  type="button"
+                  className="app-sidebar__indices-chevron-btn"
+                  aria-expanded={paperOpen}
+                  aria-controls="app-sidebar-paper-options"
+                  aria-label={paperOpen ? 'Collapse paper trading submenu' : 'Expand paper trading submenu'}
+                  onClick={() => {
+                    setPaperOpen((wasOpen) => {
+                      const nextOpen = !wasOpen;
+                      if (nextOpen) {
+                        if (!loggedIn) {
+                          loginGate?.showLoginRequired();
+                          return nextOpen;
+                        }
+                        navigate('/paper-trading');
+                        closeMobileSidebar();
+                      }
+                      return nextOpen;
+                    });
+                  }}
+                >
+                  <span
+                    className={'app-sidebar__indices-chevron' + (paperOpen ? ' app-sidebar__indices-chevron--open' : '')}
+                    aria-hidden
+                  >
+                    <IconChevronRight />
+                  </span>
+                </button>
+              </div>
+              {paperOpen ? (
+                <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Paper trading options">
+                  <NavRow
+                    to="/paper-trading"
+                    icon={IconWallet}
+                    label="Your Portfolio"
+                    active={isPaperYourRoute}
+                    end
+                    onClick={onPaperTradingNavClick}
+                  />
+                  <NavRow
+                    to="/paper-trading/public"
+                    icon={IconPeople}
+                    label="Public Portfolios"
+                    active={isPaperPublicRoute}
+                    onClick={onPaperTradingNavClick}
+                  />
+                </div>
+              ) : null}
               <NavRow to="/market-movers" icon={IconFlame} label="Market Movers" />
               
               <NavRow to="/heatmap" icon={IconGrid} label="Heatmaps" />
@@ -495,6 +587,9 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
               />
               <NavRow to="/news" icon={IconNews} label="News" />
               <NavRow to="/newsletter" icon={IconNews} label="Newsletter" />
+              {isAdmin ? (
+                <NavRow to="/admin" icon={IconShield} label="Admin" active={isAdminRoute} />
+              ) : null}
             </nav>
 
             

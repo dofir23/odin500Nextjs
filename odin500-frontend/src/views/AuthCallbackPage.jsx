@@ -2,7 +2,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { getSupabaseBrowserClient } from '../lib/supabaseBrowserClient.js';
-import { applyAuthSession } from '../store/apiStore.js';
+import { applyAuthSession, fetchWithAuth } from '../store/apiStore.js';
+import { apiUrl } from '../utils/apiOrigin.js';
 
 const OAUTH_TIMEOUT_MS = 5000;
 
@@ -33,12 +34,22 @@ export default function AuthCallbackPage() {
       } catch {
         /* ignore */
       }
+      let dest = '/';
+      try {
+        const res = await fetchWithAuth(apiUrl('/api/admin/me'), { method: 'GET' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.isAdmin) dest = '/admin';
+        }
+      } catch {
+        /* ignore */
+      }
       try {
         unsubscribe?.();
       } catch {
         /* ignore */
       }
-      navigate('/', { replace: true });
+      navigate(dest, { replace: true });
     }
 
     function fail() {

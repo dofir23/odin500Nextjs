@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { useRightRailDock } from '../context/WatchlistDockContext.jsx';
 import { useHeaderProfile } from '../hooks/useHeaderProfile.js';
+import { useNotifications } from '../hooks/useNotifications.js';
+import { getAuthToken } from '../store/apiStore.js';
 
 /**
  * Fixed narrow right rail (Figma): always visible, not expandable.
@@ -84,11 +86,10 @@ function IcoBell() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.75"
-        stroke="currentColor"
-        d="M15 17h5l-1.4-1.4A2 2 0 0 0 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 0 .6 1.4L6 17h5m6 0v1a3 3 0 1 1-6 0v-1"
+        fill="currentColor"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M13 3a1 1 0 1 0-2 0v.75h-.557A4.214 4.214 0 0 0 6.237 7.7l-.221 3.534a7.4 7.4 0 0 1-1.308 3.754a1.617 1.617 0 0 0 1.135 2.529l3.407.408V19a2.75 2.75 0 1 0 5.5 0v-1.075l3.407-.409a1.617 1.617 0 0 0 1.135-2.528a7.4 7.4 0 0 1-1.308-3.754l-.221-3.533a4.214 4.214 0 0 0-4.206-3.951H13zm-2.557 2.25a2.714 2.714 0 0 0-2.709 2.544l-.22 3.534a8.9 8.9 0 0 1-1.574 4.516a.117.117 0 0 0 .082.183l3.737.449c1.489.178 2.993.178 4.482 0l3.737-.449a.117.117 0 0 0 .082-.183a8.9 8.9 0 0 1-1.573-4.516l-.221-3.534a2.714 2.714 0 0 0-2.709-2.544zm1.557 15c-.69 0-1.25-.56-1.25-1.25v-.75h2.5V19c0 .69-.56 1.25-1.25 1.25"
       />
     </svg>
   );
@@ -114,6 +115,10 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
   const profileWrapRef = useRef(null);
   const { loggedIn, profileName, initials, avatarUrl, handleSignOut, goToSignIn } =
     useHeaderProfile();
+  const { unreadCount } = useNotifications({
+    enabled: loggedIn && Boolean(getAuthToken()),
+    pollMs: 90_000
+  });
 
   useEffect(() => {
     const onDown = (e) => {
@@ -155,6 +160,15 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
     }
     setProfileOpen(false);
     dock.toggleMarketMovers();
+  };
+
+  const toggleNotifications = () => {
+    if (mobileOpen) {
+      closeAll();
+      return;
+    }
+    setProfileOpen(false);
+    dock.toggleNotifications();
   };
 
   return (
@@ -259,6 +273,22 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
             onClick={toggleNews}
           >
             <IcoNews />
+          </button>
+          <button
+            type="button"
+            className={
+              'app-right-rail__btn app-right-rail__btn--bell' +
+              (dock.activePanel === 'notifications' ? ' app-right-rail__btn--active' : '')
+            }
+            title="Notifications"
+            aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+            aria-expanded={dock.activePanel === 'notifications'}
+            onClick={toggleNotifications}
+          >
+            <IcoBell />
+            {unreadCount > 0 ? (
+              <span className="app-right-rail__notify-dot" aria-hidden />
+            ) : null}
           </button>
         </div>
       </aside>

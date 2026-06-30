@@ -11,6 +11,7 @@ const {
   listAccountsForUser,
   createAccountForUser,
   deleteAccountForUser,
+  setAccountPublished,
   placeOrder,
   cancelOrderForUser,
   modifyOrderForUser,
@@ -69,6 +70,32 @@ router.delete('/accounts/:id', async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     const msg = error.message || 'Delete failed';
+    const status = msg.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: msg });
+  }
+});
+
+router.patch('/accounts/:id/publish', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const account = await setAccountPublished(req.user.id, req.params.id, true, {
+      publishDescription: body.publishDescription ?? body.publish_description,
+      publishStrategy: body.publishStrategy ?? body.publish_strategy
+    });
+    res.status(200).json(account);
+  } catch (error) {
+    const msg = error.message || 'Publish failed';
+    const status = msg.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: msg });
+  }
+});
+
+router.patch('/accounts/:id/unpublish', async (req, res) => {
+  try {
+    const account = await setAccountPublished(req.user.id, req.params.id, false);
+    res.status(200).json(account);
+  } catch (error) {
+    const msg = error.message || 'Unpublish failed';
     const status = msg.includes('not found') ? 404 : 500;
     res.status(status).json({ error: msg });
   }

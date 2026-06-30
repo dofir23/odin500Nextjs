@@ -29,7 +29,8 @@ function toneClass(v) {
  *   activeAccountName?: string,
  *   onSelectAccount?: (id: string) => void,
  *   onExportPositions?: () => void,
- *   onExportClosedTrades?: () => void
+ *   onExportClosedTrades?: () => void,
+ *   readOnly?: boolean
  * }} props
  */
 export function PortfolioInsightsTab({
@@ -43,33 +44,38 @@ export function PortfolioInsightsTab({
   activeAccountName = '',
   onSelectAccount,
   onExportPositions,
-  onExportClosedTrades
+  onExportClosedTrades,
+  readOnly = false
 }) {
   const multiAccount = summaries.length > 1;
 
   return (
     <div className="paper-insights-tab">
-      <div className="paper-help-banner" role="note">
-        <p className="paper-help-banner__title">What is this page?</p>
-        <p>
-          Review how your paper portfolios are doing, compare them side by side, and see which sectors you are
-          invested in. Numbers update from your simulated trades — nothing here uses real money.
-        </p>
-      </div>
+      {!readOnly ? (
+        <div className="paper-help-banner" role="note">
+          <p className="paper-help-banner__title">What is this page?</p>
+          <p>
+            Review how your paper portfolios are doing, compare them side by side, and see which sectors you are
+            invested in. Numbers update from your simulated trades — nothing here uses real money.
+          </p>
+        </div>
+      ) : null}
 
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
       <section className="paper-insights-tab__section" aria-labelledby="paper-compare-table-title">
         <div className="paper-insights-tab__section-head">
           <h3 id="paper-compare-table-title" className="paper-insights-tab__h">
-            All your portfolios
+            {readOnly ? 'Portfolio snapshot' : 'All your portfolios'}
           </h3>
           <p className="paper-insights-tab__sub">
-            {multiAccount
-              ? 'Tap a row to switch the active account for trading. Use Export to save this table as a spreadsheet.'
-              : 'Create a second account (New account above) to compare strategies side by side.'}
+            {readOnly
+              ? 'Read-only view of this published portfolio.'
+              : multiAccount
+                ? 'Tap a row to switch the active account for trading. Use Export to save this table as a spreadsheet.'
+                : 'Create a second account (New account above) to compare strategies side by side.'}
           </p>
-          {summaries.length > 0 ? (
+          {!readOnly && summaries.length > 0 ? (
             <button
               type="button"
               className="paper-btn paper-btn--ghost paper-insights-tab__export"
@@ -99,21 +105,26 @@ export function PortfolioInsightsTab({
               <tbody>
                 {summaries.map((row) => {
                   const active = row.id === activeAccountId;
+                  const interactive = !readOnly && Boolean(onSelectAccount);
                   return (
                     <tr
                       key={row.id}
                       className={active ? 'paper-table__row--active' : ''}
-                      onClick={() => onSelectAccount?.(row.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onSelectAccount?.(row.id);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Switch to ${row.name}`}
-                      title="Click to use this account for trading"
+                      onClick={interactive ? () => onSelectAccount?.(row.id) : undefined}
+                      onKeyDown={
+                        interactive
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onSelectAccount?.(row.id);
+                              }
+                            }
+                          : undefined
+                      }
+                      tabIndex={interactive ? 0 : undefined}
+                      role={interactive ? 'button' : undefined}
+                      aria-label={interactive ? `Switch to ${row.name}` : undefined}
+                      title={interactive ? 'Click to use this account for trading' : undefined}
                     >
                       <td>
                         <span className="paper-table__sym">{row.name}</span>
@@ -152,6 +163,7 @@ export function PortfolioInsightsTab({
         accountName={activeAccountName}
       />
 
+      {!readOnly ? (
       <section className="paper-insights-tab__section" aria-labelledby="paper-export-title">
         <h3 id="paper-export-title" className="paper-insights-tab__h">
           Download your data
@@ -169,6 +181,7 @@ export function PortfolioInsightsTab({
           </button>
         </div>
       </section>
+      ) : null}
     </div>
   );
 }

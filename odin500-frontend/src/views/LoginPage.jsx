@@ -58,7 +58,7 @@ function LoginForm() {
           /* ignore */
         }
       }
-      navigate('/', { replace: true });
+      navigate(payload?.isAdmin ? '/admin' : '/', { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

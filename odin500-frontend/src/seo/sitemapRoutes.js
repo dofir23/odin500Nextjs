@@ -15,6 +15,7 @@ export const SITEMAP_STATIC_PATHS = [
   '/about',
   '/accounts',
   '/paper-trading',
+  '/paper-trading/public',
   '/forgot-password',
   '/newsletter'
 ];

@@ -16,18 +16,44 @@ function parseMarkdownFile(raw) {
   if (!match) return null;
   const fm = match[1];
   const content = match[2].trim();
+  const data = parseYamlFrontmatter(fm);
+  return { data, content };
+}
+
+function parseYamlFrontmatter(fm) {
   const data = {};
-  for (const line of fm.split('\n')) {
-    const m = line.match(/^(\w+):\s*(.+)$/);
-    if (!m) continue;
-    const key = m[1];
-    let val = m[2].trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
+  const lines = fm.split('\n');
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const block = line.match(/^(\w+):\s*(>|>-|>\+|\|-?|\+)?\s*$/);
+    if (block) {
+      const key = block[1];
+      const style = block[2] || '';
+      i += 1;
+      const blockLines = [];
+      while (i < lines.length && /^\s+/.test(lines[i])) {
+        blockLines.push(lines[i].replace(/^\s+/, ''));
+        i += 1;
+      }
+      const joined = blockLines.join(style.startsWith('>') ? ' ' : '\n').trim();
+      if (key !== 'tags') data[key] = joined;
+      continue;
     }
-    if (key === 'tags') continue;
-    data[key] = val;
+
+    const m = line.match(/^(\w+):\s*(.+)$/);
+    if (m) {
+      const key = m[1];
+      let val = m[2].trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (key !== 'tags') data[key] = val;
+    }
+    i += 1;
   }
+
   const tagsBlock = fm.match(/tags:\s*\n((?:\s+-\s+.+\n?)+)/);
   if (tagsBlock) {
     data.tags = tagsBlock[1]
@@ -35,7 +61,8 @@ function parseMarkdownFile(raw) {
       .map((l) => l.replace(/^\s*-\s+/, '').trim())
       .filter(Boolean);
   }
-  return { data, content };
+
+  return data;
 }
 
 const FRONTEND_NEWSLETTER_DIR = path.resolve(

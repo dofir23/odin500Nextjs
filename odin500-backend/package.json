@@ -8,7 +8,8 @@
     "encode-google-key": "node scripts/print-google-credentials-b64.js",
     "fetch:index-weights": "node scripts/fetch-slickcharts-weights.js",
     "newsletter:generate": "node scripts/generate-weekly-newsletter.js",
-    "newsletter:migrate-md": "node scripts/migrate-newsletter-md-to-bq.js"
+    "newsletter:migrate-md": "node scripts/migrate-newsletter-md-to-bq.js",
+    "newsletter:fix-descriptions": "node scripts/fix-newsletter-descriptions-bq.js"
   },
   "keywords": [],
   "author": "",
@@ -25,7 +26,8 @@
     "express-rate-limit": "^8.2.1",
     "ioredis": "^5.10.1",
     "node-cron": "^4.2.1",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^7.0.13"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

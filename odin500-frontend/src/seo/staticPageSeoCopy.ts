@@ -45,15 +45,26 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
     ]
   },
   '/paper-trading': {
-    heading: 'Paper trading simulator',
+    heading: 'Your paper portfolio',
     paragraphs: [
       'Practice U.S. stock trading with simulated portfolios, paper orders, and performance analytics without risking real capital.',
-      'Track open positions, closed trades, sector exposure, and strategy results in a risk-free environment.'
+      'Publish a portfolio to share read-only holdings and performance on the public gallery.'
     ],
     links: [
+      { href: '/paper-trading/public', label: 'Public portfolios' },
       { href: '/market', label: 'Live market dashboard' },
-      { href: '/odin-signals', label: 'Trading signals screener' },
-      { href: '/market-movers', label: 'Market movers' }
+      { href: '/odin-signals', label: 'Trading signals screener' }
+    ]
+  },
+  '/paper-trading/public': {
+    heading: 'Public paper portfolios',
+    paragraphs: [
+      'Browse paper portfolios published by Odin500 users. View holdings, equity curves, closed trades, and sector allocation in read-only mode.',
+      'Publish your own portfolio from Your Portfolio when you are ready to share.'
+    ],
+    links: [
+      { href: '/paper-trading', label: 'Your portfolio' },
+      { href: '/market', label: 'Market dashboard' }
     ]
   },
   '/login': {

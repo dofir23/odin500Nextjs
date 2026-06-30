@@ -156,6 +156,33 @@ export function usePaperAccount() {
     [loadAccounts, refetch]
   );
 
+  const setPublished = useCallback(
+    async (accountId, published, meta = {}) => {
+      const id = String(accountId || activeAccountId || '').trim();
+      if (!id) throw new Error('No account selected');
+      const path = published
+        ? `/api/paper/accounts/${encodeURIComponent(id)}/publish`
+        : `/api/paper/accounts/${encodeURIComponent(id)}/unpublish`;
+      const res = await fetchWithAuth(apiUrl(path), {
+        method: 'PATCH',
+        headers: published ? { 'Content-Type': 'application/json' } : undefined,
+        body: published
+          ? JSON.stringify({
+              publishDescription: meta.publishDescription,
+              publishStrategy: meta.publishStrategy
+            })
+          : undefined
+      });
+      const updated = await parseJson(res);
+      await loadAccounts();
+      if (id === activeAccountId) {
+        setAccount((prev) => (prev ? { ...prev, ...updated } : updated));
+      }
+      return updated;
+    },
+    [activeAccountId, loadAccounts]
+  );
+
   return {
     account,
     accounts,
@@ -166,6 +193,7 @@ export function usePaperAccount() {
     refetch,
     resetPortfolio,
     createAccount,
-    deleteAccount
+    deleteAccount,
+    setPublished
   };
 }

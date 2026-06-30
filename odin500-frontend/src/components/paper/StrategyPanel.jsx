@@ -27,7 +27,8 @@ export function StrategyPanel({
   onToggleActive,
   onRunOnce,
   onRefetch,
-  onRefetchBlotter
+  onRefetchBlotter,
+  readOnly = false
 }) {
   const [busy, setBusy] = useState(false);
   const [runMsg, setRunMsg] = useState('');
@@ -63,10 +64,12 @@ export function StrategyPanel({
     return (
       <div className="paper-strategy-empty">
         <p>No strategy linked to this portfolio yet.</p>
+        {!readOnly ? (
         <p className="paper-strategy-muted">
           Use <strong>New strategy account</strong> in the header to create an automated portfolio, or bind a
           strategy from the API.
         </p>
+        ) : null}
       </div>
     );
   }
@@ -141,7 +144,7 @@ export function StrategyPanel({
 
   return (
     <div className="paper-strategy-panel">
-      <AutomatedAccountBanner />
+      {!readOnly ? <AutomatedAccountBanner /> : null}
 
       {error ? <p className="paper-strategy-err">{error}</p> : null}
 
@@ -176,6 +179,7 @@ export function StrategyPanel({
             </p>
           </div>
 
+          {!readOnly ? (
           <div className="paper-strategy-panel__actions">
             <div className="paper-strategy-run-controls" data-tour="paper-strategy-controls">
               <button
@@ -206,11 +210,13 @@ export function StrategyPanel({
               </button>
             </div>
           </div>
+          ) : null}
         </div>
 
         {runMsg ? <p className="paper-strategy-run-msg">{runMsg}</p> : null}
       </section>
 
+      {!readOnly ? (
       <StrategyWatchlistPanel
         savedWatchlistKey={strategy.watchlist_key || ''}
         rules={rules}
@@ -222,6 +228,7 @@ export function StrategyPanel({
         onScrollToRules={() => scrollToStrategyAnchor('rules-list')}
         onScrollToRule={(ruleIds) => scrollToStrategyRules(ruleIds)}
       />
+      ) : null}
 
       <section className="paper-strategy-section" data-tour="paper-strategy-rules">
         <div className="paper-strategy-section__head">
@@ -234,6 +241,7 @@ export function StrategyPanel({
         <div className="paper-strategy-subsection" data-strategy-anchor="rules-list">
           <div className="paper-strategy-subsection__head">
             <h5 className="paper-strategy-subsection__title">Active rules</h5>
+            {!readOnly ? (
             <div className="paper-strategy-subsection__actions">
               <button
                 type="button"
@@ -255,25 +263,31 @@ export function StrategyPanel({
                 <Trash2 className="paper-btn__icon" aria-hidden />
               </button>
             </div>
+            ) : null}
           </div>
           <StrategyRulesList
             rules={rules}
             busy={busy}
             editingRuleId={editingRule?.id}
-            onEdit={(rule) => {
+            onEdit={readOnly ? undefined : (rule) => {
               setEditingRule(rule);
               setTickerSeed(null);
             }}
-            onDelete={(ruleId) =>
-              void wrap(async () => {
-                if (editingRule?.id === ruleId) setEditingRule(null);
-                await onDeleteRule(ruleId);
-              })
+            onDelete={
+              readOnly
+                ? undefined
+                : (ruleId) =>
+                    void wrap(async () => {
+                      if (editingRule?.id === ruleId) setEditingRule(null);
+                      await onDeleteRule(ruleId);
+                    })
             }
           />
         </div>
       </section>
 
+      {!readOnly ? (
+      <>
       <StrategyRuleCreateModal
         open={createRuleOpen}
         busy={busy}
@@ -338,6 +352,8 @@ export function StrategyPanel({
         </p>
         {deleteAllError ? <p className="wl-manage-err">{deleteAllError}</p> : null}
       </PaperManageModal>
+      </>
+      ) : null}
 
       <section
         className={

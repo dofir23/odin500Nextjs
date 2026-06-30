@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
-import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
+import { Loader2, RotateCcw, Trash2, Globe, GlobeLock } from 'lucide-react';
 import { PaperAccountCreateMenu } from '../../components/paper/PaperAccountCreateMenu.jsx';
 import { apiUrl } from '../../utils/apiOrigin.js';
 import { fetchWithAuth } from '../../store/apiStore.js';
@@ -45,7 +45,8 @@ function PaperTradingPageContent() {
     refetch: refetchAccount,
     resetPortfolio,
     createAccount,
-    deleteAccount
+    deleteAccount,
+    setPublished
   } = usePaperAccount();
   const { positions, loading: positionsLoading, refetch: refetchPositions } = usePaperPositions({
     accountId: activeAccountId
@@ -87,6 +88,9 @@ function PaperTradingPageContent() {
   const [newAccountName, setNewAccountName] = useState('');
   const [modalBusy, setModalBusy] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [publishDescription, setPublishDescription] = useState('');
+  const [publishStrategy, setPublishStrategy] = useState('');
   const { startPaperStrategyManageTour, registerManageTourPrepare } = useProductTourContext();
   const {
     summaries: portfolioSummaries,
@@ -105,7 +109,16 @@ function PaperTradingPageContent() {
       (accounts || []).map((a) => {
         const base = String(a.name || 'Account').trim() || 'Account';
         const auto = automatedAccountIds.has(a.id);
-        return auto ? { id: a.id, label: base, tag: 'auto' } : { id: a.id, label: base };
+        const published = Boolean(a.is_published);
+        let label = base;
+        if (auto && published) label = `${base} · auto · public`;
+        else if (auto) label = `${base} · auto`;
+        else if (published) label = `${base} · public`;
+        return auto
+          ? { id: a.id, label, tag: 'auto' }
+          : published
+            ? { id: a.id, label, tag: 'published' }
+            : { id: a.id, label };
       }),
     [accounts, automatedAccountIds]
   );
@@ -113,6 +126,15 @@ function PaperTradingPageContent() {
   const showStrategyTab = !!strategy || tab === 'strategy';
 
   const selectedAccountId = activeAccountId || accountOptions[0]?.id || '';
+
+  const selectedAccountMeta = useMemo(
+    () => (accounts || []).find((a) => a.id === selectedAccountId) || null,
+    [accounts, selectedAccountId]
+  );
+
+  const isSelectedPublished = Boolean(
+    selectedAccountMeta?.is_published ?? account?.is_published
+  );
 
   const selectedAccountLabel =
     accountOptions.find((o) => o.id === selectedAccountId)?.label || account?.name || 'this account';
@@ -230,6 +252,48 @@ function PaperTradingPageContent() {
     }
   }
 
+  function openPublishModal() {
+    setModalError('');
+    setPublishDescription(String(selectedAccountMeta?.publish_description || '').trim());
+    setPublishStrategy(String(selectedAccountMeta?.publish_strategy || '').trim());
+    setModal(isSelectedPublished ? 'edit-publish' : 'publish');
+  }
+
+  async function submitPublishPortfolio() {
+    if (!selectedAccountId) return;
+    setPublishing(true);
+    setModalBusy(true);
+    setModalError('');
+    try {
+      await setPublished(selectedAccountId, true, {
+        publishDescription: publishDescription.trim(),
+        publishStrategy: publishStrategy.trim()
+      });
+      closeModal();
+    } catch (err) {
+      setModalError(err?.message || 'Failed to publish portfolio');
+    } finally {
+      setPublishing(false);
+      setModalBusy(false);
+    }
+  }
+
+  async function submitUnpublishPortfolio() {
+    if (!selectedAccountId) return;
+    setPublishing(true);
+    setModalBusy(true);
+    setModalError('');
+    try {
+      await setPublished(selectedAccountId, false);
+      closeModal();
+    } catch (err) {
+      setModalError(err?.message || 'Failed to unpublish portfolio');
+    } finally {
+      setPublishing(false);
+      setModalBusy(false);
+    }
+  }
+
   async function submitDeleteAccount() {
     if (!selectedAccountId) return;
     setDeletingAccount(true);
@@ -251,7 +315,7 @@ function PaperTradingPageContent() {
       <header className="paper-header">
         <div>
           <div className="paper-header__title-row">
-            <h1 className="paper-header__title">Paper Trading</h1>
+            <h1 className="paper-header__title">Your Portfolio</h1>
             {strategy ? (
               <button
                 type="button"
@@ -289,6 +353,29 @@ function PaperTradingPageContent() {
             />
           </div>
           <div className="paper-header__btn-row">
+            <button
+              type="button"
+              className={
+                'paper-btn paper-btn--ghost paper-btn--publish' +
+                (isSelectedPublished ? ' paper-btn--publish-on' : '')
+              }
+              disabled={publishing || accountLoading || !selectedAccountId}
+              onClick={openPublishModal}
+              title={
+                isSelectedPublished
+                  ? 'Unpublish this portfolio from the public gallery'
+                  : 'Publish this portfolio for others to view'
+              }
+            >
+              {publishing ? (
+                <Loader2 className="paper-btn__icon paper-btn__icon--spin" aria-hidden />
+              ) : isSelectedPublished ? (
+                <Globe className="paper-btn__icon" aria-hidden />
+              ) : (
+                <GlobeLock className="paper-btn__icon" aria-hidden />
+              )}
+              <span>{isSelectedPublished ? 'Published' : 'Publish'}</span>
+            </button>
             <PaperAccountCreateMenu
               disabled={accountLoading}
               onManualAccount={openCreateModal}
@@ -408,6 +495,84 @@ function PaperTradingPageContent() {
           orders, trade history, portfolio chart data, strategy rules, and execution log? This cannot be
           undone.
         </p>
+        {modalError ? <p className="wl-manage-err">{modalError}</p> : null}
+      </PaperManageModal>
+
+      <PaperManageModal
+        open={modal === 'publish' || modal === 'edit-publish'}
+        title={modal === 'edit-publish' ? 'Published portfolio' : 'Publish portfolio'}
+        titleId="paper-publish-portfolio-title"
+        onClose={closeModal}
+        footer={
+          <>
+            <button
+              type="button"
+              className="wl-manage-btn wl-manage-btn--ghost"
+              onClick={closeModal}
+              disabled={modalBusy}
+            >
+              Cancel
+            </button>
+            {modal === 'edit-publish' ? (
+              <button
+                type="button"
+                className="wl-manage-btn wl-manage-btn--danger"
+                onClick={() => void submitUnpublishPortfolio()}
+                disabled={modalBusy}
+              >
+                {modalBusy ? 'Saving…' : 'Unpublish'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="wl-manage-btn wl-manage-btn--primary"
+              onClick={() => void submitPublishPortfolio()}
+              disabled={modalBusy}
+            >
+              {modalBusy ? 'Saving…' : modal === 'edit-publish' ? 'Save changes' : 'Publish'}
+            </button>
+          </>
+        }
+      >
+        <p className="paper-modal-msg">
+          {modal === 'edit-publish' ? (
+            <>
+              Update the public profile for <strong>{selectedAccountLabel}</strong>. Changes appear on the
+              public gallery immediately.
+            </>
+          ) : (
+            <>
+              Publish <strong>{selectedAccountLabel}</strong> so anyone can view holdings, performance, and
+              trade history in read-only mode.
+            </>
+          )}
+        </p>
+        <label className="wl-manage-label" htmlFor="paper-publish-description">
+          Description
+        </label>
+        <textarea
+          id="paper-publish-description"
+          className="wl-manage-input paper-publish-textarea"
+          rows={3}
+          maxLength={2000}
+          placeholder="Short summary of this portfolio (optional)"
+          value={publishDescription}
+          onChange={(e) => setPublishDescription(e.target.value)}
+          disabled={modalBusy}
+        />
+        <label className="wl-manage-label" htmlFor="paper-publish-strategy">
+          Strategy
+        </label>
+        <textarea
+          id="paper-publish-strategy"
+          className="wl-manage-input paper-publish-textarea"
+          rows={3}
+          maxLength={2000}
+          placeholder="How you trade this account — rules, style, automation, etc. (optional)"
+          value={publishStrategy}
+          onChange={(e) => setPublishStrategy(e.target.value)}
+          disabled={modalBusy}
+        />
         {modalError ? <p className="wl-manage-err">{modalError}</p> : null}
       </PaperManageModal>
 

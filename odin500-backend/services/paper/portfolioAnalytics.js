@@ -205,5 +205,6 @@ async function getCompareHistory(userId) {
 module.exports = {
   getAccountsSummary,
   getSectorAllocation,
-  getCompareHistory
+  getCompareHistory,
+  fetchSectorMapForSymbols
 };

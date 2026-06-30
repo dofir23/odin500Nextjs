@@ -1,7 +1,7 @@
 import '@/styles/newsletter-page.css';
 import Link from 'next/link';
 import type { NewsletterIssue } from '@/lib/newsletter.shared';
-import { formatNewsletterDate } from '@/lib/newsletter.shared';
+import { displayNewsletterDescription, formatNewsletterDate } from '@/lib/newsletter.shared';
 import { NewsletterSubscribeSection } from './NewsletterSubscribeSection';
 
 type NewsletterIndexContentProps = {
@@ -15,19 +15,21 @@ export function NewsletterIndexContent({ issues, initialLoggedIn = false }: News
 
   return (
     <div className="newsletter-page">
-      <header className="newsletter-page__hero">
-        <p className="newsletter-page__eyebrow">Odin500 Weekly</p>
-        <h1 className="newsletter-page__title">Market newsletter</h1>
-        <p className="newsletter-page__lead">
-          Weekly U.S. equity recaps powered by Odin500 market data, index analytics, Odin Signals,
-          and monthly ticker reports — published for investors, researchers, and search engines.
-        </p>
+      <header className="newsletter-page__header">
+        <div className="newsletter-page__header-main">
+          <h1 className="newsletter-page__title">Newsletter</h1>
+          <p className="newsletter-page__lead">
+            Weekly U.S. equity recaps from Odin500 market data, index analytics, Odin Signals, and
+            ticker reports — published every Sunday.
+          </p>
+        </div>
+        <NewsletterSubscribeSection initialLoggedIn={initialLoggedIn} variant="header" />
       </header>
 
       {latest ? (
         <section className="newsletter-featured" aria-labelledby="newsletter-featured-title">
           <h2 id="newsletter-featured-title" className="newsletter-section-title">
-            Latest Update
+            Latest issue
           </h2>
           <article className="newsletter-featured__card">
             <p className="newsletter-card__meta">
@@ -36,7 +38,9 @@ export function NewsletterIndexContent({ issues, initialLoggedIn = false }: News
             <h3 className="newsletter-featured__heading">
               <Link href={`/newsletter/${latest.slug}`}>{latest.meta.title}</Link>
             </h3>
-            <p className="newsletter-card__description">{latest.meta.description}</p>
+            <p className="newsletter-card__description">
+              {displayNewsletterDescription(latest.meta.description)}
+            </p>
             <Link href={`/newsletter/${latest.slug}`} className="newsletter-card__cta">
               Read issue →
             </Link>
@@ -61,7 +65,9 @@ export function NewsletterIndexContent({ issues, initialLoggedIn = false }: News
                   <h3 className="newsletter-card__title">
                     <Link href={`/newsletter/${issue.slug}`}>{issue.meta.title}</Link>
                   </h3>
-                  <p className="newsletter-card__description">{issue.meta.description}</p>
+                  <p className="newsletter-card__description">
+                    {displayNewsletterDescription(issue.meta.description)}
+                  </p>
                   {issue.meta.tags?.length ? (
                     <ul className="newsletter-card__tags" aria-label="Tags">
                       {issue.meta.tags.map((tag) => (
@@ -75,8 +81,6 @@ export function NewsletterIndexContent({ issues, initialLoggedIn = false }: News
           </ul>
         )}
       </section>
-
-      <NewsletterSubscribeSection initialLoggedIn={initialLoggedIn} />
     </div>
   );
 }

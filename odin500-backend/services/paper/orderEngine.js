@@ -368,12 +368,51 @@ async function modifyOrderForUser(userId, orderId, patch = {}, explicitAccountId
   return updated;
 }
 
+async function setAccountPublished(userId, accountId, published, meta = {}) {
+  const account = await resolveAccountForUser(userId, accountId);
+  const description =
+    meta.publishDescription !== undefined
+      ? String(meta.publishDescription || '').trim().slice(0, 2000) || null
+      : undefined;
+  const strategyText =
+    meta.publishStrategy !== undefined
+      ? String(meta.publishStrategy || '').trim().slice(0, 2000) || null
+      : undefined;
+
+  const updates = published
+    ? {
+        is_published: true,
+        published_at: account.published_at || new Date().toISOString()
+      }
+    : {
+        is_published: false,
+        published_at: null,
+        publish_description: null,
+        publish_strategy: null
+      };
+
+  if (published && description !== undefined) updates.publish_description = description;
+  if (published && strategyText !== undefined) updates.publish_strategy = strategyText;
+
+  const { data, error } = await supabaseService
+    .from('paper_accounts')
+    .update(updates)
+    .eq('id', account.id)
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
   getOrCreateAccount,
   resolveAccountForUser,
   listAccountsForUser,
   createAccountForUser,
   deleteAccountForUser,
+  setAccountPublished,
   placeOrder,
   executeFill,
   cancelOrderForUser,

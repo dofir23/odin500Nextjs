@@ -5,13 +5,17 @@ const {
 } = require('../services/newsletter/newsletterStore');
 const { generateWeeklyNewsletter } = require('../services/newsletter/generateWeeklyNewsletter');
 const { cached, setPublicCacheHeaders } = require('../services/newsletter/newsletterCache');
+const { normalizeNewsletterDescription } = require('../services/newsletter/newsletterText');
+
+const DESCRIPTION_FALLBACK =
+  'Weekly U.S. equity market recap from Odin500 index, sector, and signal data.';
 
 function toPublicSummary(issue) {
   if (!issue) return null;
   return {
     slug: issue.slug,
     title: issue.title,
-    description: issue.description,
+    description: normalizeNewsletterDescription(issue.description, DESCRIPTION_FALLBACK),
     publishedAt: issue.publishedAt,
     weekLabel: issue.weekLabel,
     tags: issue.tags,

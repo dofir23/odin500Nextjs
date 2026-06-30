@@ -61,7 +61,8 @@ function allocationRows(positions, equity) {
  *   onSetupStrategy?: () => void,
  *   sectors?: Array<{ sector: string, weight_pct: number, market_value: number }>,
  *   sectorEquity?: number,
- *   sectorsLoading?: boolean
+ *   sectorsLoading?: boolean,
+ *   readOnly?: boolean
  * }} props
  */
 export function PortfolioInsightsPanel({
@@ -75,10 +76,11 @@ export function PortfolioInsightsPanel({
   onSetupStrategy,
   sectors = [],
   sectorEquity = 0,
-  sectorsLoading = false
+  sectorsLoading = false,
+  readOnly = false
 }) {
   const equity = Number(account?.equity) || 0;
-  const cash = Number(account?.cash_balance) || 0;
+  const cash = Number(account?.cash_balance ?? account?.cash) || 0;
   const openList = positions || [];
   const longExposure = openList.reduce((s, p) => s + Math.max(0, Number(p.long_market_value) || 0), 0);
   const shortExposure = openList.reduce((s, p) => s + Math.max(0, Number(p.short_market_value) || 0), 0);
@@ -115,9 +117,11 @@ export function PortfolioInsightsPanel({
           <div className="paper-insights__empty">
             <p className="paper-insights__empty-title">No holdings yet</p>
             <p className="paper-insights__empty-copy">
-              Use the order ticket to place simulated trades. Positions, P&amp;L, and allocation will show here once
-              you are invested.
+              {readOnly
+                ? 'This published portfolio has no open positions right now.'
+                : 'Use the order ticket to place simulated trades. Positions, P&L, and allocation will show here once you are invested.'}
             </p>
+            {!readOnly ? (
             <ul className="paper-insights__tips">
               <li>Market orders fill at the latest Odin daily close.</li>
               <li>Track equity in the chart above as snapshots are recorded.</li>
@@ -130,6 +134,7 @@ export function PortfolioInsightsPanel({
                 </li>
               ) : null}
             </ul>
+            ) : null}
           </div>
         ) : (
           <>

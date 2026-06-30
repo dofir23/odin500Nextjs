@@ -65,7 +65,7 @@ function sideFromBucket(bucket) {
   return 'long';
 }
 
-function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScrollToRules, onScrollToRule }) {
+function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScrollToRules, onScrollToRule, readOnly = false }) {
   const [selected, setSelected] = useState(() => new Set());
   const checkAllRef = useRef(null);
 
@@ -124,6 +124,7 @@ function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScro
 
   return (
     <div className="paper-strategy-wl__panel">
+      {!readOnly ? (
       <div className="paper-strategy-wl__toolbar">
         <div className="paper-strategy-wl__col-actions">
           <button
@@ -146,6 +147,7 @@ function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScro
           </button>
         </div>
       </div>
+      ) : null}
       {rows.length === 0 ? (
         <p className="paper-strategy-muted">No tickers in this watchlist.</p>
       ) : (
@@ -153,18 +155,24 @@ function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScro
           <div className="paper-strategy-wl__table-scroll">
             <div className="paper-strategy-wl__table-head" role="row">
               <div className="paper-strategy-wl__th paper-strategy-wl__th--ticker" role="columnheader">
-                <label className="paper-strategy-wl__check-all" title="Select all">
-                  <input
-                    ref={checkAllRef}
-                    type="checkbox"
-                    className="paper-strategy-wl__checkbox"
-                    checked={allSelected}
-                    disabled={busy || rows.length === 0}
-                    onChange={(e) => toggleAll(e.target.checked)}
-                    aria-label="Select all tickers"
-                  />
-                </label>
-                <span>Ticker</span>
+                {!readOnly ? (
+                  <>
+                    <label className="paper-strategy-wl__check-all" title="Select all">
+                      <input
+                        ref={checkAllRef}
+                        type="checkbox"
+                        className="paper-strategy-wl__checkbox"
+                        checked={allSelected}
+                        disabled={busy || rows.length === 0}
+                        onChange={(e) => toggleAll(e.target.checked)}
+                        aria-label="Select all tickers"
+                      />
+                    </label>
+                    <span>Ticker</span>
+                  </>
+                ) : (
+                  <span>Ticker</span>
+                )}
               </div>
               <div className="paper-strategy-wl__th paper-strategy-wl__th--signal" role="columnheader">
                 Signal
@@ -183,6 +191,7 @@ function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScro
                 return (
                   <li key={row.symbol} className="paper-strategy-wl__row">
                     <div className="paper-strategy-wl__cell paper-strategy-wl__cell--ticker">
+                      {!readOnly ? (
                       <label className="paper-strategy-wl__row-check">
                         <input
                           type="checkbox"
@@ -193,6 +202,7 @@ function WatchlistTickerList({ rows, rules, busy, onAddRule, onAddToForm, onScro
                           aria-label={`Select ${row.symbol}`}
                         />
                       </label>
+                      ) : null}
                       <span className="paper-strategy-wl__sym">{row.symbol}</span>
                     </div>
                     <div className="paper-strategy-wl__cell paper-strategy-wl__cell--signal">
@@ -248,6 +258,7 @@ export function StrategyWatchlistPanel({
   rules = [],
   busy = false,
   saveError = '',
+  readOnly = false,
   onWatchlistKeyChange,
   onAddRule,
   onAddTickersToForm,
@@ -359,6 +370,18 @@ export function StrategyWatchlistPanel({
 
       <div className="paper-strategy-wl__picker" ref={ddRef}>
         <span className="paper-field__label">Watchlist</span>
+        {readOnly ? (
+          <div className="paper-strategy-wl__select paper-strategy-wl__select--static">
+            {selected ? (
+              <span className="paper-strategy-wl__select-label">
+                <WatchlistKindTag kind={selected.kind} />
+                <span className="wl-flyout__select-item-name">{selected.name}</span>
+              </span>
+            ) : (
+              <span className="paper-strategy-wl__select-label">{savedWatchlistKey || '—'}</span>
+            )}
+          </div>
+        ) : (
         <div className="wl-flyout__select-wrap">
           <button
             type="button"
@@ -399,6 +422,7 @@ export function StrategyWatchlistPanel({
             </ul>
           ) : null}
         </div>
+        )}
       </div>
 
       {optionsError ? <p className="paper-strategy-err">{optionsError}</p> : null}
@@ -412,6 +436,7 @@ export function StrategyWatchlistPanel({
           rows={tickerRows}
           rules={rules}
           busy={busy}
+          readOnly={readOnly}
           onAddRule={handleAddRules}
           onAddToForm={(syms) => onAddTickersToForm?.(syms)}
           onScrollToRules={onScrollToRules}

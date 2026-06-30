@@ -1,5 +1,6 @@
 const supabase = require('../config/supabase');
 const supabaseService = require('../config/supabaseService');
+const { isUserAdmin } = require('../services/admin/adminAuth');
 
 function extractDisplayName(body) {
     const raw = body?.displayName ?? body?.display_name ?? body?.username ?? body?.['Display Name'];
@@ -80,9 +81,12 @@ const login = async (req, res) => {
         // Save 'LOGIN_SUCCESS' to PostgreSQL
         await logEvent(data.user.id, 'LOGIN_SUCCESS', clientIp);
 
+        const isAdmin = await isUserAdmin(data.user.id);
+
         res.status(200).json({ 
             message: 'Login successful', 
-            session: data.session 
+            session: data.session,
+            isAdmin
         });
     } catch (error) {
         // Optional: Log failed attempts if you had the user ID

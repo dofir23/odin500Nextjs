@@ -49,7 +49,7 @@ export function AccountSummary({ account, loading }) {
       </article>
       <article className="paper-stat">
         <span className="paper-stat__label">Cash available</span>
-        <strong className="paper-stat__value">{money(account?.cash_balance)}</strong>
+        <strong className="paper-stat__value">{money(account?.cash_balance ?? account?.cash)}</strong>
       </article>
       <article className="paper-stat">
         <span className="paper-stat__label">Total return</span>

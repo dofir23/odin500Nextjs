@@ -26,3 +26,15 @@ export function formatNewsletterDate(iso: string) {
     return iso;
   }
 }
+
+const DESCRIPTION_FALLBACK =
+  'Weekly U.S. equity market recap from Odin500 index, sector, and signal data.';
+
+/** Clean API descriptions (fixes legacy `>-` YAML migration artifacts). */
+export function displayNewsletterDescription(description?: string) {
+  const d = String(description || '').trim();
+  if (!d || /^>[\-|+]?$/.test(d) || d === '|-' || d === '|' || d === '...') {
+    return DESCRIPTION_FALLBACK;
+  }
+  return d;
+}

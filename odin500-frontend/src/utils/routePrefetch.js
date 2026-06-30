@@ -60,6 +60,12 @@ export function prefetchRouteChunks(to) {
   if (p.startsWith('/stock-splits')) return markAndRun('stock-splits', () => import('../views/StockSplitsPage.jsx'));
   if (p.startsWith('/ticker-report')) return markAndRun('ticker-report', () => import('../views/TickerReportPage.jsx'));
   if (p.startsWith('/sector-data')) return markAndRun('sector-data', () => import('../views/IndexPage.jsx'));
+  if (p.startsWith('/paper-trading/public/')) {
+    return markAndRun('paper-public-detail', () => import('../views/PaperTrading/PublicPortfolioDetailPage.jsx'));
+  }
+  if (p.startsWith('/paper-trading/public')) {
+    return markAndRun('paper-public-list', () => import('../views/PaperTrading/PublicPortfoliosPage.jsx'));
+  }
   if (p.startsWith('/paper-trading')) return markAndRun('paper-trading', () => import('../views/PaperTrading/PaperTradingPage.jsx'));
   if (p.startsWith('/accounts')) return markAndRun('accounts', () => import('../views/AccountsPage.jsx'));
   if (p.startsWith('/premium') || p.startsWith('/pricing')) return markAndRun('premium', () => import('../views/Pricing.jsx'));

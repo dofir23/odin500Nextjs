@@ -2,6 +2,7 @@ const { getCompletedWeek, getWeekEndingSunday } = require('./newsletterWeek');
 const { fetchNewsletterContext } = require('./newsletterContext');
 const { generateNewsletterContent } = require('./newsletterAi');
 const { slugExists, insertNewsletter, upsertNewsletter } = require('./newsletterStore');
+const { notifyNewsletterSubscribers } = require('./notifyNewsletterSubscribers');
 
 /**
  * @param {{ weekSunday?: string, force?: boolean }} opts
@@ -42,7 +43,25 @@ async function generateWeeklyNewsletter(opts = {}) {
     await insertNewsletter(issue);
   }
 
-  return { skipped: false, slug: week.slug, weekLabel: week.weekLabel, generator: source };
+  const result = {
+    skipped: false,
+    slug: week.slug,
+    weekLabel: week.weekLabel,
+    generator: source,
+    title: content.title,
+    description: content.description
+  };
+
+  try {
+    const stats = await notifyNewsletterSubscribers(result);
+    console.log(
+      `[newsletter] notified subscribers=${stats.subscribers} inApp=${stats.inApp} emails=${stats.emails}`
+    );
+  } catch (err) {
+    console.warn('[newsletter] subscriber notify failed:', err?.message || err);
+  }
+
+  return result;
 }
 
 module.exports = { generateWeeklyNewsletter };

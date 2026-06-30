@@ -69,7 +69,12 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
   ],
   '/paper-trading': [
     { name: 'Market', path: '/market' },
-    { name: 'Paper trading', path: '/paper-trading' }
+    { name: 'Your portfolio', path: '/paper-trading' }
+  ],
+  '/paper-trading/public': [
+    { name: 'Market', path: '/market' },
+    { name: 'Paper trading', path: '/paper-trading' },
+    { name: 'Public portfolios', path: '/paper-trading/public' }
   ],
   '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }]
 };
@@ -154,6 +159,20 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
         path: `/relative-performance/ticker/${encodeURIComponent(sym.toLowerCase())}`
       }
     ];
+  }
+
+  const publicPaperMatch = path.match(/^\/paper-trading\/public\/([0-9a-f-]{36})$/i);
+  if (publicPaperMatch) {
+    return [
+      { name: 'Market', path: '/market' },
+      { name: 'Paper trading', path: '/paper-trading' },
+      { name: 'Public portfolios', path: '/paper-trading/public' },
+      { name: 'Portfolio', path }
+    ];
+  }
+
+  if (path === '/paper-trading/public') {
+    return STATIC_CRUMBS['/paper-trading/public'];
   }
 
   const newsletterIssueMatch = path.match(/^\/newsletter\/([a-z0-9-]+)$/i);

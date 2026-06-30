@@ -30,7 +30,7 @@ function StatusPill({ status }) {
   return <span className={'paper-status paper-status--' + s}>{status}</span>;
 }
 
-export function OrdersTable({ orders, loading, onCancel, onModify }) {
+export function OrdersTable({ orders, loading, onCancel, onModify, readOnly = false }) {
   const [editOrder, setEditOrder] = useState(null);
   const [editBusy, setEditBusy] = useState(false);
 
@@ -50,6 +50,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify }) {
 
   function renderRow(o) {
     const canEdit =
+      !readOnly &&
       o.status === 'pending' &&
       onModify &&
       !o.metadata?.stop_triggered &&
@@ -75,6 +76,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify }) {
           <StatusPill status={o.status} />
         </td>
         <td>{formatTime(o.filled_at || o.submitted_at)}</td>
+        {readOnly ? null : (
         <td className="paper-table__actions">
           {canEdit ? (
             <button type="button" className="paper-order-action-btn" onClick={() => setEditOrder(o)}>
@@ -87,6 +89,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify }) {
             </button>
           ) : null}
         </td>
+        )}
       </tr>
     );
   }
@@ -101,7 +104,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify }) {
         <th>Price</th>
         <th>Status</th>
         <th>Time</th>
-        <th />
+        {readOnly ? null : <th />}
       </tr>
     </thead>
   );
@@ -135,7 +138,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify }) {
       )}
 
       <PendingOrderEditModal
-        open={editOrder != null}
+        open={!readOnly && editOrder != null}
         order={editOrder}
         onClose={() => {
           if (!editBusy) setEditOrder(null);

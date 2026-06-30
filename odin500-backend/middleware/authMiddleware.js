@@ -76,3 +76,28 @@ module.exports = requireAuth;
 module.exports.requireAuthStrict = requireAuthStrict;
 module.exports.authenticateRequest = authenticateRequest;
 module.exports.isAuthDisabled = isAuthDisabled;
+
+const { isUserAdmin, getUserProfile } = require('../services/admin/adminAuth');
+
+/** Admin routes: valid JWT + user_profiles.is_admin = true */
+const requireAdmin = async (req, res, next) => {
+    try {
+        const result = await authenticateRequest(req);
+        if (!result.ok) {
+            return res.status(result.status).json({ error: result.error });
+        }
+
+        const admin = await isUserAdmin(req.user.id);
+        if (!admin) {
+            return res.status(403).json({ error: 'Forbidden: admin access required' });
+        }
+
+        req.isAdmin = true;
+        req.adminProfile = await getUserProfile(req.user.id);
+        next();
+    } catch (error) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+module.exports.requireAdmin = requireAdmin;

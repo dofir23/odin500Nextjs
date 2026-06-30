@@ -92,10 +92,16 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/accounts`
   },
   '/paper-trading': {
-    title: 'Paper Trading Simulator – Practice Stock Trading Free',
+    title: 'Your Paper Portfolio – Simulate Stock Trading Free',
     description:
       'Practice stock trading with paper portfolios, simulated strategies, and performance analytics without risking real money.',
     canonical: `${SITE_ORIGIN}/paper-trading`
+  },
+  '/paper-trading/public': {
+    title: 'Public Paper Portfolios – Community Trading Strategies',
+    description:
+      'Browse published paper portfolios from Odin500 users. View holdings, performance, and trade history in read-only mode.',
+    canonical: `${SITE_ORIGIN}/paper-trading/public`
   },
   '/login': {
     title: 'Sign In – Stock Market Data & Charts',
@@ -290,6 +296,16 @@ export function resolveDynamicRouteMetadata(pathname: string) {
       title: `${symbol} vs S&P 500 – Relative Strength & Performance Comparison`,
       description: `Compare ${symbol} stock performance vs S&P 500, Nasdaq, and sector indices with relative strength charts, excess returns, and historical comparison tables.`,
       canonical: `${SITE_ORIGIN}/relative-performance/ticker/${encodeURIComponent(symbol.toLowerCase())}`
+    };
+  }
+
+  const publicPaperMatch = path.match(/^\/paper-trading\/public\/([0-9a-f-]{36})$/i);
+  if (publicPaperMatch) {
+    return {
+      title: 'Published Paper Portfolio – Holdings & Performance',
+      description:
+        'View a published Odin500 paper portfolio with simulated holdings, equity curve, closed trades, and sector allocation.',
+      canonical: `${SITE_ORIGIN}/paper-trading/public/${publicPaperMatch[1]}`
     };
   }
 

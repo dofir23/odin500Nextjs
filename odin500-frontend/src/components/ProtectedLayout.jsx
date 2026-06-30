@@ -11,6 +11,7 @@ import { AppSidebar } from './AppSidebar.jsx';
 import { AppRightRail } from './AppRightRail.jsx';
 import { WatchlistRailFlyout } from './WatchlistRailFlyout.jsx';
 import { NewsRailFlyout } from './NewsRailFlyout.jsx';
+import { NotificationsRailFlyout } from './NotificationsRailFlyout.jsx';
 import { MarketMoversRailFlyout } from './MarketMoversRailFlyout.jsx';
 import { notifyChartFullscreenLayout } from '../utils/chartFullscreenLayout.js';
 import { RouteNavigationGate } from './RouteNavigationGate.jsx';
@@ -151,6 +152,11 @@ function ProtectedLayoutShell({ children, serverNav = null }) {
             {activePanel === 'market-movers' ? (
               <aside className="app-watchlist-dock is-open" aria-label="Market movers">
                 <MarketMoversRailFlyout open onClose={closeRightDock} docked />
+              </aside>
+            ) : null}
+            {activePanel === 'notifications' ? (
+              <aside className="app-watchlist-dock is-open" aria-label="Notifications">
+                <NotificationsRailFlyout open onClose={closeRightDock} docked />
               </aside>
             ) : null}
           </div>

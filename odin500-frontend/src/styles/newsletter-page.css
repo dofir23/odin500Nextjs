@@ -1,15 +1,53 @@
-/* Odin500 weekly newsletter — public marketing / editorial pages */
+/* Odin500 weekly newsletter — dashboard-style page inside app shell */
 
 .newsletter-page {
   margin: 0 auto;
-  padding: 2rem 1.25rem 4rem;
+  padding: 1.25rem 1.25rem 3rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   color: var(--text, #e2e8f0);
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.newsletter-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.newsletter-page__header-main {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.newsletter-page__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text, #f8fafc);
+}
+
+html[data-theme='light'] .newsletter-page__title {
+  color: #0f172a;
+}
+
+.newsletter-page__lead {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--muted, #94a3b8);
+}
+
+/* Legacy hero (issue article eyebrow still uses __eyebrow) */
 .newsletter-page__hero {
-  margin-bottom: 2.5rem;
-  text-align: center;
+  margin-bottom: 2rem;
+  text-align: left;
 }
 
 .newsletter-page__eyebrow {
@@ -28,21 +66,6 @@
 
 .newsletter-page__eyebrow a:hover {
   text-decoration: underline;
-}
-
-.newsletter-page__title {
-  margin: 0 0 0.75rem;
-  font-size: clamp(1.75rem, 4vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text, #f8fafc);
-}
-
-.newsletter-page__lead {
-  margin: 0 auto;
-  font-size: 1rem;
-  line-height: 1.65;
-  color: var(--muted, #94a3b8);
 }
 
 .newsletter-section-title {
@@ -175,6 +198,52 @@ html[data-theme='light'] .newsletter-card {
   background: var(--panel, rgba(15, 23, 42, 0.35));
 }
 
+.newsletter-subscribe--header {
+  margin-top: 0;
+  flex: 0 0 auto;
+  text-align: right;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .newsletter-page__header {
+    flex-direction: column;
+  }
+
+  .newsletter-subscribe--header {
+    align-items: stretch;
+    width: 100%;
+    text-align: left;
+  }
+
+  .newsletter-subscribe--header .newsletter-subscribe__btn {
+    width: 100%;
+  }
+}
+
+.newsletter-subscribe__text--header {
+  margin: 0;
+  font-size: 0.8rem;
+  max-width: 14rem;
+}
+
+.newsletter-subscribe__status {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted, #94a3b8);
+}
+
+.newsletter-subscribe__status--on {
+  color: #34d399;
+}
+
 html[data-theme='light'] .newsletter-subscribe {
   border-color: rgba(15, 23, 42, 0.08);
   background: #f8fafc;
@@ -189,17 +258,44 @@ html[data-theme='light'] .newsletter-subscribe {
 
 .newsletter-subscribe__btn {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.65rem 1.25rem;
+  border: none;
   border-radius: 8px;
   background: var(--accent, #3b82f6);
   color: #fff;
   font-size: 0.875rem;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.newsletter-subscribe__btn--outline {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: var(--text, #e2e8f0);
+}
+
+.newsletter-subscribe__btn--outline:hover {
+  border-color: rgba(148, 163, 184, 0.7);
+  filter: none;
+}
+
+.newsletter-subscribe__btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .newsletter-subscribe__btn:hover {
   filter: brightness(1.06);
+}
+
+.newsletter-subscribe__err {
+  margin: 0 0 12px;
+  color: #f87171;
+  font-size: 0.875rem;
 }
 
 .newsletter-empty {

@@ -1,7 +1,7 @@
 import '@/styles/newsletter-page.css';
 import Link from 'next/link';
 import type { NewsletterIssue } from '@/lib/newsletter.shared';
-import { formatNewsletterDate } from '@/lib/newsletter.shared';
+import { displayNewsletterDescription, formatNewsletterDate } from '@/lib/newsletter.shared';
 
 type NewsletterIssueContentProps = {
   issue: NewsletterIssue;
@@ -22,7 +22,9 @@ export function NewsletterIssueContent({ issue }: NewsletterIssueContentProps) {
           {issue.meta.author ? <span> · {issue.meta.author}</span> : null}
         </p>
         {issue.meta.description ? (
-          <p className="newsletter-article__dek">{issue.meta.description}</p>
+          <p className="newsletter-article__dek">
+            {displayNewsletterDescription(issue.meta.description)}
+          </p>
         ) : null}
       </header>
 

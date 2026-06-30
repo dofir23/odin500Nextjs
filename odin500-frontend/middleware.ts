@@ -36,7 +36,6 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/statistic',
   '/relative-performance',
   '/accounts',
-  '/paper-trading',
   '/newsletter'
 ];
 

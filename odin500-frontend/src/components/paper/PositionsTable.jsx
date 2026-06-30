@@ -52,7 +52,7 @@ function positionChangePct(p) {
   return (change / cost) * 100;
 }
 
-export function PositionsTable({ positions, loading, onPlaceOrder }) {
+export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = false }) {
   const [orderModal, setOrderModal] = useState(null);
   const [orderBusy, setOrderBusy] = useState(false);
 
@@ -76,7 +76,9 @@ export function PositionsTable({ positions, loading, onPlaceOrder }) {
     return (
       <div className="paper-empty">
         <p>No open positions</p>
-        <p className="paper-empty__hint">Search a symbol and place a buy order to get started.</p>
+        {!readOnly ? (
+          <p className="paper-empty__hint">Search a symbol and place a buy order to get started.</p>
+        ) : null}
       </div>
     );
   }
@@ -99,7 +101,7 @@ export function PositionsTable({ positions, loading, onPlaceOrder }) {
               <th>Chg %</th>
               <th title="Long MV minus short liability">Net market value</th>
               <th>Unrealized P&amp;L</th>
-              <th aria-label="Actions" />
+              {readOnly ? null : <th aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
@@ -149,6 +151,7 @@ export function PositionsTable({ positions, loading, onPlaceOrder }) {
                       {changePct != null ? fmtPctSigned(changePct) : ''}
                     </span>
                   </td>
+                  {readOnly ? null : (
                   <td className="paper-table__actions">
                     {canTrade ? (
                       <div className="paper-pos-actions">
@@ -173,6 +176,7 @@ export function PositionsTable({ positions, loading, onPlaceOrder }) {
                       </div>
                     ) : null}
                   </td>
+                  )}
                 </tr>
               );
             })}

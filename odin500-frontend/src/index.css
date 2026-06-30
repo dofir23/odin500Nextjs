@@ -518,6 +518,34 @@ body {
   color: #ffffff;
 }
 
+.app-right-rail__btn--bell {
+  position: relative;
+}
+
+.app-right-rail__notify-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px var(--colors-opacity-bg-opacity-3, rgba(255, 255, 255, 0.03));
+  pointer-events: none;
+}
+
+html[data-theme='light'] .app-right-rail__notify-dot {
+  box-shadow: 0 0 0 2px #f8fafc;
+}
+
+.app-right-rail__btn--active .app-right-rail__notify-dot {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme='light'] .app-right-rail__btn--active .app-right-rail__notify-dot {
+  box-shadow: 0 0 0 2px #e2e8f0;
+}
+
 a.app-right-rail__btn {
   text-decoration: none;
   color: inherit;
@@ -920,6 +948,98 @@ a.app-right-rail__btn {
 
 .rail-news-flyout__time {
   flex-shrink: 0;
+}
+
+.rail-notifications-flyout__hint {
+  margin: 0 16px 8px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.rail-notifications-flyout__count {
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.rail-notifications-flyout__mark-all {
+  border: none;
+  background: transparent;
+  color: #93c5fd;
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.rail-notifications-flyout__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px 8px;
+}
+
+.rail-notifications-flyout__placeholder {
+  padding: 16px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.rail-notifications-flyout__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rail-notifications-flyout__item {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.rail-notifications-flyout__item--unread {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.rail-notifications-flyout__link {
+  display: block;
+  padding: 12px 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.rail-notifications-flyout__link:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rail-notifications-flyout__title {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.rail-notifications-flyout__body {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.rail-notifications-flyout__time {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
+.rail-notifications-flyout__refresh {
+  margin: 8px 12px 12px;
+  align-self: flex-start;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .wl-flyout__table-wrap {
