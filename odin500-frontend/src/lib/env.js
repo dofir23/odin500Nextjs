@@ -1,7 +1,17 @@
 /** Client-safe env reads — use static process.env.NEXT_PUBLIC_* so Next.js inlines them in the browser bundle. */
 
-export const API_ORIGIN =
-  process.env.NEXT_PUBLIC_API_ORIGIN || 'https://odin500-1-production.up.railway.app';
+import { resolveApiOrigin } from './resolveApiOrigin.js';
+
+/** Resolved at runtime when `window` is available; otherwise uses server/build rules. */
+export function getApiOrigin() {
+  if (typeof window !== 'undefined') {
+    return resolveApiOrigin({ hostname: window.location.hostname });
+  }
+  return resolveApiOrigin();
+}
+
+/** Default origin for modules that read a constant at import time (SSR / build). */
+export const API_ORIGIN = resolveApiOrigin();
 
 export const isDev = process.env.NODE_ENV === 'development';
 

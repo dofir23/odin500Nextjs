@@ -6,7 +6,9 @@
     "start": "node index.js",
     "dev": "nodemon --dns-result-order=ipv4first index.js",
     "encode-google-key": "node scripts/print-google-credentials-b64.js",
-    "fetch:index-weights": "node scripts/fetch-slickcharts-weights.js"
+    "fetch:index-weights": "node scripts/fetch-slickcharts-weights.js",
+    "newsletter:generate": "node scripts/generate-weekly-newsletter.js",
+    "newsletter:migrate-md": "node scripts/migrate-newsletter-md-to-bq.js"
   },
   "keywords": [],
   "author": "",

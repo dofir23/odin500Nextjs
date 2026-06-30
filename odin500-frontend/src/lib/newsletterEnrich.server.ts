@@ -23,16 +23,12 @@ async function enrichIssue(issue: NewsletterIssue, snapshot: Awaited<ReturnType<
   };
 }
 
-/** Markdown issues from repo + live Odin500 return tables. */
-export async function getAllNewslettersEnriched(): Promise<NewsletterIssue[]> {
-  const issues = getAllNewsletters();
-  const snapshot = await fetchNewsletterMarketSnapshot();
-  return Promise.all(issues.map((issue) => enrichIssue(issue, snapshot)));
-}
-
+/** Issues from BigQuery API + live Odin500 return tables (issue pages only). */
 export async function getNewsletterBySlugEnriched(slug: string): Promise<NewsletterIssue | null> {
-  const issue = getNewsletterBySlug(slug);
+  const [issue, snapshot] = await Promise.all([
+    getNewsletterBySlug(slug),
+    fetchNewsletterMarketSnapshot()
+  ]);
   if (!issue) return null;
-  const snapshot = await fetchNewsletterMarketSnapshot();
   return enrichIssue(issue, snapshot);
 }

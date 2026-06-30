@@ -1,9 +1,8 @@
 /** Centralized env reads for Next.js server (route handlers, middleware, RSC). */
 
-export const API_ORIGIN =
-  process.env.API_ORIGIN ||
-  process.env.NEXT_PUBLIC_API_ORIGIN ||
-  'https://odin500-1-production.up.railway.app';
+import { resolveApiOrigin } from './resolveApiOrigin';
+
+export const API_ORIGIN = resolveApiOrigin();
 
 export const isDev = process.env.NODE_ENV === 'development';
 

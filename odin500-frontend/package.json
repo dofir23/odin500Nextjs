@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "gen:routes": "node scripts/gen-next-routes.mjs",
-    "gen:og-image": "node scripts/generate-og-image.mjs",
-    "newsletter:generate": "tsx scripts/generate-weekly-newsletter.ts"
+    "gen:og-image": "node scripts/generate-og-image.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

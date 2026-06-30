@@ -35,10 +35,13 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const paperRoutes = require('./routes/paper');
 const tickerReportRoutes = require('./routes/tickerReportRoutes');
 const splitsRoutes = require('./routes/splitsRoutes');
+const { publicRouter: newsletterPublicRoutes, adminRouter: newsletterAdminRoutes } = require('./routes/newsletterRoutes');
 const { startSnapshotRefresher } = require('./services/snapshotRefresher');
 const { startTickerReturnsPrewarmer, waitForTickerReturnsWarmup } = require('./services/tickerReturnsPrewarmer');
 const { startPaperJobs } = require('./services/paperJobRunner');
 const { startSplitSyncRunner } = require('./services/splitSyncRunner');
+const { startNewsletterJobRunner } = require('./services/newsletterJobRunner');
+const { prewarmNewsletterCache } = require('./services/newsletter/newsletterCache');
 const { getPublicOhlcPreview } = require('./controllers/marketController');
 
 const app = express();
@@ -67,6 +70,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/paper', paperRoutes);
 app.use('/api/reports', tickerReportRoutes);
 app.use('/api/splits', splitsRoutes);
+app.use('/api/public/newsletter', newsletterPublicRoutes);
+app.use('/api/admin/newsletter', newsletterAdminRoutes);
 
 app.get('/api/public/supabase-config', (req, res) => {
     res.json({
@@ -100,6 +105,8 @@ async function bootstrap() {
         startTickerReturnsPrewarmer();
         startPaperJobs();
         startSplitSyncRunner();
+        startNewsletterJobRunner();
+        void prewarmNewsletterCache();
     });
 }
 

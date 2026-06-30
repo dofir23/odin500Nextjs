@@ -1,13 +1,11 @@
 import type { NextConfig } from 'next';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveApiOrigin } from './src/lib/resolveApiOrigin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const API_ORIGIN =
-  process.env.API_ORIGIN ||
-  process.env.NEXT_PUBLIC_API_ORIGIN ||
-  'https://odin500-1-production.up.railway.app';
+const API_ORIGIN = resolveApiOrigin();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

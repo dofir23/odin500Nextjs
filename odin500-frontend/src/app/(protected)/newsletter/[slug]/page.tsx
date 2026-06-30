@@ -11,7 +11,8 @@ import NewsletterIssue from '@/views/NewsletterIssue.jsx';
 export const revalidate = 300;
 
 export async function generateStaticParams() {
-  return getNewsletterSlugs().map((slug) => ({ slug }));
+  const slugs = await getNewsletterSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({
@@ -20,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const issue = getNewsletterBySlug(slug);
+  const issue = await getNewsletterBySlug(slug);
   if (!issue) return { title: 'Newsletter not found' };
 
   const pathname = `/newsletter/${slug}`;

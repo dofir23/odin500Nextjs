@@ -48,12 +48,10 @@ export type NewsletterGenerationContext = {
   topLosers: NewsletterMoverRow[];
 };
 
+import { API_ORIGIN } from '@/lib/env';
+
 function apiBase() {
-  return (
-    process.env.API_ORIGIN ||
-    process.env.NEXT_PUBLIC_API_ORIGIN ||
-    'https://odin500-1-production.up.railway.app'
-  ).replace(/\/$/, '');
+  return API_ORIGIN.replace(/\/$/, '');
 }
 
 async function postJson(path: string, body: Record<string, unknown>) {

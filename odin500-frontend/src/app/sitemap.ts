@@ -10,7 +10,7 @@ export const revalidate = 3600;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const tickers = await resolveSitemapTickers();
   const paths = buildDynamicSitemapPaths(tickers);
-  const issues = getAllNewsletters();
+  const issues = await getAllNewsletters();
 
   for (const issue of issues) {
     paths.push(`/newsletter/${issue.slug}`);

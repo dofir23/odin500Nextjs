@@ -1,7 +1,8 @@
-import { API_ORIGIN, isDev } from '../lib/env.js';
+import { API_ORIGIN, getApiOrigin, isDev } from '../lib/env.js';
+import { LOCAL_API_ORIGIN } from '../lib/resolveApiOrigin.js';
 
 export const PRODUCTION_API_ORIGIN = API_ORIGIN;
-export const LOCAL_DEV_API_ORIGIN = 'http://localhost:5000';
+export const LOCAL_DEV_API_ORIGIN = LOCAL_API_ORIGIN;
 
 export function normalizeApiOrigin(url) {
   return String(url || '').replace(/\/$/, '');
@@ -24,7 +25,7 @@ export function computeDefaultApiOrigin() {
     return '';
   }
 
-  return PRODUCTION_API_ORIGIN;
+  return getApiOrigin();
 }
 
 /** Next.js route handlers that set/read cookies — not proxied. */

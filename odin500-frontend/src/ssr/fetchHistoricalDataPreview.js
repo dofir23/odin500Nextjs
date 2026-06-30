@@ -7,17 +7,10 @@ export function parseHistoricalDataSymbol(pathname) {
   return decodeURIComponent(m[1]).toUpperCase();
 }
 
+import { resolveApiOrigin } from '../lib/resolveApiOrigin.js';
+
 function getApiOriginForSsr() {
-  if (typeof process !== 'undefined' && process.env?.SSR_API_ORIGIN) {
-    return String(process.env.SSR_API_ORIGIN).replace(/\/$/, '');
-  }
-  if (typeof process !== 'undefined' && process.env?.API_ORIGIN) {
-    return String(process.env.API_ORIGIN).replace(/\/$/, '');
-  }
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_ORIGIN) {
-    return String(process.env.NEXT_PUBLIC_API_ORIGIN).replace(/\/$/, '');
-  }
-  return 'https://odin500-1-production.up.railway.app';
+  return resolveApiOrigin();
 }
 
 /**
