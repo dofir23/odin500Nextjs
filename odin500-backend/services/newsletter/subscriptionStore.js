@@ -146,5 +146,6 @@ module.exports = {
   getSubscriptionByUserId,
   listActiveSubscribers,
   subscribeUser,
-  unsubscribeUser
+  unsubscribeUser,
+  deleteSubscriptionByUserId
 };

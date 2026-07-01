@@ -46,6 +46,18 @@ export function useAdminUsers({ page = 1, search = '' } = {}) {
   return { users, total, loading, error, refetch: load };
 }
 
+export function useAdminDeleteUser() {
+  const deleteUser = useCallback(async (userId) => {
+    const id = String(userId || '').trim();
+    const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}`), {
+      method: 'DELETE'
+    });
+    await parseJson(res);
+  }, []);
+
+  return { deleteUser };
+}
+
 export function useAdminUserDetail(userId) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +137,42 @@ export function useAdminUserDetail(userId) {
     [load]
   );
 
+  const deletePortfolio = useCallback(
+    async (accountId) => {
+      const id = String(userId || '').trim();
+      const res = await fetchWithAuth(
+        apiUrl(`/api/admin/users/${encodeURIComponent(id)}/portfolios/${encodeURIComponent(accountId)}`),
+        { method: 'DELETE' }
+      );
+      await parseJson(res);
+      await load();
+    },
+    [userId, load]
+  );
+
+  const deleteWatchlist = useCallback(
+    async (watchlistId) => {
+      const id = String(userId || '').trim();
+      const res = await fetchWithAuth(
+        apiUrl(
+          `/api/admin/users/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(watchlistId)}`
+        ),
+        { method: 'DELETE' }
+      );
+      await parseJson(res);
+      await load();
+    },
+    [userId, load]
+  );
+
+  const deleteUser = useCallback(async () => {
+    const id = String(userId || '').trim();
+    const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}`), {
+      method: 'DELETE'
+    });
+    await parseJson(res);
+  }, [userId]);
+
   return {
     detail,
     loading,
@@ -133,7 +181,10 @@ export function useAdminUserDetail(userId) {
     updatePlan,
     setAdmin,
     unsubscribeNewsletter,
-    unpublishPortfolio
+    unpublishPortfolio,
+    deletePortfolio,
+    deleteWatchlist,
+    deleteUser
   };
 }
 

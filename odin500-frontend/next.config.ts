@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path((?!auth|proxy).*)',
+        source: '/api/:path((?!auth|proxy|social).*)',
         destination: `${API_ORIGIN.replace(/\/$/, '')}/api/:path`
       }
     ];

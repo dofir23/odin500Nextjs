@@ -92,6 +92,44 @@ router.delete('/users/:userId/newsletter', adminMutationLimiter, async (req, res
   }
 });
 
+router.delete('/users/:userId', adminMutationLimiter, async (req, res) => {
+  try {
+    const result = await adminService.adminDeleteUser(req.user.id, req.params.userId);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to delete user' });
+  }
+});
+
+router.delete('/users/:userId/portfolios/:accountId', adminMutationLimiter, async (req, res) => {
+  try {
+    const result = await adminService.adminDeletePortfolio(
+      req.user.id,
+      req.params.userId,
+      req.params.accountId
+    );
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to delete portfolio' });
+  }
+});
+
+router.delete('/users/:userId/watchlists/:watchlistId', adminMutationLimiter, async (req, res) => {
+  try {
+    const result = await adminService.adminDeleteWatchlist(
+      req.user.id,
+      req.params.userId,
+      req.params.watchlistId
+    );
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to delete watchlist' });
+  }
+});
+
 router.get('/content/portfolios', async (req, res) => {
   try {
     const portfolios = await adminService.listPublishedPortfolios();

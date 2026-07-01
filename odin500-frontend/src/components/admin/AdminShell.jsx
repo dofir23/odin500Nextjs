@@ -7,7 +7,8 @@ const NAV = [
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/content/portfolios', label: 'Published portfolios' },
   { to: '/admin/subscribers', label: 'Subscribers' },
-  { to: '/admin/content/newsletters', label: 'Newsletters' }
+  { to: '/admin/content/newsletters', label: 'Newsletters' },
+  { to: '/admin/social', label: 'Social drafts' }
 ];
 
 export function AdminShell({ title, subtitle, children }) {

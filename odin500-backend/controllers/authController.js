@@ -1,19 +1,29 @@
 const supabase = require('../config/supabase');
 const supabaseService = require('../config/supabaseService');
 const { isUserAdmin } = require('../services/admin/adminAuth');
+const { defaultRenewalFromJoinDate } = require('../services/admin/adminPlans');
 
 function extractDisplayName(body) {
     const raw = body?.displayName ?? body?.display_name ?? body?.username ?? body?.['Display Name'];
     return typeof raw === 'string' ? raw.trim() : '';
 }
 
-async function upsertUserProfileById(client, userId, displayName) {
+async function upsertUserProfileById(client, userId, displayName, joinDate = null) {
     if (!displayName) return { profile: null, warning: null };
     try {
         const { data, error } = await client
             .from('user_profiles')
-            .upsert({ id: userId, display_name: displayName }, { onConflict: 'id' })
-            .select('id, display_name')
+            .upsert(
+                {
+                    id: userId,
+                    display_name: displayName,
+                    plan_name: 'Free',
+                    plan_status: 'active',
+                    plan_renewal_at: defaultRenewalFromJoinDate(joinDate)
+                },
+                { onConflict: 'id' }
+            )
+            .select('id, display_name, plan_name, plan_status, plan_renewal_at')
             .single();
         if (error) return { profile: null, warning: error.message };
         return { profile: data || null, warning: null };
@@ -43,7 +53,7 @@ const signUp = async (req, res) => {
         const userId = data?.user?.id;
         if (userId) {
             const fallbackName = String(email || '').split('@')[0] || `user_${String(userId).slice(0, 8)}`;
-            const p = await upsertUserProfileById(supabase, userId, fallbackName);
+            const p = await upsertUserProfileById(supabase, userId, fallbackName, data?.user?.created_at);
             profile = p.profile;
             profileWarning = p.warning;
         }

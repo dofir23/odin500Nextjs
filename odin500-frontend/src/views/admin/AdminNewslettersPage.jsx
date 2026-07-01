@@ -3,6 +3,7 @@
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { AdminGate } from '../../components/admin/AdminGate.jsx';
 import { AdminShell } from '../../components/admin/AdminShell.jsx';
+import { AdminTableSkeleton } from '../../components/admin/AdminSkeletons.jsx';
 import { useAdminNewsletters } from '../../hooks/useAdminUsers.js';
 import '../../styles/admin.css';
 
@@ -21,14 +22,15 @@ function AdminNewslettersContent() {
     <AdminShell title="Newsletters" subtitle="Published weekly newsletter issues.">
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      <section className="admin-card">
-        <div className="admin-table-wrap">
-          {loading ? (
-            <div className="admin-loading">Loading newsletters…</div>
-          ) : !issues.length ? (
-            <div className="admin-empty">No newsletter issues.</div>
-          ) : (
-            <table className="admin-table">
+      {loading ? (
+        <AdminTableSkeleton rows={5} />
+      ) : (
+        <section className="admin-card">
+          <div className="admin-table-wrap">
+            {!issues.length ? (
+              <div className="admin-empty">No newsletter issues.</div>
+            ) : (
+              <table className="admin-table">
               <thead>
                 <tr>
                   <th>Title</th>
@@ -55,6 +57,7 @@ function AdminNewslettersContent() {
           )}
         </div>
       </section>
+      )}
     </AdminShell>
   );
 }

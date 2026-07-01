@@ -3,6 +3,7 @@
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { AdminGate } from '../../components/admin/AdminGate.jsx';
 import { AdminShell } from '../../components/admin/AdminShell.jsx';
+import { AdminTableSkeleton } from '../../components/admin/AdminSkeletons.jsx';
 import { useAdminSubscribers } from '../../hooks/useAdminUsers.js';
 import '../../styles/admin.css';
 
@@ -30,14 +31,15 @@ function AdminSubscribersContent() {
     <AdminShell title="Subscribers" subtitle="Newsletter subscription records from BigQuery.">
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      <section className="admin-card">
-        <div className="admin-table-wrap">
-          {loading ? (
-            <div className="admin-loading">Loading subscribers…</div>
-          ) : !subscribers.length ? (
-            <div className="admin-empty">No subscription records.</div>
-          ) : (
-            <table className="admin-table">
+      {loading ? (
+        <AdminTableSkeleton rows={6} />
+      ) : (
+        <section className="admin-card">
+          <div className="admin-table-wrap">
+            {!subscribers.length ? (
+              <div className="admin-empty">No subscription records.</div>
+            ) : (
+              <table className="admin-table">
               <thead>
                 <tr>
                   <th>Email</th>
@@ -77,6 +79,7 @@ function AdminSubscribersContent() {
           )}
         </div>
       </section>
+      )}
     </AdminShell>
   );
 }

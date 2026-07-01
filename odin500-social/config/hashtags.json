@@ -1,0 +1,5 @@
+{
+  "default": ["#stocks", "#trading", "#marketdata", "#Odin500"],
+  "signal": ["#stocks", "#trading", "#technicalanalysis"],
+  "newsletter": ["#investing", "#stockmarket", "#weeklyrecap"]
+}

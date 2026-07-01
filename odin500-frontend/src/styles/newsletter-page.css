@@ -112,7 +112,7 @@ html[data-theme='light'] .newsletter-featured__card {
   padding: 1.15rem 1.25rem;
   border-radius: 12px;
   border: 1px solid var(--colors-opacity-bg-opacity-6, rgba(255, 255, 255, 0.08));
-  background: var(--panel, rgba(15, 23, 42, 0.5));
+  /* background: var(--panel, rgba(15, 23, 42, 0.5)); */
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -439,4 +439,138 @@ html[data-theme='light'] .newsletter-article__body th {
 
 .newsletter-article__footer p {
   margin: 0 0 1rem;
+}
+
+/* —— Loading skeletons —— */
+@keyframes newsletter-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.newsletter-skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(51, 65, 85, 0.28) 25%,
+    rgba(71, 85, 105, 0.42) 50%,
+    rgba(51, 65, 85, 0.28) 75%
+  );
+  background-size: 200% 100%;
+  animation: newsletter-shimmer 1.2s ease-in-out infinite;
+}
+
+html[data-theme='light'] .newsletter-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.9) 25%,
+    rgba(241, 245, 249, 1) 50%,
+    rgba(226, 232, 240, 0.9) 75%
+  );
+  background-size: 200% 100%;
+}
+
+.newsletter-skeleton-page {
+  pointer-events: none;
+}
+
+.newsletter-skeleton--title {
+  width: min(12rem, 50%);
+  height: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.newsletter-skeleton--lead {
+  width: 100%;
+  height: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+
+.newsletter-skeleton--subscribe {
+  width: min(16rem, 100%);
+  height: 5.5rem;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.newsletter-skeleton--section-title {
+  width: 8rem;
+  height: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.newsletter-featured__card--skeleton,
+.newsletter-card--skeleton {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.newsletter-skeleton--meta {
+  width: 6rem;
+  height: 0.75rem;
+}
+
+.newsletter-skeleton--featured-title {
+  width: min(28rem, 95%);
+  height: 1.35rem;
+}
+
+.newsletter-skeleton--card-title {
+  width: min(20rem, 90%);
+  height: 1.1rem;
+}
+
+.newsletter-skeleton--desc {
+  width: 100%;
+  height: 0.85rem;
+}
+
+.newsletter-skeleton--cta {
+  width: 7rem;
+  height: 1rem;
+  margin-top: 0.25rem;
+}
+
+.newsletter-skeleton--eyebrow {
+  width: 8rem;
+  height: 0.8rem;
+  margin-bottom: 0.65rem;
+}
+
+.newsletter-skeleton--article-title {
+  width: min(32rem, 100%);
+  height: 2rem;
+  margin-bottom: 0.65rem;
+}
+
+.newsletter-skeleton--dek {
+  width: 100%;
+  height: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.newsletter-article__body--skeleton {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1.5rem;
+}
+
+.newsletter-skeleton--paragraph {
+  height: 0.85rem;
+}
+
+.newsletter-skeleton--subhead {
+  width: 40%;
+  height: 1.1rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.newsletter-skeleton--footer-line {
+  width: min(28rem, 100%);
+  height: 0.9rem;
+  margin-bottom: 1rem;
 }

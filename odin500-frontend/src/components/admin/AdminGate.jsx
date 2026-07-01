@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { AdminGateSkeleton } from './AdminSkeletons.jsx';
 import { useAdmin } from '../../hooks/useAdmin.js';
 
 export function AdminGate({ children }) {
@@ -15,11 +16,7 @@ export function AdminGate({ children }) {
   }, [loading, isAdmin, navigate]);
 
   if (loading) {
-    return (
-      <div className="admin-page odin-content-page" aria-busy="true">
-        <div className="admin-loading">Checking admin access…</div>
-      </div>
-    );
+    return <AdminGateSkeleton />;
   }
 
   if (!isAdmin) {

@@ -15,6 +15,15 @@ const {
 } = require('../paper/pnlCalculator');
 const { logAdminAction } = require('./adminAudit');
 const { countAdmins } = require('./adminAuth');
+const {
+  PLAN_NAMES,
+  PLAN_STATUSES,
+  defaultRenewalFromJoinDate,
+  normalizePlanName,
+  normalizePlanStatus
+} = require('./adminPlans');
+const { deleteAccountForUser } = require('../paper/orderEngine');
+const { deleteSubscriptionByUserId } = require('../newsletter/subscriptionStore');
 
 function rowTimestamp(v) {
   if (!v) return null;
@@ -153,7 +162,6 @@ async function getAuthUserStats({ recentDays = 7 } = {}) {
     if (error) throw error;
     const users = data?.users || [];
     totalUsers += users.length;
-    console.log('users', users.length);
     recentSignups += users.filter((u) => u.created_at && u.created_at >= since).length;
     if (users.length < perPage) break;
     page += 1;
@@ -212,7 +220,7 @@ function mapUserRow(authUser, profile, aggregates, subscription) {
     email_confirmed_at: authUser.email_confirmed_at,
     plan_name: profile?.plan_name || 'Free',
     plan_status: profile?.plan_status || 'active',
-    plan_renewal_at: profile?.plan_renewal_at || null,
+    plan_renewal_at: profile?.plan_renewal_at || defaultRenewalFromJoinDate(authUser.created_at),
     paper_account_count: agg.paper_account_count,
     published_portfolio_count: agg.published_portfolio_count,
     watchlist_count: agg.watchlist_count,
@@ -345,11 +353,20 @@ async function getUserDetail(userId) {
 }
 
 async function updateUserPlan(adminId, userId, patch) {
+  const authUser = await getAuthUser(userId);
+  if (!authUser) {
+    const err = new Error('User not found');
+    err.status = 404;
+    throw err;
+  }
+
   const updates = {};
-  if (patch.plan_name !== undefined) updates.plan_name = String(patch.plan_name || '').trim() || 'Free';
-  if (patch.plan_status !== undefined) updates.plan_status = String(patch.plan_status || '').trim() || 'active';
+  if (patch.plan_name !== undefined) updates.plan_name = normalizePlanName(patch.plan_name);
+  if (patch.plan_status !== undefined) updates.plan_status = normalizePlanStatus(patch.plan_status);
   if (patch.plan_renewal_at !== undefined) {
-    updates.plan_renewal_at = patch.plan_renewal_at ? new Date(patch.plan_renewal_at).toISOString() : null;
+    updates.plan_renewal_at = patch.plan_renewal_at
+      ? new Date(patch.plan_renewal_at).toISOString()
+      : defaultRenewalFromJoinDate(authUser.created_at);
   }
 
   const { data, error } = await supabaseService
@@ -400,6 +417,152 @@ async function setUserAdmin(adminId, userId, isAdmin) {
   });
 
   return data;
+}
+
+async function adminDeletePortfolio(adminId, userId, accountId) {
+  const result = await deleteAccountForUser(String(userId), String(accountId));
+  await logAdminAction({
+    adminId,
+    action: 'delete_portfolio',
+    targetUserId: userId,
+    targetAccountId: accountId,
+    metadata: { name: result.name }
+  });
+  return result;
+}
+
+async function adminDeleteWatchlist(adminId, userId, watchlistId) {
+  const wlId = String(watchlistId || '').trim();
+  const uid = String(userId || '').trim();
+
+  const { data: existing, error: findErr } = await supabaseService
+    .from('watchlists')
+    .select('id, name')
+    .eq('id', wlId)
+    .eq('user_id', uid)
+    .maybeSingle();
+
+  if (findErr) throw findErr;
+  if (!existing) {
+    const err = new Error('Watchlist not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const { error: delItemsErr } = await supabaseService
+    .from('watchlist_items')
+    .delete()
+    .eq('watchlist_id', wlId);
+  if (delItemsErr) throw delItemsErr;
+
+  const { error: delWlErr } = await supabaseService
+    .from('watchlists')
+    .delete()
+    .eq('id', wlId)
+    .eq('user_id', uid);
+  if (delWlErr) throw delWlErr;
+
+  await logAdminAction({
+    adminId,
+    action: 'delete_watchlist',
+    targetUserId: uid,
+    metadata: { watchlist_id: wlId, name: existing.name }
+  });
+
+  return { id: wlId, name: existing.name };
+}
+
+async function deleteRowsQuietly(table, column, value) {
+  const { error } = await supabaseService.from(table).delete().eq(column, value);
+  if (error && !/relation|does not exist|schema cache/i.test(String(error.message || ''))) {
+    console.warn(`[admin] delete ${table}:`, error.message);
+  }
+}
+
+async function purgeUserData(targetId) {
+  const uid = String(targetId);
+
+  await deleteRowsQuietly('paper_strategies', 'user_id', uid);
+
+  const { data: accounts } = await supabaseService.from('paper_accounts').select('id').eq('user_id', uid);
+  for (const account of accounts || []) {
+    await deleteAccountForUser(uid, account.id);
+  }
+
+  const { data: leftoverAccounts } = await supabaseService
+    .from('paper_accounts')
+    .select('id')
+    .eq('user_id', uid);
+  for (const account of leftoverAccounts || []) {
+    await deleteAccountForUser(uid, account.id);
+  }
+
+  const { data: watchlists } = await supabaseService.from('watchlists').select('id').eq('user_id', uid);
+  for (const watchlist of watchlists || []) {
+    await supabaseService.from('watchlist_items').delete().eq('watchlist_id', watchlist.id);
+  }
+  if ((watchlists || []).length) {
+    await supabaseService.from('watchlists').delete().eq('user_id', uid);
+  }
+
+  try {
+    await deleteSubscriptionByUserId(uid);
+  } catch (err) {
+    console.warn('[admin] newsletter subscription delete:', err?.message || err);
+  }
+
+  await deleteRowsQuietly('audit_logs', 'user_id', uid);
+  await deleteRowsQuietly('admin_audit_log', 'target_user_id', uid);
+
+  const { error: profileDeleteError } = await supabaseService.from('user_profiles').delete().eq('id', uid);
+  if (profileDeleteError) throw profileDeleteError;
+}
+
+async function adminDeleteUser(adminId, userId) {
+  const targetId = String(userId || '').trim();
+  const actingId = String(adminId || '').trim();
+
+  if (targetId === actingId) {
+    const err = new Error('Cannot delete your own account');
+    err.status = 400;
+    throw err;
+  }
+
+  const authUser = await getAuthUser(targetId);
+  if (!authUser) {
+    const err = new Error('User not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const profiles = await fetchProfilesByIds([targetId]);
+  const profile = profiles.get(targetId);
+  if (profile?.is_admin) {
+    const adminCount = await countAdmins();
+    if (adminCount <= 1) {
+      const err = new Error('Cannot delete the only admin');
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  await purgeUserData(targetId);
+
+  const { error } = await supabaseService.auth.admin.deleteUser(targetId);
+  if (error) {
+    const err = new Error(error.message || 'Failed to delete auth user');
+    err.status = 500;
+    throw err;
+  }
+
+  await logAdminAction({
+    adminId: actingId,
+    action: 'delete_user',
+    targetUserId: targetId,
+    metadata: { email: authUser.email || '' }
+  });
+
+  return { id: targetId };
 }
 
 async function listPublishedPortfolios() {
@@ -534,9 +697,14 @@ module.exports = {
   getUserDetail,
   updateUserPlan,
   setUserAdmin,
+  adminDeleteUser,
+  adminDeletePortfolio,
+  adminDeleteWatchlist,
   listPublishedPortfolios,
   adminUnpublishPortfolio,
   adminUnsubscribeNewsletter,
   listNewsletterIssuesAdmin,
-  listAllSubscribersAdmin
+  listAllSubscribersAdmin,
+  PLAN_NAMES,
+  PLAN_STATUSES
 };

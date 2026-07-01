@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { AdminGate } from '../../components/admin/AdminGate.jsx';
 import { AdminShell } from '../../components/admin/AdminShell.jsx';
+import { AdminTableSkeleton } from '../../components/admin/AdminSkeletons.jsx';
 import { useAdminPortfolios } from '../../hooks/useAdminUsers.js';
 import '../../styles/admin.css';
 
@@ -48,14 +49,15 @@ function AdminPortfoliosContent() {
     <AdminShell title="Published portfolios" subtitle="All public paper portfolios across users.">
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      <section className="admin-card">
-        <div className="admin-table-wrap">
-          {loading ? (
-            <div className="admin-loading">Loading portfolios…</div>
-          ) : !portfolios.length ? (
-            <div className="admin-empty">No published portfolios.</div>
-          ) : (
-            <table className="admin-table">
+      {loading ? (
+        <AdminTableSkeleton rows={5} />
+      ) : (
+        <section className="admin-card">
+          <div className="admin-table-wrap">
+            {!portfolios.length ? (
+              <div className="admin-empty">No published portfolios.</div>
+            ) : (
+              <table className="admin-table">
               <thead>
                 <tr>
                   <th>Portfolio</th>
@@ -84,7 +86,7 @@ function AdminPortfoliosContent() {
                     <td>
                       <button
                         type="button"
-                        className="paper-btn paper-btn--ghost admin-btn-danger"
+                        className="paper-btn paper-btn--danger"
                         disabled={busyId === p.id}
                         onClick={() => void handleUnpublish(p.id)}
                       >
@@ -98,6 +100,7 @@ function AdminPortfoliosContent() {
           )}
         </div>
       </section>
+      )}
     </AdminShell>
   );
 }

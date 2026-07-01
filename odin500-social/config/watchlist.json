@@ -1,0 +1,8 @@
+{
+  "indices": ["SPY", "QQQ", "DIA"],
+  "rotation": [
+    "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA",
+    "JPM", "XOM", "UNH", "AVGO", "AMD", "NFLX", "COST",
+    "SPY", "QQQ", "XLK", "XLF", "XLE"
+  ]
+}

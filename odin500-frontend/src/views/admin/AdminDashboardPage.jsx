@@ -3,6 +3,7 @@
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { AdminGate } from '../../components/admin/AdminGate.jsx';
 import { AdminShell } from '../../components/admin/AdminShell.jsx';
+import { AdminDashboardSkeleton } from '../../components/admin/AdminSkeletons.jsx';
 import { useAdminOverview } from '../../hooks/useAdmin.js';
 import '../../styles/admin.css';
 
@@ -24,11 +25,11 @@ function AdminDashboardContent() {
     >
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      <section className="admin-stats" aria-label="Site metrics">
-        {loading ? (
-          <div className="admin-loading">Loading metrics…</div>
-        ) : (
-          <>
+      {loading ? (
+        <AdminDashboardSkeleton />
+      ) : (
+        <>
+          <section className="admin-stats" aria-label="Site metrics">
             <article className="admin-stat">
               <span className="admin-stat__label">Total users</span>
               <strong className="admin-stat__value">{overview?.total_users ?? '—'}</strong>
@@ -51,30 +52,30 @@ function AdminDashboardContent() {
               <span className="admin-stat__label">Newsletter issues</span>
               <strong className="admin-stat__value">{overview?.newsletter_issues ?? '—'}</strong>
             </article>
-          </>
-        )}
-      </section>
+          </section>
 
-      <section className="admin-card">
-        <div className="admin-card__head">
-          <h2 className="admin-card__title">Quick links</h2>
-        </div>
-        <div className="admin-card__body" style={{ padding: '1rem' }}>
-          <p style={{ margin: 0 }}>
-            <Link to="/admin/users" className="admin-link">
-              Manage users
-            </Link>
-            {' · '}
-            <Link to="/admin/content/portfolios" className="admin-link">
-              Published portfolios
-            </Link>
-            {' · '}
-            <Link to="/admin/subscribers" className="admin-link">
-              Subscribers
-            </Link>
-          </p>
-        </div>
-      </section>
+          <section className="admin-card">
+            <div className="admin-card__head">
+              <h2 className="admin-card__title">Quick links</h2>
+            </div>
+            <div className="admin-card__body" style={{ padding: '1rem' }}>
+              <p style={{ margin: 0 }}>
+                <Link to="/admin/users" className="admin-link">
+                  Manage users
+                </Link>
+                {' · '}
+                <Link to="/admin/content/portfolios" className="admin-link">
+                  Published portfolios
+                </Link>
+                {' · '}
+                <Link to="/admin/subscribers" className="admin-link">
+                  Subscribers
+                </Link>
+              </p>
+            </div>
+          </section>
+        </>
+      )}
     </AdminShell>
   );
 }

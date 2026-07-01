@@ -1,0 +1,24 @@
+{
+  "name": "odin500-social",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Odin500 social post generator — charts, copy, queue (Railway worker)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "job:daily": "node scripts/run-job.js daily-pulse",
+    "job:ticker": "node scripts/run-job.js ticker-spotlight",
+    "job:newsletter": "node scripts/run-job.js weekly-newsletter"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
+    "sharp": "^0.33.5"
+  }
+}

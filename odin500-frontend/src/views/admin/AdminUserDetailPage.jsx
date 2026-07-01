@@ -1,9 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Link, useParams } from '@/navigation/appRouterCompat.jsx';
+import { Link, useNavigate, useParams } from '@/navigation/appRouterCompat.jsx';
+import { AdminConfirmModal } from '../../components/admin/AdminConfirmModal.jsx';
 import { AdminGate } from '../../components/admin/AdminGate.jsx';
 import { AdminShell } from '../../components/admin/AdminShell.jsx';
+import { AdminUserDetailSkeleton } from '../../components/admin/AdminSkeletons.jsx';
+import {
+  ADMIN_PLAN_NAMES,
+  ADMIN_PLAN_STATUSES,
+  defaultRenewalFromJoinDate,
+  renewalDateInputValue
+} from '../../constants/adminPlanOptions.js';
 import { useAdminUserDetail } from '../../hooks/useAdminUsers.js';
 import '../../styles/admin.css';
 
@@ -36,14 +44,18 @@ export default function AdminUserDetailPage() {
 }
 
 function AdminUserDetailContent() {
+  const navigate = useNavigate();
   const params = useParams();
   const userId = String(params?.userId || '');
   const [tab, setTab] = useState('profile');
-  const [planName, setPlanName] = useState('');
-  const [planStatus, setPlanStatus] = useState('');
+  const [planName, setPlanName] = useState('Free');
+  const [planStatus, setPlanStatus] = useState('active');
   const [planRenewal, setPlanRenewal] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [confirm, setConfirm] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const {
     detail,
@@ -52,7 +64,10 @@ function AdminUserDetailContent() {
     updatePlan,
     setAdmin,
     unsubscribeNewsletter,
-    unpublishPortfolio
+    unpublishPortfolio,
+    deletePortfolio,
+    deleteWatchlist,
+    deleteUser
   } = useAdminUserDetail(userId);
 
   const user = detail?.user;
@@ -61,20 +76,49 @@ function AdminUserDetailContent() {
     if (!user) return;
     setPlanName(user.plan_name || 'Free');
     setPlanStatus(user.plan_status || 'active');
-    setPlanRenewal(user.plan_renewal_at ? String(user.plan_renewal_at).slice(0, 10) : '');
+    setPlanRenewal(
+      renewalDateInputValue(user.plan_renewal_at) || defaultRenewalFromJoinDate(user.created_at)
+    );
   }, [user]);
 
-  async function runAction(fn) {
+  function closeConfirm() {
+    if (confirmBusy) return;
+    setConfirm(null);
+    setConfirmError('');
+  }
+
+  async function runAction(fn, { successMessage = 'Saved.' } = {}) {
     setBusy(true);
     setMsg('');
     try {
       await fn();
-      setMsg('Saved.');
+      setMsg(successMessage);
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Action failed');
     } finally {
       setBusy(false);
     }
+  }
+
+  function openConfirm({ title, message, confirmLabel = 'Confirm', onConfirm }) {
+    setConfirmError('');
+    setConfirm({
+      title,
+      message,
+      confirmLabel,
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        setConfirmError('');
+        try {
+          await onConfirm();
+          setConfirm(null);
+        } catch (err) {
+          setConfirmError(err instanceof Error ? err.message : 'Action failed');
+        } finally {
+          setConfirmBusy(false);
+        }
+      }
+    });
   }
 
   return (
@@ -92,7 +136,7 @@ function AdminUserDetailContent() {
       {msg ? <div className="paper-alert">{msg}</div> : null}
 
       {loading ? (
-        <div className="admin-loading">Loading user…</div>
+        <AdminUserDetailSkeleton />
       ) : !user ? (
         <div className="admin-empty">User not found.</div>
       ) : (
@@ -147,8 +191,8 @@ function AdminUserDetailContent() {
                 {user.is_admin ? (
                   <button
                     type="button"
-                    className="paper-btn paper-btn--ghost admin-btn-danger"
-                    disabled={busy}
+                    className="paper-btn paper-btn--danger"
+                    disabled={busy || confirmBusy}
                     onClick={() => void runAction(() => setAdmin(false))}
                   >
                     Remove admin
@@ -157,18 +201,46 @@ function AdminUserDetailContent() {
                   <button
                     type="button"
                     className="paper-btn paper-btn--ghost"
-                    disabled={busy}
+                    disabled={busy || confirmBusy}
                     onClick={() => void runAction(() => setAdmin(true))}
                   >
                     Make admin
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="paper-btn paper-btn--danger"
+                  disabled={busy || confirmBusy}
+                  onClick={() =>
+                    openConfirm({
+                      title: 'Delete user',
+                      confirmLabel: 'Delete',
+                      message: (
+                        <>
+                          Permanently delete <strong>{user.email || user.display_name}</strong>? This
+                          removes their portfolios, watchlists, plan data, and account. This cannot be
+                          undone.
+                        </>
+                      ),
+                      onConfirm: async () => {
+                        await deleteUser();
+                        navigate('/admin/users');
+                      }
+                    })
+                  }
+                >
+                  Delete user
+                </button>
               </div>
             </section>
           ) : null}
 
           {tab === 'plan' ? (
             <section className="admin-card">
+              <p className="admin-card__hint">
+                New signups default to <strong>Free</strong> with status <strong>active</strong>. Renewal
+                defaults to one month after join date.
+              </p>
               <form
                 className="admin-form"
                 onSubmit={(e) => {
@@ -177,28 +249,40 @@ function AdminUserDetailContent() {
                     updatePlan({
                       plan_name: planName,
                       plan_status: planStatus,
-                      plan_renewal_at: planRenewal || null
+                      plan_renewal_at: planRenewal || defaultRenewalFromJoinDate(user.created_at)
                     })
                   );
                 }}
               >
                 <div className="admin-field">
                   <label htmlFor="planName">Plan name</label>
-                  <input
+                  <select
                     id="planName"
-                    className="admin-input"
+                    className="admin-input admin-select"
                     value={planName}
                     onChange={(e) => setPlanName(e.target.value)}
-                  />
+                  >
+                    {ADMIN_PLAN_NAMES.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="planStatus">Plan status</label>
-                  <input
+                  <select
                     id="planStatus"
-                    className="admin-input"
+                    className="admin-input admin-select"
                     value={planStatus}
                     onChange={(e) => setPlanStatus(e.target.value)}
-                  />
+                  >
+                    {ADMIN_PLAN_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="planRenewal">Renewal date</label>
@@ -210,7 +294,7 @@ function AdminUserDetailContent() {
                     onChange={(e) => setPlanRenewal(e.target.value)}
                   />
                 </div>
-                <button type="submit" className="paper-btn paper-btn--primary" disabled={busy}>
+                <button type="submit" className="paper-btn paper-btn--primary" disabled={busy || confirmBusy}>
                   Save plan
                 </button>
               </form>
@@ -247,16 +331,41 @@ function AdminUserDetailContent() {
                             )}
                           </td>
                           <td>
-                            {a.is_published ? (
+                            <div className="admin-row-actions">
+                              {a.is_published ? (
+                                <button
+                                  type="button"
+                                  className="paper-btn paper-btn--ghost"
+                                  disabled={busy || confirmBusy}
+                                  onClick={() => void runAction(() => unpublishPortfolio(a.id))}
+                                >
+                                  Unpublish
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
-                                className="paper-btn paper-btn--ghost admin-btn-danger"
-                                disabled={busy}
-                                onClick={() => void runAction(() => unpublishPortfolio(a.id))}
+                                className="paper-btn paper-btn--danger"
+                                disabled={busy || confirmBusy}
+                                onClick={() =>
+                                  openConfirm({
+                                    title: 'Delete portfolio',
+                                    confirmLabel: 'Delete',
+                                    message: (
+                                      <>
+                                        Permanently delete <strong>{a.name}</strong>? All positions,
+                                        orders, fills, and history for this account will be removed.
+                                      </>
+                                    ),
+                                    onConfirm: async () => {
+                                      await deletePortfolio(a.id);
+                                      setMsg('Portfolio deleted.');
+                                    }
+                                  })
+                                }
                               >
-                                Unpublish
+                                Delete
                               </button>
-                            ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -291,9 +400,24 @@ function AdminUserDetailContent() {
                 <div className="admin-actions">
                   <button
                     type="button"
-                    className="paper-btn paper-btn--ghost admin-btn-danger"
-                    disabled={busy}
-                    onClick={() => void runAction(unsubscribeNewsletter)}
+                    className="paper-btn paper-btn--danger"
+                    disabled={busy || confirmBusy}
+                    onClick={() =>
+                      openConfirm({
+                        title: 'Unsubscribe from newsletter',
+                        confirmLabel: 'Unsubscribe',
+                        message: (
+                          <>
+                            Force <strong>{user.email}</strong> off the newsletter? They will stop
+                            receiving email and in-app newsletter updates.
+                          </>
+                        ),
+                        onConfirm: async () => {
+                          await unsubscribeNewsletter();
+                          setMsg('User unsubscribed.');
+                        }
+                      })
+                    }
                   >
                     Force unsubscribe
                   </button>
@@ -314,6 +438,7 @@ function AdminUserDetailContent() {
                         <th>Name</th>
                         <th>Items</th>
                         <th>Created</th>
+                        <th />
                       </tr>
                     </thead>
                     <tbody>
@@ -322,6 +447,30 @@ function AdminUserDetailContent() {
                           <td>{w.name}</td>
                           <td>{w.item_count}</td>
                           <td>{fmtDate(w.created_at)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="paper-btn paper-btn--danger"
+                              disabled={busy || confirmBusy}
+                              onClick={() =>
+                                openConfirm({
+                                  title: 'Delete watchlist',
+                                  confirmLabel: 'Delete',
+                                  message: (
+                                    <>
+                                      Delete watchlist <strong>{w.name}</strong> and all of its tickers?
+                                    </>
+                                  ),
+                                  onConfirm: async () => {
+                                    await deleteWatchlist(w.id);
+                                    setMsg('Watchlist deleted.');
+                                  }
+                                })
+                              }
+                            >
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -332,6 +481,17 @@ function AdminUserDetailContent() {
           ) : null}
         </>
       )}
+
+      <AdminConfirmModal
+        open={Boolean(confirm)}
+        title={confirm?.title || ''}
+        message={confirm?.message}
+        confirmLabel={confirm?.confirmLabel || 'Confirm'}
+        busy={confirmBusy}
+        error={confirmError}
+        onClose={closeConfirm}
+        onConfirm={confirm?.onConfirm || (() => {})}
+      />
     </AdminShell>
   );
 }
