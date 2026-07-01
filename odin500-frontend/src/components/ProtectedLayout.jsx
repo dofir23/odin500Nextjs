@@ -15,6 +15,7 @@ import { NotificationsRailFlyout } from './NotificationsRailFlyout.jsx';
 import { MarketMoversRailFlyout } from './MarketMoversRailFlyout.jsx';
 import { notifyChartFullscreenLayout } from '../utils/chartFullscreenLayout.js';
 import { RouteNavigationGate } from './RouteNavigationGate.jsx';
+import { RouteErrorBoundary } from './RouteErrorBoundary.jsx';
 
 function ProtectedLayoutShell({ children, serverNav = null }) {
   const location = useLocation();
@@ -127,7 +128,9 @@ function ProtectedLayoutShell({ children, serverNav = null }) {
             <div className="app-main-scroll" ref={mainScrollRef}>
               <main id="app-main-content">
                 <RouteNavigationGate>
-                  {children}
+                  <RouteErrorBoundary resetKey={location.pathname}>
+                    {children}
+                  </RouteErrorBoundary>
                 </RouteNavigationGate>
               </main>
             </div>

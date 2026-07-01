@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from '@/navigation/appRouterCompat.
 import { Odin500BrandLink } from './Odin500BrandLink.jsx';
 import { useGeneralNewsFeed } from '../hooks/useGeneralNewsFeed.js';
 import { useHeaderProfile } from '../hooks/useHeaderProfile.js';
-import { prefetchRouteChunks } from '../utils/routePrefetch.js';
+import { useRouteWarm } from '../hooks/useRouteWarm.js';
 import {
   DEFAULT_INDEX_ROUTE_SLUG,
   DEFAULT_TICKER_ROUTE_SYMBOL,
@@ -88,6 +88,7 @@ function IconHelpCircle() {
 export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = null }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const warmRoute = useRouteWarm();
   const [profileOpen, setProfileOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const { loggedIn, profileName, initials, avatarUrl, handleSignOut, goToSignIn } =
@@ -135,8 +136,8 @@ export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = nul
               theme={theme}
               className="app-header-wordmark-link"
               imgClassName="app-header-logo-img"
-              onMouseEnter={() => prefetchRouteChunks('/market')}
-              onFocus={() => prefetchRouteChunks('/market')}
+              onMouseEnter={() => warmRoute('/market')}
+              onFocus={() => warmRoute('/market')}
             />
           </div>
 
@@ -148,7 +149,7 @@ export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = nul
                   : item.activePrefix === '/indices'
                     ? isMainIndicesRoutePath(location.pathname)
                     : null;
-              const warm = () => prefetchRouteChunks(item.to);
+              const warm = () => warmRoute(item.to);
               return (
                 <NavLink
                   key={item.to + item.label}
@@ -319,8 +320,8 @@ export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = nul
             theme={theme}
             className="app-header-wordmark-link"
             imgClassName="brand-logo"
-            onMouseEnter={() => prefetchRouteChunks('/market')}
-            onFocus={() => prefetchRouteChunks('/market')}
+            onMouseEnter={() => warmRoute('/market')}
+            onFocus={() => warmRoute('/market')}
           />
         </div>
 
@@ -332,7 +333,7 @@ export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = nul
                 : item.activePrefix === '/indices'
                   ? isMainIndicesRoutePath(location.pathname)
                   : null;
-            const warm = () => prefetchRouteChunks(item.to);
+            const warm = () => warmRoute(item.to);
             return (
               <NavLink
                 key={item.to + item.label}

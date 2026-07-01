@@ -1,14 +1,16 @@
 /**
- * Warm lazy route chunks on hover/focus (matches `main.jsx` dynamic imports).
+ * Warm lazy route chunks on hover/focus.
  * Idempotent; failed loads clear the key so a later hover can retry.
  */
+
+import { lazyWithRetry } from './lazyWithRetry.js';
 
 const prefetched = new Set();
 
 function markAndRun(key, loader) {
   if (prefetched.has(key)) return;
   prefetched.add(key);
-  void loader().catch(() => {
+  void lazyWithRetry(loader).catch(() => {
     prefetched.delete(key);
   });
 }
@@ -39,9 +41,15 @@ export function prefetchRouteChunks(to) {
 
   if (p === '/indices' || p.startsWith('/indices/')) return markAndRun('indices', () => import('../views/IndexPage.jsx'));
 
-  if (p.startsWith('/market')) return markAndRun('market', () => import('../App.jsx'));
+  // market-movers before /market — `startsWith('/market')` would wrongly match movers.
+  if (p.startsWith('/market-movers')) {
+    return markAndRun('market-movers', () => import('../views/MarketMoversPage.jsx'));
+  }
+  // /market page bundles App via Next.js; warm the heavy shell only (not App.jsx twice).
+  if (p === '/market') {
+    return markAndRun('market-shell', () => import('../components/MarketPageFigmaShell.jsx'));
+  }
   if (p.startsWith('/heatmap')) return markAndRun('heatmap', () => import('../views/MarketHeatmapPage.jsx'));
-  if (p.startsWith('/market-movers')) return markAndRun('market-movers', () => import('../views/MarketMoversPage.jsx'));
   if (p.startsWith('/news') && !p.startsWith('/newsletter')) {
     return markAndRun('news', () => import('../views/NewsPage.jsx'));
   }

@@ -1,13 +1,10 @@
-const { createClient } = require('@supabase/supabase-js');
-const fetch = require('node-fetch');
 require('dotenv').config();
+
+const { createSupabaseClient } = require('../config/supabaseClient');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false },
-    global: { fetch }
-});
+const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
 
 const isAuthDisabled = () =>
     process.env.AUTH_DISABLED === 'true' || process.env.AUTH_DISABLED === '1';
@@ -31,10 +28,8 @@ async function authenticateRequest(req) {
 
     req.user = user;
     req.token = token;
-    req.supabase = createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false },
+    req.supabase = createSupabaseClient(supabaseUrl, supabaseKey, {
         global: {
-            fetch,
             headers: { Authorization: `Bearer ${token}` }
         }
     });

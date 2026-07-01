@@ -1,8 +1,6 @@
 'use client';
 import { Component } from 'react';
-
-const CHUNK_RE =
-  /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk \d+ failed/i;
+import { isChunkLoadError } from '../utils/lazyWithRetry.js';
 
 export class RouteErrorBoundary extends Component {
   state = { error: null };
@@ -12,8 +10,7 @@ export class RouteErrorBoundary extends Component {
   }
 
   componentDidCatch(error) {
-    const message = String(error?.message || error || '');
-    if (!CHUNK_RE.test(message) || typeof window === 'undefined') return;
+    if (!isChunkLoadError(error) || typeof window === 'undefined') return;
 
     const key = 'odin_chunk_reload';
     try {
