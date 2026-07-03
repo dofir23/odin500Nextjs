@@ -204,3 +204,18 @@ html[data-ssr-enhanced='true'] .ssr-enhance-page__server {
   font-size: 0.875rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 }
+
+/* Puppeteer socialCapture=1 — cleaner chart screenshots for social drafts */
+html[data-social-capture='1'] .app-watchlist-dock,
+html[data-social-capture='1'] .app-watchlist-dock-backdrop,
+html[data-social-capture='1'] .product-tour-overlay,
+html[data-social-capture='1'] .login-gate-backdrop,
+html[data-social-capture='1'] .cookie-banner,
+html[data-social-capture='1'] .engagement-toast-stack {
+  display: none !important;
+}
+
+html[data-social-capture='1'] .ticker-page__header-actions,
+html[data-social-capture='1'] .ticker-outline-btn {
+  visibility: hidden !important;
+}

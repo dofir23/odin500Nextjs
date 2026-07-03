@@ -11,7 +11,16 @@ function contentId(campaign, symbol = '') {
   return `${ymd}${sym}_${campaign}`;
 }
 
+function buildPageUrl(path) {
+  const base = config.odinSiteOrigin.replace(/\/$/, '');
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${p}`;
+}
+
 function buildTrackedUrl({ campaign, path, source = 'twitter', content = '' }) {
+  if (!config.utmEnabled) {
+    return buildPageUrl(path);
+  }
   const url = new URL(path, config.odinSiteOrigin);
   url.searchParams.set('utm_source', source);
   url.searchParams.set('utm_medium', config.utm.defaultMedium || 'social');
@@ -55,6 +64,7 @@ function etDateLabel(d = new Date()) {
 
 module.exports = {
   contentId,
+  buildPageUrl,
   buildTrackedUrl,
   resolvePath,
   formatPct,

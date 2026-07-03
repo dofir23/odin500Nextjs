@@ -86,3 +86,35 @@ Post drafts and PNGs are written to `output/` on the container filesystem. On Ra
 ## Publishing
 
 This service does **not** auto-post to X/LinkedIn yet. It produces drafts and sends a webhook preview. Wire Buffer, Typefully, or native APIs in `src/publish/` when ready.
+
+## OpenAI copy
+
+Set `OPENAI_API_KEY` in Railway / `.env`. On each job you will see console lines like:
+
+```
+[odin500-social][ai] Starting OpenAI copy for campaign="ticker_spotlight" model=gpt-4o-mini
+[odin500-social][ai] OpenAI copy OK for "ticker_spotlight" { twitterLen: ..., linkedinLen: ... }
+```
+
+If the key is missing or the request fails, copy falls back to templates and `meta.copySource` is `template`.
+
+## Page snapshots (Puppeteer)
+
+Charts are captured from **live site pages** (`ODIN_SITE_ORIGIN`):
+
+| Campaign | Page | Selector |
+|----------|------|----------|
+| daily-pulse | `/market` | `main.mkt-center` |
+| ticker-spotlight | `/ticker/{sym}` | `.ticker-chart-plot-host` |
+| newsletter | `/newsletter/{slug}` | `.newsletter-page` |
+
+Console:
+
+```
+[odin500-social][snapshot] Capturing https://odin500.com/ticker/aapl?socialCapture=1
+[odin500-social][snapshot] Saved 20260701_aapl_ticker_spotlight.png
+```
+
+- Local dev: run **frontend** (`npm run dev`) and set `ODIN_SITE_ORIGIN=http://localhost:3000`
+- If snapshot fails, falls back to QuickChart PNG
+- Railway: may need `PUPPETEER_EXECUTABLE_PATH` or a Dockerfile with Chromium deps

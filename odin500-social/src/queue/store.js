@@ -42,7 +42,7 @@ function createPostDraft(base) {
     campaign: base.campaign,
     createdAt: now,
     scheduledAt: base.scheduledAt || now,
-    platforms: base.platforms || ['twitter', 'linkedin'],
+    platforms: base.platforms || ['twitter', 'linkedin', 'instagram'],
     data: base.data || {},
     assets: base.assets || {},
     copy: base.copy || {},
@@ -52,4 +52,36 @@ function createPostDraft(base) {
   return savePost(post);
 }
 
-module.exports = { listPosts, getPost, savePost, createPostDraft };
+function deletePost(id) {
+  ensureDirs();
+  const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!safeId) return false;
+
+  const jsonFile = path.join(config.postsDir, `${safeId}.json`);
+  if (!fs.existsSync(jsonFile)) return false;
+
+  let imageName = null;
+  try {
+    const data = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+    imageName = data?.assets?.image ? path.basename(String(data.assets.image)) : null;
+  } catch {
+    /* best-effort */
+  }
+
+  fs.unlinkSync(jsonFile);
+
+  if (imageName) {
+    const assetFile = path.join(config.assetsDir, imageName);
+    if (fs.existsSync(assetFile)) {
+      try {
+        fs.unlinkSync(assetFile);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return true;
+}
+
+module.exports = { listPosts, getPost, savePost, createPostDraft, deletePost };

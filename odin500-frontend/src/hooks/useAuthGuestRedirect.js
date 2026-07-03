@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useNavigate, useLocation, useSearchParams } from '@/navigation/appRouterCompat.jsx';
+import { useLocation, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { useLoginGateOptional } from '../context/LoginGateContext.jsx';
 import { getAuthToken, isAuthHydrated } from '../store/apiStore.js';
+import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
 
 const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
 
@@ -20,7 +21,6 @@ function resolvePostLoginPath(searchParams, fallback = '/market') {
  * Logged-in = getAuthToken() truthy after initAuthSessionOnLoad() (backed by session cookies).
  */
 export function useAuthGuestRedirect(fallback = '/market') {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const gate = useLoginGateOptional();
@@ -30,6 +30,6 @@ export function useAuthGuestRedirect(fallback = '/market') {
   useEffect(() => {
     if (!GUEST_AUTH_ENTRY_PATHS.has(pathname)) return;
     if (!authReady || !loggedIn) return;
-    navigate(resolvePostLoginPath(searchParams, fallback), { replace: true });
-  }, [authReady, loggedIn, pathname, navigate, searchParams, fallback]);
+    hardNavigate(resolvePostLoginPath(searchParams, fallback));
+  }, [authReady, loggedIn, pathname, searchParams, fallback]);
 }

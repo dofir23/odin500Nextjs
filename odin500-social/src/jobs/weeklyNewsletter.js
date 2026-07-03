@@ -1,6 +1,5 @@
 const { listNewsletters } = require('../api/odinClient');
-const { createPostDraft } = require('../queue/store');
-const { notifyPostGenerated } = require('../publish/webhook');
+const { finalizeSocialPost } = require('./postHelpers');
 const { contentId, buildTrackedUrl, resolvePath, etDateLabel } = require('../utils/utm');
 const { config } = require('../config');
 
@@ -24,24 +23,31 @@ async function runWeeklyNewsletter() {
     ? `Odin500 Weekly — ${weekLabel}`
     : `New Odin500 Weekly recap (${etDateLabel()})`;
 
-  const dek = description ? description.slice(0, 200) + (description.length > 200 ? '…' : '') : '';
+  const bullets = [
+    title,
+    description ? description.slice(0, 220) : 'Indices, sectors, signals, and setups.'
+  ].filter(Boolean);
 
-  const post = createPostDraft({
+  return finalizeSocialPost({
     id,
     pillar: 'newsletter',
     campaign: 'newsletter',
     data: { slug, title, weekLabel },
-    assets: {},
     links: { default: link, twitter: link, linkedin: link },
-    copy: {
-      twitter: `${hook}\n\n${title}${dek ? `\n\n${dek}` : ''}\n\n→ ${link}\n\n${tags}`,
-      linkedin: `${hook}\n\n${title}\n\n${dek}\n\nRead the full issue on Odin500 — indices, sectors, signals, and setups.\n\n${link}`
+    snapshot: {
+      pagePath,
+      selector: '.newsletter-page',
+      fallbackSelector: 'main#app-main-content'
     },
-    meta: { note: 'Attach newsletter hero chart manually or extend job with chart render' }
+    copyInput: {
+      campaign: 'newsletter',
+      hook,
+      bullets,
+      link,
+      tags,
+      context: { slug, title, weekLabel, description }
+    }
   });
-
-  await notifyPostGenerated(post);
-  return post;
 }
 
 module.exports = { runWeeklyNewsletter };

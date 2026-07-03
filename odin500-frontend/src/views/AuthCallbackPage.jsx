@@ -4,6 +4,7 @@ import { useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { getSupabaseBrowserClient } from '../lib/supabaseBrowserClient.js';
 import { applyAuthSession, fetchWithAuth } from '../store/apiStore.js';
 import { apiUrl } from '../utils/apiOrigin.js';
+import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
 
 const OAUTH_TIMEOUT_MS = 5000;
 
@@ -34,7 +35,7 @@ export default function AuthCallbackPage() {
       } catch {
         /* ignore */
       }
-      let dest = '/';
+      let dest = '/market';
       try {
         const res = await fetchWithAuth(apiUrl('/api/admin/me'), { method: 'GET' });
         if (res.ok) {
@@ -49,7 +50,7 @@ export default function AuthCallbackPage() {
       } catch {
         /* ignore */
       }
-      navigate(dest, { replace: true });
+      hardNavigate(dest);
     }
 
     function fail() {

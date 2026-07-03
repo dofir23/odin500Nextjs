@@ -45,7 +45,14 @@ async function proxySocial(request: NextRequest, pathSegments: string[]) {
 
   const isJobTrigger =
     request.method === 'POST' && pathSegments[0] === 'jobs' && pathSegments.length >= 2;
-  if (isJobTrigger) {
+  const isPostDelete =
+    request.method === 'DELETE' && pathSegments[0] === 'posts' && pathSegments.length === 2;
+  const isPostDiscard =
+    request.method === 'POST' &&
+    pathSegments[0] === 'posts' &&
+    pathSegments.length === 3 &&
+    pathSegments[2] === 'discard';
+  if (isJobTrigger || isPostDelete || isPostDiscard) {
     const secret = process.env.SOCIAL_INTERNAL_SECRET || '';
     if (!secret) {
       return NextResponse.json(
@@ -61,7 +68,7 @@ async function proxySocial(request: NextRequest, pathSegments: string[]) {
     method: request.method,
     headers,
     cache: 'no-store',
-    body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text()
+    body: ['GET', 'HEAD', 'DELETE'].includes(request.method) ? undefined : await request.text()
   };
 
   let response: Response;
@@ -92,6 +99,14 @@ export async function GET(
 }
 
 export async function POST(
+  request: NextRequest,
+  ctx: { params: Promise<{ path: string[] }> }
+) {
+  const { path } = await ctx.params;
+  return proxySocial(request, path);
+}
+
+export async function DELETE(
   request: NextRequest,
   ctx: { params: Promise<{ path: string[] }> }
 ) {

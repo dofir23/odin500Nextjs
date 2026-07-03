@@ -1,8 +1,6 @@
 const { config } = require('../config');
 const { getOhlcPreview, getTickerReturnsBatch } = require('../api/odinClient');
-const { renderOhlcChart } = require('../render/chartImage');
-const { createPostDraft } = require('../queue/store');
-const { notifyPostGenerated } = require('../publish/webhook');
+const { finalizeSocialPost } = require('./postHelpers');
 const {
   contentId,
   buildTrackedUrl,
@@ -56,38 +54,39 @@ async function runDailyPulse() {
 
   const ohlc = await getOhlcPreview(chartSymbol, 90);
   const id = contentId('daily_pulse');
-  const asset = await renderOhlcChart(
-    {
-      symbol: ohlc.symbol,
-      companyName: ohlc.company_name,
-      rows: ohlc.rows,
-      subtitle: `U.S. equity pulse · ${etDateLabel()}`
-    },
-    id
-  );
-
-  const path = resolvePath('daily_pulse');
-  const link = buildTrackedUrl({ campaign: 'daily_pulse', path, content: id });
+  const pagePath = resolvePath('daily_pulse');
+  const link = buildTrackedUrl({ campaign: 'daily_pulse', path: pagePath, content: id });
   const tags = (config.hashtags.default || []).join(' ');
-
   const hook = `U.S. markets at the close — ${etDateLabel()}.`;
-  const body = bullets.map((b) => `• ${b}`).join('\n');
 
-  const post = createPostDraft({
+  return finalizeSocialPost({
     id,
     pillar: 'market_pulse',
     campaign: 'daily_pulse',
     data: { indices, bullets, chartSymbol },
-    assets: { image: asset.filename, imagePath: asset.filePath },
     links: { default: link, twitter: link, linkedin: link },
-    copy: {
-      twitter: `${hook}\n\n${body}\n\n${config.disclaimer}\n\n→ ${link}\n\n${tags}`,
-      linkedin: `${hook}\n\n${body}\n\nSee live dashboards on Odin500 (free tier available).\n\n${config.disclaimer}\n\n${link}`
+    snapshot: {
+      pagePath: '/market',
+      selector: 'main.mkt-center',
+      fallbackSelector: '.mkt-fig-shell'
+    },
+    chartFallback: {
+      chart: {
+        symbol: ohlc.symbol,
+        companyName: ohlc.company_name,
+        rows: ohlc.rows,
+        subtitle: `U.S. equity pulse · ${etDateLabel()}`
+      }
+    },
+    copyInput: {
+      campaign: 'daily_pulse',
+      hook,
+      bullets,
+      link,
+      tags,
+      context: { indices, chartSymbol, date: etDateLabel() }
     }
   });
-
-  await notifyPostGenerated(post);
-  return post;
 }
 
 module.exports = { runDailyPulse };

@@ -1,9 +1,10 @@
 const express = require('express');
 const path = require('path');
 const { config, ensureDirs } = require('./src/config');
+const { log } = require('./src/utils/log');
 const { startScheduler } = require('./src/scheduler');
 const { runJob, JOBS } = require('./src/jobs');
-const { listPosts, getPost } = require('./src/queue/store');
+const { listPosts, getPost, deletePost } = require('./src/queue/store');
 
 ensureDirs();
 
@@ -15,7 +16,17 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'odin500-social',
     odinApi: config.odinApiOrigin,
+    odinSite: config.odinSiteOrigin,
     cronEnabled: config.cronEnabled,
+    utmEnabled: config.utmEnabled,
+    openai: {
+      configured: Boolean(config.openaiApiKey),
+      model: config.openaiModel
+    },
+    snapshot: {
+      enabled: config.snapshotEnabled,
+      puppeteerPath: config.puppeteerExecutablePath || 'bundled'
+    },
     jobs: Object.keys(JOBS)
   });
 });
@@ -59,7 +70,27 @@ app.post('/jobs/:name', requireSecret, async (req, res) => {
   }
 });
 
+app.delete('/posts/:id', requireSecret, (req, res) => {
+  const removed = deletePost(req.params.id);
+  if (!removed) return res.status(404).json({ error: 'Post not found' });
+  res.json({ success: true, id: req.params.id });
+});
+
+app.post('/posts/:id/discard', requireSecret, (req, res) => {
+  const removed = deletePost(req.params.id);
+  if (!removed) return res.status(404).json({ error: 'Post not found' });
+  res.json({ success: true, id: req.params.id });
+});
+
 app.listen(config.port, () => {
-  console.log(`[odin500-social] listening on :${config.port}`);
+  log.info('server', `listening on :${config.port}`);
+  log.info('server', 'OpenAI', {
+    configured: Boolean(config.openaiApiKey),
+    model: config.openaiModel
+  });
+  log.info('server', 'Snapshots', {
+    enabled: config.snapshotEnabled,
+    site: config.odinSiteOrigin
+  });
   startScheduler();
 });

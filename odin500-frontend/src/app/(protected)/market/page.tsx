@@ -5,7 +5,7 @@ export const revalidate = 300;
 
 import { PageServerShell } from '@/seo/PageServerShell';
 import { fetchMarketDashboardData } from '@/ssr/fetchPageData';
-import App from '@/App.jsx';
+import MarketDashboardPage from '@/views/MarketDashboardPage.jsx';
 
 export default async function Page() {
   let seoData: unknown = null;
@@ -18,7 +18,7 @@ export default async function Page() {
   const pathname = '/market';
   return (
     <PageServerShell pathname={pathname} seoData={seoData}>
-      <App initialMarketData={seoData as never} />
+      <MarketDashboardPage initialMarketData={seoData as never} />
     </PageServerShell>
   );
 }

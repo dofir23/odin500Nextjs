@@ -45,10 +45,8 @@ export function prefetchRouteChunks(to) {
   if (p.startsWith('/market-movers')) {
     return markAndRun('market-movers', () => import('../views/MarketMoversPage.jsx'));
   }
-  // /market page bundles App via Next.js; warm the heavy shell only (not App.jsx twice).
-  if (p === '/market') {
-    return markAndRun('market-shell', () => import('../components/MarketPageFigmaShell.jsx'));
-  }
+  // /market — bundled by Next.js page route; do not dynamic-import (causes webpack module conflicts).
+  if (p === '/market') return;
   if (p.startsWith('/heatmap')) return markAndRun('heatmap', () => import('../views/MarketHeatmapPage.jsx'));
   if (p.startsWith('/news') && !p.startsWith('/newsletter')) {
     return markAndRun('news', () => import('../views/NewsPage.jsx'));

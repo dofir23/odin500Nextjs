@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
+    "postinstall": "node scripts/install-chrome.js",
     "job:daily": "node scripts/run-job.js daily-pulse",
     "job:ticker": "node scripts/run-job.js ticker-spotlight",
     "job:newsletter": "node scripts/run-job.js weekly-newsletter"
@@ -19,6 +20,7 @@
     "express": "^5.2.1",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
+    "puppeteer": "^24.36.1",
     "sharp": "^0.33.5"
   }
 }

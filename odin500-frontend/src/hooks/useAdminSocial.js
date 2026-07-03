@@ -60,9 +60,27 @@ export function useAdminSocial() {
     [load]
   );
 
+  const discardPost = useCallback(
+    async (id) => {
+      setError('');
+      try {
+        const res = await fetchWithAuth(
+          `/api/social/posts/${encodeURIComponent(id)}/discard`,
+          { method: 'POST' }
+        );
+        await parseJson(res);
+        setPosts((prev) => prev.filter((p) => p.id !== id));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to discard draft');
+        await load();
+      }
+    },
+    [load]
+  );
+
   useEffect(() => {
     void load();
   }, [load]);
 
-  return { posts, health, loading, generating, error, refetch: load, runJob };
+  return { posts, health, loading, generating, error, refetch: load, runJob, discardPost };
 }

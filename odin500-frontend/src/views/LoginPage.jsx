@@ -1,10 +1,11 @@
 'use client';
 import { useContext, useState } from 'react';
-import { Link, useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { Link } from '@/navigation/appRouterCompat.jsx';
 import { useAuthGuestRedirect } from '../hooks/useAuthGuestRedirect.js';
 import { KeyRound, Mail } from 'lucide-react';
 import { login, updateDisplayName } from '../services/authApi.js';
 import { applyAuthSession } from '../store/apiStore.js';
+import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
 import { AuthField, AuthShellThemeContext, AuthSplitShell } from '../components/AuthSplitShell.jsx';
 import { PENDING_DISPLAY_NAME_KEY } from '../utils/signupSession.js';
 
@@ -15,7 +16,6 @@ function LoginForm() {
   const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
   const theme = useContext(AuthShellThemeContext);
   const isDark = theme === 'dark';
 
@@ -58,7 +58,7 @@ function LoginForm() {
           /* ignore */
         }
       }
-      navigate(payload?.isAdmin ? '/admin' : '/', { replace: true });
+      hardNavigate(payload?.isAdmin ? '/admin' : '/market');
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

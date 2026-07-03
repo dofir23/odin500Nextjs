@@ -1,8 +1,6 @@
 const { config } = require('../config');
 const { getOhlcPreview } = require('../api/odinClient');
-const { renderOhlcChart } = require('../render/chartImage');
-const { createPostDraft } = require('../queue/store');
-const { notifyPostGenerated } = require('../publish/webhook');
+const { finalizeSocialPost } = require('./postHelpers');
 const {
   contentId,
   buildTrackedUrl,
@@ -29,16 +27,6 @@ async function runTickerSpotlight(symbol) {
   const chg = ((Number(last.close) - Number(first.close)) / Number(first.close)) * 100;
 
   const id = contentId('ticker_spotlight', sym);
-  const asset = await renderOhlcChart(
-    {
-      symbol: ohlc.symbol,
-      companyName: ohlc.company_name,
-      rows,
-      subtitle: `~${rows.length} trading days · Odin500`
-    },
-    id
-  );
-
   const pagePath = resolvePath('ticker_spotlight', { symbol: sym });
   const link = buildTrackedUrl({ campaign: 'ticker_spotlight', path: pagePath, content: id });
   const tags = (config.hashtags.default || []).concat(`#${sym}`).join(' ');
@@ -49,21 +37,41 @@ async function runTickerSpotlight(symbol) {
     `Period change ~${formatPct(chg)}`
   ];
 
-  const post = createPostDraft({
+  return finalizeSocialPost({
     id,
     pillar: 'ticker_spotlight',
     campaign: 'ticker_spotlight',
     data: { symbol: sym, companyName: ohlc.company_name, changePct: chg },
-    assets: { image: asset.filename, imagePath: asset.filePath },
     links: { default: link, twitter: link, linkedin: link },
-    copy: {
-      twitter: `${hook}\n\n${bullets.map((b) => `• ${b}`).join('\n')}\n\n${config.disclaimer}\n\n→ ${link}\n\n${tags}`,
-      linkedin: `${hook}\n\n${bullets.join('\n')}\n\nFull OHLC chart, signals, and return analytics on Odin500.\n\n${config.disclaimer}\n\n${link}`
+    snapshot: {
+      pagePath,
+      selector: '.ticker-chart-body--main',
+      fallbackSelector: '.ticker-chart-plot-host'
+    },
+    chartFallback: {
+      chart: {
+        symbol: ohlc.symbol,
+        companyName: ohlc.company_name,
+        rows,
+        subtitle: `~${rows.length} trading days · Odin500`
+      }
+    },
+    copyInput: {
+      campaign: 'ticker_spotlight',
+      hook,
+      bullets,
+      link,
+      tags,
+      context: {
+        symbol: sym,
+        companyName: ohlc.company_name,
+        latestClose: ohlc.latest_close,
+        latestDate: ohlc.latest_date,
+        changePct: chg,
+        date: etDateLabel()
+      }
     }
   });
-
-  await notifyPostGenerated(post);
-  return post;
 }
 
 module.exports = { runTickerSpotlight, pickRotationSymbol };

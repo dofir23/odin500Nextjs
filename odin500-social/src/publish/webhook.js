@@ -14,11 +14,13 @@ async function notifyPostGenerated(post) {
     text: [
       `**Odin500 social draft** — \`${post.id}\``,
       `Campaign: ${post.campaign} · Status: ${post.status}`,
+      `Copy: ${post.meta?.copySource || 'unknown'}${post.meta?.aiModel ? ` (${post.meta.aiModel})` : ''}`,
+      `Image: ${post.meta?.imageSource || 'none'}`,
       '',
       preview,
       '',
       `Link: ${post.links?.twitter || post.links?.default || ''}`,
-      `Image: ${imageUrl}`
+      `Image file: ${imageUrl}`
     ].join('\n')
   };
 

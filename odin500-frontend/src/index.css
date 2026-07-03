@@ -2756,7 +2756,7 @@ backdrop-filter: blur(12px);
     padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
     border-top: 1px solid var(--colors-opacity-bg-opacity-6, #ffffff0f);
-    background: var(--colors-opacity-bg-opacity-3, #ffffff08);
+    background: var(--colors-opacity-bg-opacity-3, #1e293b);
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
   }
 
@@ -17776,41 +17776,43 @@ html[data-theme="light"] .market-movers-page__tooltip-co {
 .market-movers-page__leaders-scroll {
   max-height: min(380px, 46vh);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
 }
 
-html[data-theme="dark"] .market-movers-page__leaders-scroll,
-[data-theme="dark"] .market-movers-page__leaders-scroll {
-  scrollbar-color: rgba(148, 163, 184, 0.45) rgba(15, 23, 42, 0.55);
-}
-
-html[data-theme="light"] .market-movers-page__leaders-scroll,
-[data-theme="light"] .market-movers-page__leaders-scroll {
-  /* scrollbar-color: rgba(148, 163, 184, 0.45) rgba(15, 23, 42, 0.55); */
-  scrollbar-color: auto;
-}
-
-html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar,
-[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar {
+.market-movers-page__leaders-scroll::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
-html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-track,
-[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.55);
-  border-radius: 4px;
+.market-movers-page__leaders-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb,
-[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb {
+.market-movers-page__leaders-scroll::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.42);
   border-radius: 4px;
 }
 
-html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb:hover,
-[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(203, 213, 225, 0.35);
+.market-movers-page__leaders-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(203, 213, 225, 0.55);
+}
+
+html[data-theme='light'] .market-movers-page__leaders-scroll,
+[data-theme='light'] .market-movers-page__leaders-scroll {
+  scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
+}
+
+html[data-theme='light'] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb,
+[data-theme='light'] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.45);
+}
+
+html[data-theme='light'] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb:hover,
+[data-theme='light'] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.6);
 }
 
 .market-movers-page__data-table {
@@ -18101,31 +18103,6 @@ html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-t
     max-height: min(420px, 52vh);
     overflow-x: auto;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-
-  html[data-theme="dark"] .market-movers-page__leaders-scroll,
-  [data-theme="dark"] .market-movers-page__leaders-scroll {
-    scrollbar-color: rgba(148, 163, 184, 0.48) rgba(15, 23, 42, 0.45);
-  }
-
-  html[data-theme="light"] .market-movers-page__leaders-scroll,
-  [data-theme="light"] .market-movers-page__leaders-scroll {
-    /* scrollbar-color: rgba(148, 163, 184, 0.48) rgba(15, 23, 42, 0.45); */
-    scrollbar-color: auto;
-  }
-
-  html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar,
-  [data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  html[data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb,
-  [data-theme="dark"] .market-movers-page__leaders-scroll::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.42);
-    border-radius: 4px;
   }
 
   .market-movers-page__data-table {
