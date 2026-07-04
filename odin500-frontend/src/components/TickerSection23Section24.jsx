@@ -593,12 +593,12 @@ export function TickerSection23Section24({
               </div>
               <div className="ticker-s24__legend">
                 <span>
-                  <i className="ticker-s24__dot ticker-s24__dot--tick" />
-                  {ticker || 'Ticker'}
-                </span>
-                <span>
                   <i className="ticker-s24__dot ticker-s24__dot--bench" />
                   {benchSymbol || activeGroup.benchmark}
+                </span>
+                <span>
+                  <i className="ticker-s24__dot ticker-s24__dot--tick" />
+                  {ticker || 'Ticker'}
                 </span>
               </div>
             </>

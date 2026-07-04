@@ -301,14 +301,78 @@ function buildSingleRulePayload(form, ticker) {
   return payload;
 }
 
-/** One API rule per ticker when multiple symbols are selected. */
-export function buildRulePayloads(form) {
+/** Closing action paired with an opening action (buy → sell, short → cover). */
+export function deriveExitAction(entryAction) {
+  const a = String(entryAction || '').toUpperCase();
+  if (a === 'BTO') return 'STC';
+  if (a === 'STO') return 'BTC';
+  return '';
+}
+
+function formTickers(form) {
   const tickers = Array.isArray(form.tickers)
     ? form.tickers.map((t) => String(t || '').trim().toUpperCase()).filter(Boolean)
     : [String(form.ticker || '').trim().toUpperCase()].filter(Boolean);
+  return [...new Set(tickers)];
+}
 
-  const unique = [...new Set(tickers)];
-  return unique.map((ticker) => buildSingleRulePayload(form, ticker));
+/** Entry rules only (used for previews and exit-vs-entry restriction checks). */
+export function buildEntryRules(form) {
+  return formTickers(form).map((ticker) => buildSingleRulePayload(form, ticker));
+}
+
+/** Paired exit (sell/cover) rule derived from the form's exit section. */
+function buildSingleExitPayload(form, ticker) {
+  const exitAction = deriveExitAction(form.action);
+  const uiType = form.exitUiRuleType || 'signal_side_neutral';
+  const { rule_type, params } = uiRuleTypeToApi(uiType);
+  const closeAll = form.exitCloseAll !== false;
+
+  const payload = {
+    rule_type,
+    ticker: String(ticker || '').toUpperCase(),
+    action: exitAction,
+    qty: closeAll ? 1 : Number(form.exitQty),
+    params: { ...params },
+    is_active: form.is_active !== false
+  };
+
+  if (closeAll) {
+    payload.params.close_all = true;
+  }
+  if (rule_type === 'signal_bucket') {
+    const buckets = normalizeSignalBucketList(form.exitSignalBuckets);
+    if (buckets.length === 1) {
+      payload.params.bucket = buckets[0];
+    }
+    payload.params.buckets = buckets;
+  }
+  if (rule_type === 'price_above' || rule_type === 'price_below') {
+    payload.threshold_value = Number(form.exitThreshold);
+  }
+  return payload;
+}
+
+/** True when the form has a usable paired exit section for an opening action. */
+export function formHasExit(form) {
+  return Boolean(form?.exitEnabled) && isOpeningPaperAction(String(form?.action || 'BTO').toUpperCase());
+}
+
+/**
+ * One API rule per ticker when multiple symbols are selected. When the exit
+ * section is enabled, each ticker also gets a paired closing rule so the user
+ * defines buy + sell together instead of creating two separate rules.
+ */
+export function buildRulePayloads(form) {
+  const entryPayloads = buildEntryRules(form);
+  if (!formHasExit(form)) return entryPayloads;
+
+  const out = [];
+  formTickers(form).forEach((ticker, i) => {
+    out.push(entryPayloads[i]);
+    out.push(buildSingleExitPayload(form, ticker));
+  });
+  return out;
 }
 
 export function buildRulePayload(form) {
@@ -383,6 +447,64 @@ export function validateRuleForm(form, context = {}) {
       return String(action).toUpperCase() === 'STC'
         ? 'Sell cannot use the same Odin long signals as your Buy entry rule'
         : 'Cover cannot use the same Odin short signals as your Short entry rule';
+    }
+  }
+
+  if (formHasExit(form)) {
+    const exitErr = validateExitSection(form);
+    if (exitErr) return exitErr;
+  }
+
+  return '';
+}
+
+/** Validate the paired exit (sell/cover) section against its own fields and the entry. */
+function validateExitSection(form) {
+  const exitAction = deriveExitAction(form.action);
+  if (!exitAction) return '';
+
+  const tickers = formTickers(form);
+  const exitUiType = form.exitUiRuleType || 'signal_side_neutral';
+  const closeAll = form.exitCloseAll !== false;
+
+  if (!closeAll) {
+    const qty = Number(form.exitQty);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return 'Sell rule: shares per trade must be greater than 0 (or choose Close all)';
+    }
+  }
+
+  if (exitUiType === 'price_above' || exitUiType === 'price_below') {
+    const th = Number(form.exitThreshold);
+    if (!Number.isFinite(th) || th <= 0) return 'Sell rule: threshold price is required';
+  }
+
+  const allowedExitActions = getAllowedActionsForRuleType(exitUiType, form.exitSignalBuckets);
+  if (!allowedExitActions.includes(exitAction)) {
+    return 'Sell rule: chosen condition is not valid for this exit';
+  }
+
+  // Prevent contradictory buy+sell (e.g. buy on L1 and sell on L1 for the same ticker).
+  const entryRules = buildEntryRules(form);
+  const { blockedRuleTypes, blockedBuckets } = getExitSignalRestrictions(
+    entryRules,
+    tickers,
+    exitAction,
+    null
+  );
+  if (blockedRuleTypes.has(exitUiType)) {
+    return exitAction === 'STC'
+      ? 'Sell rule cannot use the same Odin long signals as your Buy rule'
+      : 'Cover rule cannot use the same Odin short signals as your Short rule';
+  }
+
+  if (exitUiType === 'signal_bucket') {
+    const buckets = normalizeSignalBucketList(form.exitSignalBuckets);
+    if (!buckets.length) return 'Sell rule: select at least one signal bucket';
+    for (const b of buckets) {
+      if (blockedBuckets.has(b)) {
+        return `Sell rule: signal ${b} is already used by your Buy rule for this ticker`;
+      }
     }
   }
 
@@ -553,6 +675,21 @@ export function buildRuleNaturalLanguagePreview(formOrRule) {
         : null;
     const bracketNote = formatBracketNote(bracketFromParams || bracketFromForm);
     if (bracketNote) sentence += bracketNote.replace(' · ', ' ') + '.';
+  }
+
+  if (formHasExit(formOrRule)) {
+    const exitAction = deriveExitAction(formOrRule.action);
+    const exitUiType = formOrRule.exitUiRuleType || 'signal_side_neutral';
+    const closeAll = formOrRule.exitCloseAll !== false;
+    const exitTrigger = formatTriggerPhrase(exitUiType, {
+      signalBuckets: formOrRule.exitSignalBuckets,
+      threshold_value: formOrRule.exitThreshold
+    });
+    const exitVerb = formatActionVerb(exitAction, closeAll);
+    const exitQtyPhrase = closeAll
+      ? 'your full position'
+      : `${Number(formOrRule.exitQty) || 0} ${pluralShares(Number(formOrRule.exitQty))}`;
+    sentence += ` 🔴 THEN when ${exitTrigger}, ${exitVerb} ${exitQtyPhrase}.`;
   }
 
   return sentence;

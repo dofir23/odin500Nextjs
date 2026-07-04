@@ -10,17 +10,21 @@ import { formatLatestClosePrice } from '../../utils/marketOhlcLatest.js';
 import { watchlistKindTag } from '../../utils/watchlistOptions.js';
 import {
   buildActionOptions,
+  buildEntryRules,
   buildRuleNaturalLanguagePreview,
   buildRulePayload,
   buildRulePayloads,
   buildRuleTypeOptions,
   coalesceActionForRuleType,
+  deriveExitAction,
+  getAllowedActionsForRuleType,
   getDisabledSignalBuckets,
   getExitSignalRestrictions,
   RULE_FORM_TEMPLATES,
   ruleToForm,
   validateRuleForm
 } from './strategyRuleUtils.js';
+import { paperActionLabel } from './paperActionLabels.js';
 import { STRATEGY_SCHEDULE_HELP } from '../../utils/strategySchedule.js';
 
 const EMPTY = {
@@ -35,7 +39,13 @@ const EMPTY = {
   signalBuckets: [],
   bracketEnabled: false,
   bracketStopLoss: '',
-  bracketTakeProfit: ''
+  bracketTakeProfit: '',
+  exitEnabled: false,
+  exitUiRuleType: 'signal_side_neutral',
+  exitCloseAll: true,
+  exitQty: '1',
+  exitThreshold: '',
+  exitSignalBuckets: []
 };
 
 export function StrategyRuleForm({
@@ -220,6 +230,58 @@ export function StrategyRuleForm({
   const isOpen = isOpeningPaperAction(form.action);
   const isClose = isClosingPaperAction(form.action);
   const editTicker = form.tickers[0] || '';
+
+  const showExitSection = isOpen && !isEditing;
+  const exitAction = deriveExitAction(form.action);
+  const exitActionLabel = exitAction ? paperActionLabel(exitAction) : '';
+
+  const entryPseudoRules = useMemo(
+    () => (showExitSection ? buildEntryRules(form) : []),
+    [showExitSection, form]
+  );
+
+  const exitRuleTypeOptions = useMemo(() => {
+    if (!showExitSection) return [];
+    return buildRuleTypeOptions(entryPseudoRules, form.tickers, exitAction, null).filter((opt) =>
+      getAllowedActionsForRuleType(
+        opt.id,
+        opt.id === 'signal_bucket' ? form.exitSignalBuckets : []
+      ).includes(exitAction)
+    );
+  }, [showExitSection, entryPseudoRules, form.tickers, form.exitSignalBuckets, exitAction]);
+
+  const exitDisabledBuckets = useMemo(
+    () =>
+      showExitSection
+        ? getDisabledSignalBuckets(entryPseudoRules, form.tickers, exitAction, null)
+        : new Set(),
+    [showExitSection, entryPseudoRules, form.tickers, exitAction]
+  );
+
+  const exitBlockedBuckets = useMemo(
+    () =>
+      showExitSection
+        ? getExitSignalRestrictions(entryPseudoRules, form.tickers, exitAction, null).blockedBuckets
+        : new Set(),
+    [showExitSection, entryPseudoRules, form.tickers, exitAction]
+  );
+
+  const exitShowThreshold =
+    form.exitUiRuleType === 'price_above' || form.exitUiRuleType === 'price_below';
+  const exitShowBucket = form.exitUiRuleType === 'signal_bucket';
+
+  useEffect(() => {
+    if (!showExitSection || !form.exitEnabled) return;
+    const current = exitRuleTypeOptions.find((o) => o.id === form.exitUiRuleType);
+    if (current && !current.disabled) return;
+    const fallback = exitRuleTypeOptions.find((o) => !o.disabled);
+    if (!fallback || fallback.id === form.exitUiRuleType) return;
+    setForm((f) => ({
+      ...f,
+      exitUiRuleType: fallback.id,
+      exitSignalBuckets: fallback.id === 'signal_bucket' ? f.exitSignalBuckets : []
+    }));
+  }, [showExitSection, form.exitEnabled, form.exitUiRuleType, exitRuleTypeOptions]);
 
   function update(patch) {
     setForm((f) => {
@@ -596,6 +658,123 @@ export function StrategyRuleForm({
               busy={busy}
               onChange={(signalBuckets) => update({ signalBuckets })}
             />
+          </div>
+        ) : null}
+
+        {showExitSection ? (
+          <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--full">
+            <div className="paper-bracket paper-bracket--strategy paper-exit-rule">
+              <label className="paper-bracket__toggle">
+                <input
+                  type="checkbox"
+                  checked={form.exitEnabled}
+                  onChange={(e) => update({ exitEnabled: e.target.checked })}
+                  disabled={busy}
+                />
+                <span>
+                  Also add a {exitActionLabel} rule for the same ticker{form.tickers.length > 1 ? 's' : ''}
+                </span>
+              </label>
+              <p className="paper-bracket__hint">
+                Define the exit in the same step — no need to create a separate {exitActionLabel} rule.
+                It triggers on its own condition (not just a fixed price like auto-exits).
+              </p>
+              {form.exitEnabled ? (
+                <div className="paper-exit-rule__fields">
+                  <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--secondary">
+                    <label className="paper-field paper-strategy-rule-form__field--rule-type">
+                      <span className="paper-field__label">Sell when…</span>
+                      <ThemedDropdown
+                        className="paper-strategy-rule-form__dd"
+                        wideLabel
+                        value={form.exitUiRuleType}
+                        options={exitRuleTypeOptions}
+                        onChange={(id) =>
+                          update({
+                            exitUiRuleType: id,
+                            exitSignalBuckets: id === 'signal_bucket' ? form.exitSignalBuckets : []
+                          })
+                        }
+                        ariaLabelPrefix="Sell rule type"
+                        labelFallback="Sell condition"
+                      />
+                    </label>
+                    <div className="paper-field paper-exit-rule__action">
+                      <span className="paper-field__label">Action</span>
+                      <span className="paper-exit-rule__action-value">{exitActionLabel}</span>
+                    </div>
+                  </div>
+
+                  <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--secondary">
+                    <div className="paper-field paper-strategy-close-qty paper-strategy-rule-form__field--close-qty">
+                      <div className="paper-strategy-close-qty__row">
+                        <label
+                          className={
+                            'paper-field paper-strategy-close-qty__close' +
+                            (form.exitCloseAll ? ' paper-strategy-close-qty__close--active' : '')
+                          }
+                        >
+                          <span className="paper-field__label">Close all</span>
+                          <span className="paper-strategy-close-qty__control">
+                            <input
+                              type="checkbox"
+                              className="paper-strategy-close-qty__check"
+                              checked={form.exitCloseAll}
+                              onChange={(e) => update({ exitCloseAll: e.target.checked })}
+                              disabled={busy}
+                            />
+                            <span className="paper-strategy-close-qty__control-text">
+                              Close all ({exitAction})
+                            </span>
+                          </span>
+                        </label>
+                        {!form.exitCloseAll ? (
+                          <label className="paper-field paper-strategy-close-qty__qty paper-strategy-rule-form__field--qty">
+                            <span className="paper-field__label">Shares per exit</span>
+                            <input
+                              type="number"
+                              className="paper-input"
+                              min="0.000001"
+                              step="any"
+                              value={form.exitQty}
+                              onChange={(e) => update({ exitQty: e.target.value })}
+                              disabled={busy}
+                            />
+                          </label>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {exitShowThreshold ? (
+                      <label className="paper-field paper-strategy-rule-form__field--threshold">
+                        <span className="paper-field__label">Threshold ($)</span>
+                        <input
+                          type="number"
+                          className="paper-input"
+                          min="0"
+                          step="0.01"
+                          value={form.exitThreshold}
+                          onChange={(e) => update({ exitThreshold: e.target.value })}
+                          disabled={busy}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+
+                  {exitShowBucket ? (
+                    <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--full">
+                      <SignalBucketMultiSelect
+                        selected={form.exitSignalBuckets}
+                        disabledBuckets={exitDisabledBuckets}
+                        exitBlockedBuckets={exitBlockedBuckets}
+                        busy={busy}
+                        onChange={(exitSignalBuckets) => update({ exitSignalBuckets })}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>

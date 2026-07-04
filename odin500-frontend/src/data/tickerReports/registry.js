@@ -50,12 +50,16 @@ export function getReportYears() {
 
 /**
  * @param {number} year
- * @returns {number[]} 1-based month numbers (current year only, through present month)
+ * @returns {number[]} 1-based month numbers (current year only, completed months only)
+ *
+ * The in-progress current month is excluded: a monthly report only makes sense
+ * once the month has finished, so e.g. in July 2026 we expose Jan–Jun, not July.
  */
 export function getMonthsForYear(year) {
   if (!isMonthlyReportYear(year)) return [];
-  const currentMonth = new Date().getMonth() + 1;
-  return Array.from({ length: currentMonth }, (_, i) => i + 1);
+  // getMonth() is 0-based, so it equals the count of fully-completed months this year.
+  const completedMonths = new Date().getMonth();
+  return Array.from({ length: completedMonths }, (_, i) => i + 1);
 }
 
 export function periodKey(year, month) {

@@ -7404,20 +7404,39 @@ button:disabled {
 
 .odin-omx-card {
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
-  /* background: #0b1526; */
-  padding: 8px 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 35, 58, 0.55);
+  padding: 12px 12px 14px;
+  display: flex;
+  flex-direction: column;
 }
 
 .odin-omx-card__cap {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  border-radius: 8px;
+  gap: 6px;
   color: #e2e8f0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
-  padding: 4px 10px;
-  margin-bottom: 20px;
+  padding: 0 2px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+/* Vertically center the chart + legend + value so all three cards read as balanced tiles. */
+.odin-omx-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.odin-omx-card__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 .odin-omx-gauge,
@@ -7429,20 +7448,43 @@ button:disabled {
   overflow: visible;
 }
 
+/* Chart.js canvas wrapper (OMX gauge + direction/signals doughnuts). */
+.odin-omx-chart {
+  position: relative;
+  width: 100%;
+  margin: 6px auto 4px;
+}
+
 .odin-omx-card__kpi {
   text-align: center;
   color: #f8fafc;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.odin-omx-card__kpi--split {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 20px;
+}
+
+.odin-omx-card__split-sep {
+  color: #475569;
+  font-weight: 600;
 }
 
 .odin-omx-card__sub {
   text-align: center;
-  color: #f8fafc;
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
 }
 
 .odin-omx-card__legend {
@@ -7510,9 +7552,12 @@ button:disabled {
     max-height: 200px;
   }
 
-  .odin-omx-card__kpi,
-  .odin-omx-card__sub {
+  .odin-omx-card__kpi {
     font-size: 1.35rem;
+  }
+
+  .odin-omx-card__sub {
+    font-size: 11px;
   }
 
   .odin-omx-card__legend {
@@ -7527,9 +7572,12 @@ button:disabled {
     font-size: 0.9375rem;
   }
 
-  .odin-omx-card__kpi,
-  .odin-omx-card__sub {
-    font-size: 1.125rem;
+  .odin-omx-card__kpi {
+    font-size: 1.2rem;
+  }
+
+  .odin-omx-card__kpi--split {
+    font-size: 1rem;
   }
 
   .odin-omx-gauge,
@@ -7560,18 +7608,31 @@ button:disabled {
 }
 
 .odin-s22__frame {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 6px;
-  background: #0b1526;
-  padding: 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  padding: 0;
 }
 
 .odin-s22__panel {
-  border: 1px solid #0e3867;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #1071d8 0%, #0c5ebc 52%, #0b4b9d 100%);
-  padding: 12px 14px;
-  box-shadow: inset 0 0 0 1px rgba(124, 197, 255, 0.2);
+  position: relative;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(56, 189, 248, 0.14), transparent 55%),
+    rgba(15, 35, 58, 0.92);
+  padding: 16px 18px 16px 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* Accent rail: green (long) → cyan → red (short). */
+.odin-s22__panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #22c55e, #38bdf8 50%, #ef4444);
 }
 
 .odin-s22__title {
@@ -7580,22 +7641,87 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: #f8fafc;
-  font-size: 34px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .odin-s22__title-icon {
-  color: #dbeafe;
-  font-size: 22px;
-  transform: translateY(-1px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: rgba(56, 189, 248, 0.18);
+  color: #7dd3fc;
+  font-size: 14px;
+  transform: none;
 }
 
 .odin-s22__text {
   margin: 0;
-  color: rgba(241, 245, 249, 0.95);
+  color: rgba(203, 213, 225, 0.92);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.55;
+}
+
+.odin-s22__text--stack {
+  margin-top: 8px;
+}
+
+.odin-s22__tiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.odin-s22__tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.odin-s22__tier b {
+  font-weight: 800;
+}
+
+.odin-s22__tier--long b {
+  color: #22c55e;
+}
+
+.odin-s22__tier--short b {
+  color: #f87171;
+}
+
+.odin-s22__tier--neutral b {
+  color: #94a3b8;
+}
+
+/* Clickable sidebar ticker rows. */
+.odin-sig-row {
+  cursor: pointer;
+}
+
+.odin-sig-row:hover td {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.odin-sig-row:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.6);
+  outline-offset: -2px;
+}
+
+.heatmap-table th.odin-th-num {
+  text-align: right;
 }
 
 .odin-signals-page__toolbar {
@@ -7769,18 +7895,10 @@ button:disabled {
   background: #ffffff;
 }
 
-.odin-signals-heatmap .heatmap-main__header {
-  background: #f8fafc;
-  border-bottom: 1px solid #e5e7eb;
-}
 
-.odin-signals-heatmap .heatmap-main__date {
-  color: #1e293b;
-}
+
 
 .odin-signals-heatmap .heatmap-icon-btn {
-  background: #ffffff;
-  border: 1px solid #d1d5db;
   color: #475569;
 }
 
@@ -8790,13 +8908,14 @@ button:disabled {
   color: #f8fafc;
 }
 
+/* Match the Market Movers table numerals exactly (green #22c55e / red rgb(255,59,48)). */
 .heatmap-table tbody td.heatmap-table__chg--up {
-  color: #5d9c59 !important;
+  color: #22c55e !important;
   font-weight: 700;
 }
 
 .heatmap-table tbody td.heatmap-table__chg--down {
-  color: #990000 !important;
+  color: rgb(255, 59, 48) !important;
   font-weight: 700;
 }
 
@@ -9441,6 +9560,12 @@ button:disabled {
     max-height: none;
     overflow: visible;
     padding-right: 0;
+  }
+
+  /* Stacked above the charts on small screens — keep the ticker list compact. */
+  .odin-signals-left .heatmap-card--table {
+    min-height: 0;
+    max-height: 420px;
   }
 
   .odin-signals-main {
@@ -15989,13 +16114,20 @@ h3.returns-chart-title-heading {
 }
 
 [data-theme="light"] .odin-omx-card__cap {
-  background: #d1d5db;
-  color: #111827;
+  color: #0f172a;
+  border-bottom-color: rgba(148, 163, 184, 0.4);
 }
 
-[data-theme="light"] .odin-omx-card__kpi,
+[data-theme="light"] .odin-omx-card__kpi {
+  color: #0f172a;
+}
+
 [data-theme="light"] .odin-omx-card__sub {
-  color: #111827;
+  color: #64748b;
+}
+
+[data-theme="light"] .odin-omx-card__split-sep {
+  color: #94a3b8;
 }
 
 [data-theme="light"] .odin-omx-card__legend {
@@ -16008,13 +16140,30 @@ h3.returns-chart-title-heading {
 }
 
 [data-theme="light"] .odin-s22__frame {
-  border-color: #dbe3ef;
-  background: #ffffff;
+  border-color: transparent;
+  background: transparent;
 }
 
 [data-theme="light"] .odin-s22__panel {
-  border-color: #0f4a95;
-  background: linear-gradient(180deg, #1c7ee4 0%, #0f67ca 50%, #0c56ac 100%);
+  border-color: rgba(148, 163, 184, 0.5);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(56, 189, 248, 0.1), transparent 55%),
+    #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .odin-s22__title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .odin-s22__text {
+  color: #334155;
+}
+
+[data-theme="light"] .odin-s22__tier {
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.45);
+  background: #f8fafc;
 }
 
 [data-theme="light"] .heatmap-page {
@@ -16034,9 +16183,65 @@ h3.returns-chart-title-heading {
   color: #64748b;
 }
 
-[data-theme="light"] .odin-signals-heatmap__main {
+/* Signal heatmap in light mode: a crisp white card with clear header / body / footer
+   separation and a soft shadow so it doesn't melt into the light page. The `html[...]`
+   prefix lifts specificity above the generic `.heatmap-main` light rule that otherwise
+   wins by source order (leaving it flat and translucent). */
+html[data-theme="light"] .odin-signals-heatmap__main {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border: 1px solid #dbe3ef;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .odin-signals-heatmap .heatmap-main__header {
+  background: #f1f5f9;
+  border-bottom: 1px solid #dbe3ef;
+}
+
+html[data-theme="light"] .odin-signals-heatmap .heatmap-main__date {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .odin-signals-heatmap .heatmap-main__cal {
+  color: #2563eb;
+}
+
+html[data-theme="light"] .odin-signals-heatmap .heatmap-icon-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+html[data-theme="light"] .odin-signals-heatmap .heatmap-icon-btn:hover:not(:disabled) {
+  background: #eef2f7;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .odin-signals-heatmap__treemap {
+  background: #f8fafc;
+  border-color: #dbe3ef;
+}
+
+html[data-theme="light"] .odin-signals-heatmap__scale {
+  background: #f1f5f9;
+  border-top: 1px solid #dbe3ef;
+}
+
+html[data-theme="light"] .odin-signals-heatmap__figma-legend .heatmap-scale-bar__lbl,
+html[data-theme="light"] .odin-signals-heatmap__scale .heatmap-scale-bar__slider label {
+  color: #334155;
+}
+
+html[data-theme="light"] .odin-signals-heatmap__resize-handle {
+  background: rgba(37, 99, 235, 0.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(37, 99, 235, 0.35),
+    0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .odin-signals-heatmap__resize-handle:hover {
+  background: rgba(37, 99, 235, 0.32);
 }
 
 [data-theme="light"] .heatmap-card {
@@ -16170,14 +16375,15 @@ html[data-theme="light"] .heatmap-table .index-constituents-link:hover {
   color: #1e293b;
 }
 
+/* Market Movers uses the same green/red in both themes, so mirror it here. */
 [data-theme="light"] .heatmap-table tbody td.heatmap-table__chg--up,
 html[data-theme="light"] .heatmap-table tbody td.heatmap-table__chg--up {
-  color: #5d9c59 !important;
+  color: #22c55e !important;
 }
 
 [data-theme="light"] .heatmap-table tbody td.heatmap-table__chg--down,
 html[data-theme="light"] .heatmap-table tbody td.heatmap-table__chg--down {
-  color: #990000 !important;
+  color: rgb(255, 59, 48) !important;
 }
 
 [data-theme="light"] .heatmap-main {

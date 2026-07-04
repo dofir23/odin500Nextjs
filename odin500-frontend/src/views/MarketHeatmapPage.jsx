@@ -547,7 +547,15 @@ export default function MarketHeatmapPage({ initialData = null }) {
                       {t.symbol}
                     </button>
                   </td>
-                  <td className="heatmap-table__td-num">{fmtPrice(t.price)}</td>
+                  <td
+                    className={
+                      'heatmap-table__td-num' +
+                      (pos ? ' heatmap-table__chg--up' : '') +
+                      (neg ? ' heatmap-table__chg--down' : '')
+                    }
+                  >
+                    {fmtPrice(t.price)}
+                  </td>
                   <td
                     className={
                       'heatmap-table__td-num' +
@@ -997,7 +1005,15 @@ export default function MarketHeatmapPage({ initialData = null }) {
                         <td className="heatmap-table__td-muted">
                           {t.industry ? toTitleCaseGroupLabel(t.industry) : 'N/A'}
                         </td>
-                        <td className="heatmap-table__td-num">{fmtPrice(t.price)}</td>
+                        <td
+                          className={
+                            'heatmap-table__td-num' +
+                            (pos ? ' heatmap-table__chg--up' : '') +
+                            (neg ? ' heatmap-table__chg--down' : '')
+                          }
+                        >
+                          {fmtPrice(t.price)}
+                        </td>
                         <td
                           className={
                             'heatmap-table__td-num' +

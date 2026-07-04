@@ -2358,6 +2358,38 @@
   margin-top: 0.25rem;
 }
 
+.paper-exit-rule {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.paper-exit-rule__fields {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.paper-exit-rule__action {
+  min-width: 6rem;
+}
+
+.paper-exit-rule__action-value {
+  display: inline-flex;
+  align-items: center;
+  height: 2.4rem;
+  padding: 0 0.75rem;
+  border-radius: 0.55rem;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+[data-theme='light'] .paper-exit-rule__action-value {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
 .paper-auto-banner {
   display: flex;
   flex-direction: column;

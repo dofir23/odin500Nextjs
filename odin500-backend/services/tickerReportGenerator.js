@@ -202,6 +202,33 @@ function pctFromLag(rows, toIdx, lagTradingDays) {
   return ((b - a) / a) * 100;
 }
 
+function firstIndexOnOrAfter(rows, iso) {
+  for (let i = 0; i < rows.length; i += 1) {
+    if (rows[i].date >= iso) return i;
+  }
+  return -1;
+}
+
+/**
+ * Full calendar-month return: prior month's last close -> the report month's last close.
+ *
+ * Unlike a fixed N-trading-day lag, this anchors to the actual month boundary and snaps to
+ * trading days, so it matches the conventional "monthly return" (and TradingView's 1M) and is
+ * immune to interior data gaps (a missing session no longer shifts the start date).
+ */
+function pctCalendarMonth(rows, year, month, toIdx) {
+  if (toIdx < 0) return null;
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const firstIdx = firstIndexOnOrAfter(rows, monthStart); // first trading day of the report month
+  if (firstIdx <= 0) return null; // need at least one prior-month row for the opening close
+  const startIdx = firstIdx - 1; // last close of the previous month
+  if (toIdx <= startIdx) return null;
+  const a = rows[startIdx].close;
+  const b = rows[toIdx].close;
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) return null;
+  return ((b - a) / a) * 100;
+}
+
 function aggregateMonthly(rows) {
   const map = new Map();
   for (const r of rows) {
@@ -302,7 +329,13 @@ function buildReportObject({
   const periods = [
     { label: '1 Day', t: pctFromLag(tickerRows, asOfIdx, 1), b: pctFromLag(benchRows, benchAsOfIdx, 1) },
     { label: '1 Week', t: pctFromLag(tickerRows, asOfIdx, 5), b: pctFromLag(benchRows, benchAsOfIdx, 5) },
-    { label: '1 Month', t: pctFromLag(tickerRows, asOfIdx, 21), b: pctFromLag(benchRows, benchAsOfIdx, 21) },
+    {
+      label: '1 Month',
+      t: pctCalendarMonth(tickerRows, asOfParts.year, asOfParts.month, asOfIdx) ?? pctFromLag(tickerRows, asOfIdx, 21),
+      b:
+        pctCalendarMonth(benchRows, asOfParts.year, asOfParts.month, benchAsOfIdx) ??
+        pctFromLag(benchRows, benchAsOfIdx, 21)
+    },
     { label: '3 Months', t: pctFromLag(tickerRows, asOfIdx, 63), b: pctFromLag(benchRows, benchAsOfIdx, 63) },
     { label: '6 Months', t: pctFromLag(tickerRows, asOfIdx, 126), b: pctFromLag(benchRows, benchAsOfIdx, 126) },
     { label: 'YTD', t: pctBetween(tickerRows, `${asOfParts.year}-01-01`, asOfIdx), b: pctBetween(benchRows, `${asOfParts.year}-01-01`, benchAsOfIdx) },

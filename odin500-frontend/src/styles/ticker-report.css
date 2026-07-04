@@ -259,11 +259,18 @@ html[data-theme='dark'] .ticker-report-page__year-btn.is-active-year {
 /* Article */
 .ticker-report__article {
   max-width: 100%;
-  
+  font-family: var(--app-ticker-list-font);
   padding: 24px 20px 48px;
   font-size: 15px;
   line-height: 1.65;
   color: var(--tr-text);
+}
+
+/* Align digits in every numeric column / stat, matching the rest of the app. */
+.ticker-report__article .ticker-report__th-num,
+.ticker-report__article .ticker-report__stat-v,
+.ticker-report__article .ticker-report__table td {
+  font-variant-numeric: tabular-nums;
 }
 
 .ticker-report__header {
@@ -676,7 +683,7 @@ html[data-theme='dark'] .ticker-report__table thead {
 }
 
 .ticker-report__heatmap thead th {
-  background: var(--tr-navy);
+  background: var(--tr-light);;
   color: #fff;
   font-size: 10px;
 }

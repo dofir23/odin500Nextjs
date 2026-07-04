@@ -6,6 +6,7 @@ import { ChartInfoTip } from '../components/ChartInfoTip.jsx';
 import { OdinFigmaSignalTreemap } from '../components/OdinFigmaSignalTreemap.jsx';
 import TradingChartLoader from '../components/TradingChartLoader.jsx';
 import { ChartPanel } from '../components/ChartPanel.jsx';
+import { ThemedDropdown } from '../components/ThemedDropdown.jsx';
 import { TickerSymbolCombobox } from '../components/TickerSymbolCombobox.jsx';
 import { useTickerPlotResize } from '../hooks/useTickerPlotResize.js';
 import { useGatedCsvDownload } from '../hooks/useGatedCsvDownload.js';
@@ -23,6 +24,13 @@ import {
 import { fmtPctSigned, fmtPrice } from '../utils/formatDisplayNumber.js';
 import { ODIN_FIGMA_LEGEND_ITEMS, figmaFillForSignal } from '../utils/odinSignalTreemap.js';
 import { CHART_INFO_TIPS } from '../components/chartInfoTips.js';
+import {
+  OdinOmxGauge,
+  OdinDirectionDonut,
+  OdinSignalsBreakdownDonut,
+  ODIN_DIRECTION_COLORS,
+  ODIN_SIGNAL_COLORS
+} from '../components/OdinSignalsCharts.jsx';
 
 const RANGE_PRESETS = [
   { key: '1y', label: '1Y', years: 1 },
@@ -82,18 +90,12 @@ function normalizeSignalCode(sig) {
   return ['L1', 'L2', 'L3', 'S1', 'S2', 'S3', 'N'].includes(s) ? s : '';
 }
 
-function polar(cx, cy, r, deg) {
-  const rad = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-function donutArcPath(cx, cy, r0, r1, a0, a1) {
-  const p0 = polar(cx, cy, r1, a0);
-  const p1 = polar(cx, cy, r1, a1);
-  const p2 = polar(cx, cy, r0, a1);
-  const p3 = polar(cx, cy, r0, a0);
-  const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
-  return `M ${p0.x} ${p0.y} A ${r1} ${r1} 0 ${large} 1 ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${r0} ${r0} 0 ${large} 0 ${p3.x} ${p3.y} Z`;
+/** Color for an OMX-style 0–100 breadth score: bullish green, bearish red, neutral slate. */
+function omxToneColor(score) {
+  if (score == null || !Number.isFinite(score)) return '#94a3b8';
+  if (score >= 55) return '#22c55e';
+  if (score <= 45) return '#ef4444';
+  return '#94a3b8';
 }
 
 function subtractYearsFromIsoEnd(endIso, years) {
@@ -278,13 +280,7 @@ export default function OdinSignalsPage({ initialData = null }) {
   const omxMetrics = useMemo(() => {
     const total = signalStats.total;
     if (total <= 0) {
-      return {
-        hasData: false,
-        score: null,
-        label: 'No data',
-        gaugeStart: 180,
-        gaugeEnd: 180
-      };
+      return { hasData: false, score: null, label: 'No data' };
     }
     const weightedSum = Object.entries(OMX_SIGNAL_SCORES).reduce((sum, [signal, score]) => {
       return sum + (signalStats[signal] || 0) * score;
@@ -301,14 +297,7 @@ export default function OdinSignalsPage({ initialData = null }) {
             : clamped >= 30
               ? 'Bearish'
               : 'Strong Bearish';
-    const centerAngle = 180 + (clamped / 100) * 180;
-    return {
-      hasData: true,
-      score: clamped,
-      label,
-      gaugeStart: centerAngle - 2.5,
-      gaugeEnd: centerAngle + 2.5
-    };
+    return { hasData: true, score: clamped, label };
   }, [signalStats]);
 
   const directionMetrics = useMemo(() => {
@@ -464,64 +453,95 @@ export default function OdinSignalsPage({ initialData = null }) {
     <div className="odin-signals-page">
       <div className="odin-signals-layout">
         <aside className="odin-signals-left">
-          <section className="odin-side-card">
-            <header className="odin-side-card__head">Index Selection</header>
-            <div className="odin-index-list__sub">Index / List selection</div>
-            <div className="odin-index-list">
+          <section className="heatmap-card">
+            <h2 className="heatmap-card__title">Index / List selection</h2>
+            <ul className="heatmap-index-list">
               {INDEX_MENU.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={'odin-index-list__row' + (indexId === m.id ? ' odin-index-list__row--active' : '')}
-                  onClick={() => setIndexId(m.id)}
-                >
-                  <span>{m.label}</span>
-                  <span>›</span>
-                </button>
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    className={'heatmap-index-row' + (indexId === m.id ? ' heatmap-index-row--active' : '')}
+                    onClick={() => setIndexId(m.id)}
+                  >
+                    <span>{m.label}</span>
+                    <span className="heatmap-index-row__chev" aria-hidden>
+                      ›
+                    </span>
+                  </button>
+                </li>
               ))}
-            </div>
-            <div className="odin-index-list__sub" style={{ marginTop: 12 }}>Period</div>
-            <div className="odin-index-list" style={{ gap: 6 }}>
-              {PERIOD_MENU.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={'odin-index-list__row' + (selectedPeriod === p.id ? ' odin-index-list__row--active' : '')}
-                  onClick={() => setSelectedPeriod(p.id)}
-                >
-                  <span>{p.label}</span>
-                  <span>{selectedPeriod === p.id ? '●' : ''}</span>
-                </button>
-              ))}
-            </div>
+            </ul>
           </section>
 
-          <section className="odin-side-card">
-            <header className="odin-side-card__head">Tickers List Signals</header>
-            <div className="odin-tickers-list">
-              <div className="odin-tickers-list__head">
-                <span>Ticker</span>
-                <span>Signal</span>
-                <span>Price</span>
-                <span />
-              </div>
-              {indexRows.slice(0, 40).map((r, idx) => (
-                <button
-                  key={`${r.symbol}-${idx}`}
-                  type="button"
-                  className="odin-tickers-list__row"
-                  onClick={() => openTickerPage(r.symbol)}
-                  onMouseEnter={() => setOdinHeatmapHover(r.symbol)}
-                  onMouseLeave={() => setOdinHeatmapHover('')}
-                >
-                  <span>{r.symbol}</span>
-                  <span>{r.signal}</span>
-                  <span>{fmtPrice(r.price)}</span>
-                  <span className="odin-tickers-list__icons">☑ ⟲</span>
-                </button>
-              ))}
-              {indexLoading ? <div className="odin-tickers-list__status">Loading…</div> : null}
-              {!indexLoading && !indexRows.length ? <div className="odin-tickers-list__status">No tickers</div> : null}
+          <section className="heatmap-card">
+            <h2 className="heatmap-card__title">Period selection</h2>
+            <label className="heatmap-field-label" htmlFor="odin-period">
+              Choose period
+            </label>
+            <ThemedDropdown
+              buttonId="odin-period"
+              className="heatmap-period-dd"
+              value={selectedPeriod}
+              options={PERIOD_MENU.map((p) => ({ id: p.id, label: p.label }))}
+              onChange={setSelectedPeriod}
+              title="Choose period"
+              ariaLabelPrefix="Period"
+              wideLabel
+            />
+          </section>
+
+          <section className="heatmap-card heatmap-card--table">
+            <h2 className="heatmap-card__title">Ticker signals</h2>
+            <div className="heatmap-table-wrap">
+              <table className="heatmap-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Signal</th>
+                    <th className="odin-th-num">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {indexRows.slice(0, 80).map((r, idx) => (
+                    <tr
+                      key={`${r.symbol}-${idx}`}
+                      className="odin-sig-row"
+                      role="link"
+                      tabIndex={0}
+                      title={`Open ${r.symbol}`}
+                      onClick={() => openTickerPage(r.symbol)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openTickerPage(r.symbol);
+                        }
+                      }}
+                      onMouseEnter={() => setOdinHeatmapHover(r.symbol)}
+                      onMouseLeave={() => setOdinHeatmapHover('')}
+                    >
+                      <td className="heatmap-table__td-ticker">
+                        <span className="index-constituents-link">{r.symbol}</span>
+                      </td>
+                      <td>{r.signal || 'N'}</td>
+                      <td className="heatmap-table__td-num">{fmtPrice(r.price)}</td>
+                    </tr>
+                  ))}
+                  {indexLoading ? (
+                    <tr>
+                      <td colSpan={3} className="heatmap-table__empty">
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!indexLoading && !indexRows.length ? (
+                    <tr>
+                      <td colSpan={3} className="heatmap-table__empty">
+                        No tickers
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
           </section>
         </aside>
@@ -534,109 +554,78 @@ export default function OdinSignalsPage({ initialData = null }) {
                 <header className="odin-omx-card__cap">
                   {activeIndex.label} OMX <ChartInfoTip tip={CHART_INFO_TIPS.odinOmxGauge} align="start" />
                 </header>
-                <svg viewBox="0 0 320 170" className="odin-omx-gauge" aria-hidden>
-                  {[
-                    { from: 180, to: 210, color: '#ff0000' },
-                    { from: 212, to: 240, color: '#ff3b30' },
-                    { from: 242, to: 270, color: '#ffc107' },
-                    { from: 272, to: 300, color: '#9e9e9e' },
-                    { from: 302, to: 330, color: '#8bcf4a' },
-                    { from: 332, to: 360, color: '#4a7d2f' }
-                  ].map((s, i) => (
-                    <path key={i} d={donutArcPath(160, 140, 62, 105, s.from, s.to)} fill={s.color} />
-                  ))}
-                  <path d={donutArcPath(160, 140, 0, 54, omxMetrics.gaugeStart, omxMetrics.gaugeEnd)} fill="#1e3a8a" />
-                </svg>
-                <div className="odin-omx-card__kpi">{omxMetrics.hasData ? omxMetrics.score.toFixed(1) : '—'}</div>
-                <div className="odin-omx-card__sub">{omxMetrics.label}</div>
+                <div className="odin-omx-card__body">
+                  <OdinOmxGauge score={omxMetrics.hasData ? omxMetrics.score : null} />
+                  <div className="odin-omx-card__legend">
+                    <span><i style={{ background: ODIN_DIRECTION_COLORS.short }} />Bearish</span>
+                    <span><i style={{ background: ODIN_DIRECTION_COLORS.neutral }} />Neutral</span>
+                    <span><i style={{ background: ODIN_DIRECTION_COLORS.long }} />Bullish</span>
+                  </div>
+                  <div className="odin-omx-card__foot">
+                    <div
+                      className="odin-omx-card__kpi"
+                      style={{ color: omxToneColor(omxMetrics.hasData ? omxMetrics.score : null) }}
+                    >
+                      {omxMetrics.hasData ? omxMetrics.score.toFixed(1) : '—'}
+                    </div>
+                    <div className="odin-omx-card__sub">{omxMetrics.label}</div>
+                  </div>
+                </div>
               </article>
 
               <article className="odin-omx-card">
                 <header className="odin-omx-card__cap">
-                  {activeIndex.label.toLowerCase()} Direction Breakdown{' '}
+                  {activeIndex.label} Direction Breakdown{' '}
                   <ChartInfoTip tip={CHART_INFO_TIPS.odinDirectionDonut} align="start" />
                 </header>
-                <svg viewBox="0 0 320 210" className="odin-omx-donut" aria-hidden>
-                  {(() => {
-                    const total = Math.max(1, signalStats.total);
-                    const parts = [
-                      { key: 'long', value: signalStats.long, color: '#3b82f6', label: 'Long' },
-                      { key: 'short', value: signalStats.short, color: '#f08a35', label: 'Short' },
-                      { key: 'neutral', value: signalStats.neutral, color: '#9e9e9e', label: 'Neutral' }
-                    ];
-                    let a = -90;
-                    return parts.map((p) => {
-                      const span = (p.value / total) * 360;
-                      const d = donutArcPath(160, 100, 56, 88, a, a + span);
-                      const mid = a + span / 2;
-                      const lp = polar(160, 100, 96, mid);
-                      a += span;
-                      const pct = Math.round((p.value / total) * 100);
-                      return (
-                        <g key={p.key}>
-                          <path d={d} fill={p.color} />
-                          <text x={lp.x} y={lp.y} textAnchor="middle" fill="#4b5563" fontSize="13" fontWeight="700">
-                            {p.label}, {p.value}, {pct}%
-                          </text>
-                        </g>
-                      );
-                    });
-                  })()}
-                </svg>
-                <div className="odin-omx-card__legend">
-                  <span><i style={{ background: '#3b82f6' }} />Long</span>
-                  <span><i style={{ background: '#f08a35' }} />Short</span>
-                  <span><i style={{ background: '#9e9e9e' }} />Neutral</span>
+                <div className="odin-omx-card__body">
+                  <OdinDirectionDonut
+                    long={signalStats.long}
+                    short={signalStats.short}
+                    neutral={signalStats.neutral}
+                  />
+                  <div className="odin-omx-card__legend">
+                    <span><i style={{ background: ODIN_DIRECTION_COLORS.long }} />Long</span>
+                    <span><i style={{ background: ODIN_DIRECTION_COLORS.short }} />Short</span>
+                    <span><i style={{ background: ODIN_DIRECTION_COLORS.neutral }} />Neutral</span>
+                  </div>
+                  <div className="odin-omx-card__foot">
+                    <div
+                      className="odin-omx-card__kpi"
+                      style={{ color: omxToneColor(directionMetrics.hasData ? directionMetrics.score : null) }}
+                    >
+                      {directionMetrics.hasData ? directionMetrics.score.toFixed(1) : '—'}
+                    </div>
+                    <div className="odin-omx-card__sub">{directionMetrics.label}</div>
+                  </div>
                 </div>
-                <div className="odin-omx-card__kpi">{directionMetrics.hasData ? directionMetrics.score.toFixed(1) : '—'}</div>
-                <div className="odin-omx-card__sub">{directionMetrics.label}</div>
               </article>
 
               <article className="odin-omx-card">
                 <header className="odin-omx-card__cap">
                   {activeIndex.label} Signals Breakdown <ChartInfoTip tip={CHART_INFO_TIPS.odinSignalDonut} align="start" />
                 </header>
-                <svg viewBox="0 0 320 210" className="odin-omx-donut" aria-hidden>
-                  {(() => {
-                    const total = Math.max(1, signalStats.total);
-                    const parts = [
-                      { key: 'L1', value: signalStats.L1, color: '#2f7ae5' },
-                      { key: 'L2', value: signalStats.L2, color: '#f08a35' },
-                      { key: 'L3', value: signalStats.L3, color: '#9e9e9e' },
-                      { key: 'S1', value: signalStats.S1, color: '#f9c80e' },
-                      { key: 'S2', value: signalStats.S2, color: '#8bcf4a' },
-                      { key: 'S3', value: signalStats.S3, color: '#4aa2f0' },
-                      { key: 'N', value: signalStats.N, color: '#546e7a' }
-                    ];
-                    let a = -90;
-                    return parts.map((p) => {
-                      const span = (p.value / total) * 360;
-                      const d = donutArcPath(160, 100, 56, 88, a, a + span);
-                      const mid = a + span / 2;
-                      const lp = polar(160, 100, 96, mid);
-                      a += span;
-                      const pct = Math.round((p.value / total) * 100);
-                      return (
-                        <g key={p.key}>
-                          <path d={d} fill={p.color} />
-                          {p.value > 0 ? (
-                            <text x={lp.x} y={lp.y} textAnchor="middle" fill="#4b5563" fontSize="11" fontWeight="700">
-                               {p.value}, {pct}%
-                            </text>
-                          ) : null}
-                        </g>
-                      );
-                    });
-                  })()}
-                </svg>
-                <div className="odin-omx-card__legend odin-omx-card__legend--signals">
-                  <span><i style={{ background: '#2f7ae5' }} />L1</span>
-                  <span><i style={{ background: '#f08a35' }} />L2</span>
-                  <span><i style={{ background: '#9e9e9e' }} />L3</span>
-                  <span><i style={{ background: '#f9c80e' }} />S1</span>
-                  <span><i style={{ background: '#8bcf4a' }} />S2</span>
-                  <span><i style={{ background: '#4aa2f0' }} />S3</span>
-                  <span><i style={{ background: '#546e7a' }} />n</span>
+                <div className="odin-omx-card__body">
+                  <OdinSignalsBreakdownDonut stats={signalStats} />
+                  <div className="odin-omx-card__legend odin-omx-card__legend--signals">
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.L1 }} />L1</span>
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.L2 }} />L2</span>
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.L3 }} />L3</span>
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.S1 }} />S1</span>
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.S2 }} />S2</span>
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.S3 }} />S3</span>
+                    <span><i style={{ background: ODIN_SIGNAL_COLORS.N }} />N</span>
+                  </div>
+                  <div className="odin-omx-card__foot">
+                    <div className="odin-omx-card__kpi odin-omx-card__kpi--split">
+                      <span style={{ color: ODIN_DIRECTION_COLORS.long }}>{signalStats.long} L</span>
+                      <span className="odin-omx-card__split-sep">·</span>
+                      <span style={{ color: ODIN_DIRECTION_COLORS.short }}>{signalStats.short} S</span>
+                      <span className="odin-omx-card__split-sep">·</span>
+                      <span style={{ color: ODIN_DIRECTION_COLORS.neutral }}>{signalStats.neutral} N</span>
+                    </div>
+                    <div className="odin-omx-card__sub">Long / Short / Neutral</div>
+                  </div>
                 </div>
               </article>
             </div>
@@ -652,12 +641,29 @@ export default function OdinSignalsPage({ initialData = null }) {
                   What is Odin Signal
                 </h3>
                 <p className="odin-s22__text">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
-                  et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-                  aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
-                  cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-                  culpa qui officia deserunt mollit anim id est laborum.
+                  An Odin Signal is a single directional read on a stock&rsquo;s trend, distilling its price action
+                  against the 200-day moving average into one of seven states. Long tiers (L1&ndash;L3) mark bullish
+                  setups &mdash; L1 is the strongest conviction and L3 the mildest &mdash; while Short tiers
+                  (S1&ndash;S3) mark bearish setups, with S1 the most bearish. An &ldquo;N&rdquo; means the trend is
+                  neutral with no clear edge.
                 </p>
+                <p className="odin-s22__text odin-s22__text--stack">
+                  Every ticker in the selected index is scored the same way and refreshed each session, so the gauges,
+                  heatmap and table below always reflect the latest read. The OMX gauge rolls those individual signals
+                  into one market-wide score (0 = strong bearish, 100 = strong bullish) to show where breadth is
+                  leaning right now.
+                </p>
+                <div className="odin-s22__tiers">
+                  <span className="odin-s22__tier odin-s22__tier--long">
+                    <b>L1–L3</b> Long · bullish
+                  </span>
+                  <span className="odin-s22__tier odin-s22__tier--short">
+                    <b>S1–S3</b> Short · bearish
+                  </span>
+                  <span className="odin-s22__tier odin-s22__tier--neutral">
+                    <b>N</b> Neutral
+                  </span>
+                </div>
               </article>
             </div>
           </section>
@@ -832,8 +838,8 @@ export default function OdinSignalsPage({ initialData = null }) {
                       <th>Sector</th>
                       <th>Industry</th>
                       <th>Signal</th>
-                      <th>Price</th>
-                      <th>Change %</th>
+                      <th className="odin-th-num">Price</th>
+                      <th className="odin-th-num">Change %</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -847,7 +853,7 @@ export default function OdinSignalsPage({ initialData = null }) {
                           onMouseEnter={() => setOdinHeatmapHover(r.symbol)}
                           onMouseLeave={() => setOdinHeatmapHover('')}
                         >
-                          <td>
+                          <td className="heatmap-table__td-ticker">
                             <button
                               type="button"
                               className="index-constituents-link"
@@ -856,14 +862,24 @@ export default function OdinSignalsPage({ initialData = null }) {
                               {r.symbol}
                             </button>
                           </td>
-                          <td>{r.security || 'N/A'}</td>
-                          <td>{r.sector || 'N/A'}</td>
-                          <td>{r.industry || 'N/A'}</td>
+                          <td className="heatmap-table__td-muted" title={r.security || undefined}>
+                            {r.security || 'N/A'}
+                          </td>
+                          <td className="heatmap-table__td-muted">{r.sector || 'N/A'}</td>
+                          <td className="heatmap-table__td-muted">{r.industry || 'N/A'}</td>
                           <td>{r.signal || 'N'}</td>
-                          <td>{fmtPrice(r.price)}</td>
                           <td
                             className={
-                              'heatmap-table__chg' +
+                              'heatmap-table__td-num' +
+                              (up ? ' heatmap-table__chg--up' : '') +
+                              (down ? ' heatmap-table__chg--down' : '')
+                            }
+                          >
+                            {fmtPrice(r.price)}
+                          </td>
+                          <td
+                            className={
+                              'heatmap-table__td-num' +
                               (up ? ' heatmap-table__chg--up' : '') +
                               (down ? ' heatmap-table__chg--down' : '')
                             }
