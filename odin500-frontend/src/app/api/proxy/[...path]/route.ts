@@ -6,6 +6,19 @@ import {
 } from '@/lib/server-api';
 
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {
+  try {
+    return await doProxyRequest(request, pathSegments);
+  } catch (err) {
+    console.error(
+      `[proxy] ${request.method} /api/${pathSegments.join('/')} failed:`,
+      err
+    );
+    const message = err instanceof Error ? err.message : 'Proxy request failed';
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+}
+
+async function doProxyRequest(request: NextRequest, pathSegments: string[]) {
   const apiPath = '/api/' + pathSegments.join('/');
   const search = request.nextUrl.search || '';
   const target = `${API_ORIGIN.replace(/\/$/, '')}${apiPath}${search}`;
@@ -37,7 +50,6 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     }
   }
 
-  const body = await response.arrayBuffer();
   const outHeaders = new Headers();
   response.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
@@ -51,9 +63,28 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     }
     outHeaders.set(key, value);
   });
-  outHeaders.set('content-type', response.headers.get('content-type') || 'application/json');
 
-  return new NextResponse(body, {
+  // 204/205/304 are "null body" statuses: the Response constructor throws a
+  // TypeError if given any body (even an empty ArrayBuffer). Read the body as
+  // text and drop it entirely when it's empty or the status forbids a body.
+  const bodyText = await response.text();
+
+  if (response.status >= 400) {
+    console.error(
+      `[proxy] upstream ${request.method} ${target} -> ${response.status} :: ${bodyText.slice(0, 2000)}`
+    );
+  }
+
+  const nullBodyStatus =
+    response.status === 204 || response.status === 205 || response.status === 304;
+  const outBody =
+    nullBodyStatus || request.method === 'HEAD' || bodyText.length === 0 ? null : bodyText;
+
+  if (outBody !== null) {
+    outHeaders.set('content-type', response.headers.get('content-type') || 'application/json');
+  }
+
+  return new NextResponse(outBody, {
     status: response.status,
     headers: outHeaders
   });

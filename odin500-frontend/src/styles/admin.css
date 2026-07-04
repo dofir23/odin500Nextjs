@@ -2,7 +2,7 @@
   --admin-accent: #60a5fa;
   --admin-accent-bg: rgba(59, 130, 246, 0.12);
   --admin-border: rgba(148, 163, 184, 0.18);
-  max-width: 1200px;
+  /* max-width: 1200px; */
   padding: 1.25rem 1rem 2.5rem;
 }
 
