@@ -26,7 +26,12 @@ async function supabaseFetch(input, init = {}) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const res = await nativeFetch(input, init);
-      const body = await res.arrayBuffer();
+      // 204/205/304 are "null body" statuses: the Response constructor throws a
+      // TypeError if given any body (even an empty ArrayBuffer). Supabase/PostgREST
+      // returns 204 for writes without `return=representation`, so guard against it.
+      const nullBodyStatus =
+        res.status === 204 || res.status === 205 || res.status === 304;
+      const body = nullBodyStatus ? null : await res.arrayBuffer();
       return new Response(body, {
         status: res.status,
         statusText: res.statusText,
