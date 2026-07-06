@@ -57,8 +57,6 @@ export function PeriodicReturnBarChart({
     .filter(Boolean)
     .join(' ');
 
-  const showBarLabels = chartFullscreen || rows.length <= 20;
-
   const exportSymbol = `${ticker}-vs-${benchmarkIndex}`;
   const exportOnclone = useMemo(
     () => (clonedDoc, clonedRoot) =>
@@ -118,7 +116,6 @@ export function PeriodicReturnBarChart({
             xAxisMaxLabels={xAxisMaxLabels}
             plotHeight={chartPlotHeight}
             chartFullscreen={chartFullscreen}
-            showBarLabels={showBarLabels}
             benchBarColor={CHART_CMP_COLOR_BENCH2}
           />
         </div>

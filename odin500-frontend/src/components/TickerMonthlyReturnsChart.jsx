@@ -351,41 +351,45 @@ export function TickerMonthlyReturnsChart({
 
   const renderMonthlyHead = (iconsDisabled) => (
     <div className="ticker-monthly__head ticker-monthly__head--split">
-      <div className="ticker-monthly__title-block">
-        <div className="flex align-centers">
-          <ReturnsChartPieIcon />
+      <div className="ticker-monthly__head-top">
+        <div className="ticker-monthly__title-block">
+          <div className="flex align-centers">
+            <ReturnsChartPieIcon />
+            <span className="ticker-monthly__title-badge uppercase">
+              <ReturnsChartClickableTitle className="ticker-monthly__title" onClick={onViewMore}>
+                {monthlyTitleLabel}
+              </ReturnsChartClickableTitle>
+              <ChartInfoTip
+                tip={!rows.length && !loading ? CHART_INFO_TIPS.monthlyReturnsByYear : CHART_INFO_TIPS.monthlyReturnsChart}
+                align="end"
+              />
+            </span>
+          </div>
         </div>
-        <ReturnsChartClickableTitle className="ticker-monthly__title uppercase" onClick={onViewMore}>
-          {monthlyTitleLabel}
-        </ReturnsChartClickableTitle>
-        <ChartInfoTip
-          tip={!rows.length && !loading ? CHART_INFO_TIPS.monthlyReturnsByYear : CHART_INFO_TIPS.monthlyReturnsChart}
-          align="end"
-        />
+        <div className="ticker-monthly__head-icons">
+          <ReturnsChartToolbar
+            className="ticker-monthly__toolbar-icons-bar"
+            rangeControls={null}
+            showViewMore={false}
+            onToggleTable={() => setShowTable((v) => !v)}
+            showTable={showTable}
+            onDownload={onDownloadCsv}
+            downloadDisabled={iconsDisabled || !selectedYearRows.length}
+            extraActions={monthlyExtraActions}
+          />
+          <ChartSectionIconActions
+            snapshotRootRef={sectionRef}
+            plotHostRef={chartCardRef}
+            fullscreenTargetRef={chartFsShellRef}
+            buildFilename={buildExportFilename}
+            disabled={iconsDisabled || chartExportDisabled}
+            exportPreviewAlt={`${periodMode} returns chart for ${symU}`}
+          />
+        </div>
       </div>
-      <div className="ticker-monthly__head-icons">
-        {hasMonthlyHeadRange ? (
-          <div className="ticker-monthly__head-controls">{monthlyRangeControls}</div>
-        ) : null}
-        <ReturnsChartToolbar
-          className="ticker-monthly__toolbar-icons-bar"
-          rangeControls={null}
-          showViewMore={false}
-          onToggleTable={() => setShowTable((v) => !v)}
-          showTable={showTable}
-          onDownload={onDownloadCsv}
-          downloadDisabled={iconsDisabled || !selectedYearRows.length}
-          extraActions={monthlyExtraActions}
-        />
-        <ChartSectionIconActions
-          snapshotRootRef={sectionRef}
-          plotHostRef={chartCardRef}
-          fullscreenTargetRef={chartFsShellRef}
-          buildFilename={buildExportFilename}
-          disabled={iconsDisabled || chartExportDisabled}
-          exportPreviewAlt={`${periodMode} returns chart for ${symU}`}
-        />
-      </div>
+      {hasMonthlyHeadRange ? (
+        <div className="ticker-monthly__head-range">{monthlyRangeControls}</div>
+      ) : null}
     </div>
   );
 

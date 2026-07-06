@@ -450,7 +450,7 @@ export function TickerLightweightChart({
       lineWidth: 2,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
-      title: `Paper ${Math.abs(qty)} @ ${fmtChartPrice(avg)}`
+      title: `Virtual ${Math.abs(qty)} @ ${fmtChartPrice(avg)}`
     });
 
     return () => {
@@ -488,9 +488,9 @@ export function TickerLightweightChart({
       {paperBadge ? (
         <div
           className={'ticker-lw-chart__paper-badge' + (paperBadge.pnlClass ? ` ${paperBadge.pnlClass}` : '')}
-          aria-label="Paper trading position on this symbol"
+          aria-label="Virtual portfolio position on this symbol"
         >
-          <span className="ticker-lw-chart__paper-badge-tag">Paper</span>
+          <span className="ticker-lw-chart__paper-badge-tag">Virtual</span>
           <span className="ticker-lw-chart__paper-badge-main">
             {paperBadge.qty} @ {fmtChartPrice(paperBadge.avg)}
           </span>

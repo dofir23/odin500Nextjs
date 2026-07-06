@@ -305,7 +305,7 @@ function AdminUserDetailContent() {
             <section className="admin-card">
               <div className="admin-table-wrap">
                 {!detail.paper_accounts?.length ? (
-                  <div className="admin-empty">No paper accounts.</div>
+                  <div className="admin-empty">No virtual portfolio accounts.</div>
                 ) : (
                   <table className="admin-table">
                     <thead>

@@ -30,7 +30,7 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
     { href: '/heatmap', label: 'Stock market heatmap' },
     { href: '/odin-signals', label: 'Trading signals screener' },
     { href: '/newsletter', label: 'Weekly newsletter' },
-    { href: '/paper-trading', label: 'Paper trading' },
+    { href: '/paper-trading', label: 'Virtual portfolio' },
     { href: '/premium', label: 'Premium plans' },
     { href: '/signup', label: 'Create account' }
   ],
@@ -45,11 +45,11 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
   '/about': [
     { href: '/market', label: 'Market dashboard' },
     { href: '/accounts', label: 'Account management' },
-    { href: '/paper-trading', label: 'Paper trading' }
+    { href: '/paper-trading', label: 'Virtual portfolio' }
   ],
   '/accounts': [
     { href: '/about', label: 'Profile settings' },
-    { href: '/paper-trading', label: 'Paper trading' },
+    { href: '/paper-trading', label: 'Virtual portfolio' },
     { href: '/market', label: 'Market dashboard' }
   ],
   '/paper-trading': [

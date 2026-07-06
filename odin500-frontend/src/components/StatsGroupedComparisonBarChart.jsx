@@ -4,15 +4,14 @@ import { Bar } from 'react-chartjs-2';
 import '../utils/chartJsSetup.js';
 import { fmtPctSigned } from '../utils/formatDisplayNumber.js';
 import {
-  CHART_CMP_COLOR_AXIS,
   CHART_CMP_COLOR_BENCH,
-  CHART_CMP_COLOR_GRID,
-  CHART_CMP_COLOR_GRID_ZERO,
   CHART_CMP_COLOR_TICK,
   finiteComparisonPct,
   fmtPctSignedAxis,
   fmtPctSignedCompact
 } from '../utils/chartComparisonTheme.js';
+import { useChartComparisonColors } from '../hooks/useChartComparisonColors.js';
+import { useChartExportCapture } from '../hooks/useChartExportCapture.js';
 
 function computeLinearYExtent(rows) {
   const pcts = [];
@@ -58,7 +57,10 @@ export function StatsGroupedComparisonBarChart({
   className = ''
 }) {
   const chartRef = useRef(/** @type {import('chart.js').Chart<'bar'> | null} */ (null));
-  const showDatalabels = chartFullscreen || showBarLabels;
+  const cmpColors = useChartComparisonColors();
+  const exportCapture = useChartExportCapture();
+  const showDatalabels = chartFullscreen || showBarLabels || exportCapture;
+  const expandPlot = chartFullscreen || exportCapture;
 
   const labels = useMemo(() => {
     return rows.map((r) => {
@@ -160,7 +162,7 @@ export function StatsGroupedComparisonBarChart({
             autoSkip: dense,
             maxTicksLimit: dense ? cap : undefined,
             maxRotation: 0,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             font: { size: 10, weight: '600' }
           }
         },
@@ -170,13 +172,13 @@ export function StatsGroupedComparisonBarChart({
           grid: {
             color: (ctx) => {
               const v = ctx.tick?.value;
-              if (v === 0 || Math.abs(Number(v)) < 1e-9) return CHART_CMP_COLOR_GRID_ZERO;
-              return CHART_CMP_COLOR_GRID;
+              if (v === 0 || Math.abs(Number(v)) < 1e-9) return cmpColors.gridZero;
+              return cmpColors.grid;
             }
           },
           ticks: {
             maxTicksLimit: 8,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             padding: 6,
             font: { size: 10, weight: '600' },
             callback: (value) => fmtPctSignedAxis(value)
@@ -184,21 +186,21 @@ export function StatsGroupedComparisonBarChart({
         }
       }
     };
-  }, [yExtent, labels.length, xAxisMaxLabels, showDatalabels]);
+  }, [yExtent, labels.length, xAxisMaxLabels, showDatalabels, cmpColors]);
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     chart.resize();
     chart.update('none');
-  }, [plotHeight, chartFullscreen, showBarLabels, rows]);
+  }, [plotHeight, chartFullscreen, exportCapture, showBarLabels, rows, cmpColors]);
 
-  const heightStyle = chartFullscreen ? '100%' : `${plotHeight}px`;
+  const heightStyle = expandPlot ? '100%' : `${plotHeight}px`;
 
   return (
     <div
       className={'stats-grouped-comparison-bar-chart' + (className ? ` ${className}` : '')}
-      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: chartFullscreen ? 180 : undefined }}
+      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: expandPlot ? 180 : undefined }}
     >
       <Bar ref={chartRef} data={data} options={options} />
     </div>

@@ -1565,6 +1565,7 @@ export default function IndexPage({ initialData = null }) {
     exportModalOpen: chartExportModalOpen,
     exportModalStatus: chartExportModalStatus,
     exportPreviewUrl: chartExportPreviewUrl,
+    exportFilename: chartExportFilename,
     exportModalError: chartExportModalError,
     openExportModal: openChartExportModal,
     closeExportModal: closeChartExportModal,
@@ -1572,6 +1573,7 @@ export default function IndexPage({ initialData = null }) {
   } = useChartSnapshotExport({
     snapshotRootRef: chartBodyRef,
     plotHostRef: chartPlotHostRef,
+    fullscreenTargetRef: chartBodyRef,
     buildFilename: buildIndexChartExportFilename,
     disabled: mainChartExportDisabled,
     onclone: applyTickerChartSnapshotCloneFixes
@@ -2655,6 +2657,8 @@ export default function IndexPage({ initialData = null }) {
         onDownload={downloadChartExport}
         titleId="index-chart-export-modal-title"
         previewAlt={`Exported chart for ${displaySym}`}
+        shareLabel={`${displaySym} index chart`}
+        exportFilename={chartExportFilename}
       />
     </div>
   );

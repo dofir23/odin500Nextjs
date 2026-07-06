@@ -12,10 +12,37 @@ import {
 import { PAPER_ORDER_TYPE_OPTIONS, pendingOrderSuccessMessage } from './paperOrderLabels.js';
 
 const QTY_PRESETS = [10, 25, 50, 100, 500];
+const AMOUNT_PRESETS = [500, 1000, 2000, 5000, 10000];
+
+function round6(v) {
+  return Math.round(Number(v || 0) * 1000000) / 1000000;
+}
+
+function sharesFromAmount(amount, price) {
+  const dollars = Number(amount);
+  const px = Number(price);
+  if (!Number.isFinite(dollars) || dollars <= 0) return null;
+  if (!Number.isFinite(px) || px <= 0) return null;
+  const shares = round6(dollars / px);
+  return shares > 0 ? shares : null;
+}
 
 function money(v) {
   if (v == null || !Number.isFinite(Number(v))) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(v));
+}
+
+function formatAmountPreset(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 1000 && n % 1000 === 0) {
+    return `$${n / 1000}K`;
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(n);
 }
 
 function fmtPrice(v) {
@@ -60,6 +87,8 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
   const [action, setAction] = useState('BTO');
   const [orderType, setOrderType] = useState('market');
   const [qty, setQty] = useState('');
+  const [amount, setAmount] = useState('');
+  const [sizeMode, setSizeMode] = useState('shares');
   const [limitPrice, setLimitPrice] = useState('');
   const [stopPrice, setStopPrice] = useState('');
   const [bracketEnabled, setBracketEnabled] = useState(false);
@@ -75,7 +104,8 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
   }, [initialTicker]);
 
   const sym = ticker.trim().toUpperCase();
-  const quantity = Number(qty);
+  const rawShares = Number(qty);
+  const rawAmount = Number(amount);
   const held = useMemo(() => {
     const row = positions.find((p) => String(p.ticker).toUpperCase() === sym);
     return row
@@ -167,16 +197,35 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
     return null;
   }, [orderType, limitPrice, stopPrice, marketPrice]);
 
-  const priceAtLabel = fmtPrice(referencePrice);
+  const quantity = useMemo(() => {
+    if (sizeMode === 'shares') {
+      return Number.isFinite(rawShares) && rawShares > 0 ? rawShares : null;
+    }
+    if (referencePrice == null) return null;
+    return sharesFromAmount(rawAmount, referencePrice);
+  }, [sizeMode, rawShares, rawAmount, referencePrice]);
+
   const estTotal =
-    Number.isFinite(quantity) &&
+    quantity != null &&
     quantity > 0 &&
     referencePrice != null &&
     Number.isFinite(referencePrice)
       ? quantity * referencePrice
       : null;
 
+  const priceAtLabel = fmtPrice(referencePrice);
   const submitPriceSuffix = priceAtLabel ? ` @ ${priceAtLabel}` : priceBusy && sym ? ' @ …' : '';
+
+  function switchSizeMode(next) {
+    if (next === sizeMode) return;
+    setSizeMode(next);
+    setError('');
+    if (next === 'shares') {
+      setAmount('');
+    } else {
+      setQty('');
+    }
+  }
 
   function onSymbolChange(next) {
     setTicker(next);
@@ -186,6 +235,7 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
 
   function resetFormFields() {
     setQty('');
+    setAmount('');
     setLimitPrice('');
     setStopPrice('');
     setBracketStopLoss('');
@@ -200,8 +250,24 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
       setError('Search and select a ticker symbol');
       return;
     }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
+    if (sizeMode === 'amount' && (referencePrice == null || !Number.isFinite(referencePrice))) {
+      setError('Enter a price or wait for a reference price to size by amount');
+      return;
+    }
+    if (sizeMode === 'amount' && (!Number.isFinite(rawAmount) || rawAmount <= 0)) {
+      setError('Enter a valid dollar amount');
+      return;
+    }
+    if (sizeMode === 'shares' && (!Number.isFinite(rawShares) || rawShares <= 0)) {
       setError('Enter a valid quantity');
+      return;
+    }
+    if (quantity == null || quantity <= 0) {
+      setError(
+        sizeMode === 'amount'
+          ? 'Amount is too small for the current price'
+          : 'Enter a valid quantity'
+      );
       return;
     }
     if (action === 'STC') {
@@ -346,21 +412,62 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
           </p>
         ) : null}
 
-        <label className="paper-field">
-          <span className="paper-field__label">Quantity (shares)</span>
+        <div className="paper-field paper-order__size">
+          <div className="paper-strategy-ticker-source">
+            <span className="paper-field__label">Size</span>
+            <div
+              className="paper-strategy-ticker-source__tabs"
+              role="tablist"
+              aria-label="Order size type"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={sizeMode === 'shares'}
+                className={
+                  'paper-strategy-ticker-source__tab' +
+                  (sizeMode === 'shares' ? ' paper-strategy-ticker-source__tab--active' : '')
+                }
+                disabled={busy}
+                onClick={() => switchSizeMode('shares')}
+              >
+                Shares
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={sizeMode === 'amount'}
+                className={
+                  'paper-strategy-ticker-source__tab' +
+                  (sizeMode === 'amount' ? ' paper-strategy-ticker-source__tab--active' : '')
+                }
+                disabled={busy}
+                onClick={() => switchSizeMode('amount')}
+              >
+                Amount
+              </button>
+            </div>
+          </div>
           <input
             type="number"
             className="paper-field__input"
-            min="1"
-            step="1"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            placeholder="0"
+            min={sizeMode === 'shares' ? '1' : '0.01'}
+            step={sizeMode === 'shares' ? '1' : '0.01'}
+            value={sizeMode === 'shares' ? qty : amount}
+            onChange={(e) => (sizeMode === 'shares' ? setQty(e.target.value) : setAmount(e.target.value))}
+            placeholder={sizeMode === 'shares' ? '0' : 'e.g. 2000'}
+            aria-label={sizeMode === 'shares' ? 'Quantity in shares' : 'Order amount in dollars'}
+            disabled={busy}
           />
-        </label>
+        </div>
 
-        <div className="paper-qty-presets" aria-label="Quick quantity">
-          {isClose && closableQty > 0 ? (
+        <div
+          className={
+            'paper-qty-presets' + (sizeMode === 'amount' ? ' paper-qty-presets--amount' : '')
+          }
+          aria-label={sizeMode === 'shares' ? 'Quick quantity' : 'Quick amount'}
+        >
+          {sizeMode === 'shares' && isClose && closableQty > 0 ? (
             <button
               type="button"
               className="paper-qty-presets__btn paper-qty-presets__btn--all"
@@ -369,14 +476,25 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
               ALL ({closableQty})
             </button>
           ) : null}
-          {QTY_PRESETS.map((n) => (
+          {sizeMode === 'amount' && isClose && closableQty > 0 && referencePrice != null ? (
+            <button
+              type="button"
+              className="paper-qty-presets__btn paper-qty-presets__btn--all"
+              onClick={() => setAmount(String(round6(closableQty * referencePrice)))}
+            >
+              ALL ({money(closableQty * referencePrice)})
+            </button>
+          ) : null}
+          {(sizeMode === 'shares' ? QTY_PRESETS : AMOUNT_PRESETS).map((n) => (
             <button
               key={n}
               type="button"
               className="paper-qty-presets__btn"
-              onClick={() => setQty(String(n))}
+              onClick={() =>
+                sizeMode === 'shares' ? setQty(String(n)) : setAmount(String(n))
+              }
             >
-              {n}
+              {sizeMode === 'amount' ? formatAmountPreset(n) : n}
             </button>
           ))}
         </div>
@@ -456,14 +574,32 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
           </div>
         ) : null}
 
-        {sym && referencePrice != null && Number.isFinite(quantity) && quantity > 0 && estTotal != null ? (
+        {sym && referencePrice != null && quantity != null && quantity > 0 && estTotal != null ? (
           <p className="paper-order__estimate">
-            Est. order value: <strong>{money(estTotal)}</strong>
-            <span className="paper-order__estimate-meta">
-              {' '}
-              ({quantity} × {money(referencePrice)}
-              {orderType === 'limit' ? ', limit' : orderType === 'market' ? ', mkt est.' : ', ref.'})
-            </span>
+            {sizeMode === 'amount' ? (
+              <>
+                Est. shares: <strong>{quantity}</strong>
+                <span className="paper-order__estimate-meta">
+                  {' '}
+                  ({money(rawAmount)} ÷ {money(referencePrice)}
+                  {orderType === 'limit' ? ', limit' : orderType === 'market' ? ', mkt est.' : ', ref.'})
+                </span>
+              </>
+            ) : (
+              <>
+                Est. order value: <strong>{money(estTotal)}</strong>
+                <span className="paper-order__estimate-meta">
+                  {' '}
+                  ({quantity} × {money(referencePrice)}
+                  {orderType === 'limit' ? ', limit' : orderType === 'market' ? ', mkt est.' : ', ref.'})
+                </span>
+              </>
+            )}
+          </p>
+        ) : sym && referencePrice != null && sizeMode === 'amount' && Number.isFinite(rawAmount) && rawAmount > 0 ? (
+          <p className="paper-order__estimate paper-order__estimate--muted">
+            Reference price: <strong>{money(referencePrice)}</strong>
+            <span className="paper-order__estimate-meta"> — enter amount to see share estimate</span>
           </p>
         ) : sym && referencePrice != null ? (
           <p className="paper-order__estimate paper-order__estimate--muted">

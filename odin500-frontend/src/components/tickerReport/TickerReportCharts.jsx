@@ -4,13 +4,13 @@ import { Bar } from 'react-chartjs-2';
 import '../../utils/chartJsSetup.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
 import {
-  CHART_CMP_COLOR_AXIS,
   CHART_CMP_COLOR_BENCH,
-  CHART_CMP_COLOR_GRID,
-  CHART_CMP_COLOR_GRID_ZERO,
   CHART_CMP_COLOR_TICK,
-  fmtPctSignedAxis
+  getChartComparisonColors,
+  fmtPctSignedAxis,
+  fmtPctSignedCompact
 } from '../../utils/chartComparisonTheme.js';
+import { useChartComparisonColors } from '../../hooks/useChartComparisonColors.js';
 
 /** Shared app font stack so report charts render in the same face as the rest of the site. */
 const APP_FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
@@ -18,9 +18,9 @@ const APP_FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, H
 const RETURN_POS = '#2563eb';
 const RETURN_NEG = '#f59e0b';
 
-function zeroAwareGrid(ctx) {
+function zeroAwareGrid(ctx, colors) {
   const v = ctx.tick?.value;
-  return v === 0 || Math.abs(Number(v)) < 1e-9 ? CHART_CMP_COLOR_GRID_ZERO : CHART_CMP_COLOR_GRID;
+  return v === 0 || Math.abs(Number(v)) < 1e-9 ? colors.gridZero : colors.grid;
 }
 
 function zeroAwareGridWidth(ctx) {
@@ -32,7 +32,7 @@ function zeroAwareGridWidth(ctx) {
  * Chart.js options that mirror the site's comparison/return bar charts
  * (StatsGroupedComparisonBarChart / StatsTickerReturnsBarChart).
  */
-function baseOptions({ legend = false, grouped = false } = {}) {
+function baseOptions({ legend = false, grouped = false, showBarLabels = false, colors = getChartComparisonColors('dark') } = {}) {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -48,7 +48,7 @@ function baseOptions({ legend = false, grouped = false } = {}) {
       legend: {
         display: legend,
         labels: {
-          color: CHART_CMP_COLOR_AXIS,
+          color: colors.axis,
           boxWidth: 10,
           boxHeight: 10,
           usePointStyle: true,
@@ -56,8 +56,21 @@ function baseOptions({ legend = false, grouped = false } = {}) {
           font: { family: APP_FONT, size: 11, weight: '600' }
         }
       },
-      // Datalabels are registered globally (chartJsSetup); the report bars keep a clean look.
-      datalabels: { display: false },
+      // Datalabels are registered globally (chartJsSetup).
+      datalabels: {
+        display: (ctx) => {
+          if (!showBarLabels) return false;
+          const raw = ctx.dataset.data?.[ctx.dataIndex];
+          return raw != null && Number.isFinite(raw);
+        },
+        formatter: (value) => (Number.isFinite(value) ? fmtPctSignedCompact(value) : ''),
+        color: colors.dataLabel,
+        font: { family: APP_FONT, size: 10, weight: '700' },
+        anchor: (ctx) => (Number(ctx.dataset.data?.[ctx.dataIndex]) < 0 ? 'start' : 'end'),
+        align: (ctx) => (Number(ctx.dataset.data?.[ctx.dataIndex]) < 0 ? 'bottom' : 'top'),
+        offset: 2,
+        clip: false
+      },
       tooltip: {
         mode: 'index',
         intersect: false,
@@ -77,16 +90,16 @@ function baseOptions({ legend = false, grouped = false } = {}) {
       x: {
         grid: { display: false },
         ticks: {
-          color: CHART_CMP_COLOR_AXIS,
+          color: colors.axis,
           autoSkip: true,
           maxRotation: 0,
           font: { family: APP_FONT, size: 10, weight: '600' }
         }
       },
       y: {
-        grid: { color: zeroAwareGrid, lineWidth: zeroAwareGridWidth },
+        grid: { color: (ctx) => zeroAwareGrid(ctx, colors), lineWidth: zeroAwareGridWidth },
         ticks: {
-          color: CHART_CMP_COLOR_AXIS,
+          color: colors.axis,
           padding: 6,
           maxTicksLimit: 8,
           font: { family: APP_FONT, size: 10, weight: '600' },
@@ -98,6 +111,7 @@ function baseOptions({ legend = false, grouped = false } = {}) {
 }
 
 export function TickerReportMonthlyReturnsChart({ data }) {
+  const cmpColors = useChartComparisonColors();
   const values = data.values || [];
   const chartData = useMemo(
     () => ({
@@ -115,7 +129,7 @@ export function TickerReportMonthlyReturnsChart({ data }) {
     }),
     [values]
   );
-  const options = useMemo(() => baseOptions({ legend: false }), []);
+  const options = useMemo(() => baseOptions({ legend: false, colors: cmpColors }), [cmpColors]);
   return (
     <figure className="ticker-report__chart">
       <div className="ticker-report__chart-canvas ticker-report__chart-canvas--bar">
@@ -127,6 +141,7 @@ export function TickerReportMonthlyReturnsChart({ data }) {
 }
 
 export function TickerReportAnnualCompareChart({ data, symbol }) {
+  const cmpColors = useChartComparisonColors();
   const chartData = useMemo(
     () => ({
       labels: data.years,
@@ -151,7 +166,7 @@ export function TickerReportAnnualCompareChart({ data, symbol }) {
     }),
     [data, symbol]
   );
-  const options = useMemo(() => baseOptions({ legend: true, grouped: true }), []);
+  const options = useMemo(() => baseOptions({ legend: true, grouped: true, colors: cmpColors }), [cmpColors]);
   return (
     <figure className="ticker-report__chart">
       <div className="ticker-report__chart-canvas ticker-report__chart-canvas--bar">

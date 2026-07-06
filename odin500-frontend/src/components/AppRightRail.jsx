@@ -116,8 +116,7 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
   const { loggedIn, profileName, initials, avatarUrl, handleSignOut, goToSignIn } =
     useHeaderProfile();
   const { unreadCount } = useNotifications({
-    enabled: loggedIn && Boolean(getAuthToken()),
-    pollMs: 90_000
+    enabled: loggedIn && Boolean(getAuthToken())
   });
 
   useEffect(() => {

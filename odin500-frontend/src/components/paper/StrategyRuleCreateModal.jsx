@@ -52,7 +52,7 @@ export function StrategyRuleCreateModal({
         </p>
       ) : (
         <p className="paper-strategy-muted paper-rule-edit-modal__summary">
-          Configure when this strategy should buy, short, sell, or cover. The preview updates as you type.
+          Pick tickers, entry/exit Odin signals, and a max position limit. Entry and exit rules are created together.
         </p>
       )}
       <StrategyRuleForm

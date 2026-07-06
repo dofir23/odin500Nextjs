@@ -38,45 +38,71 @@ function round6(v) {
 }
 
 /**
- * Caps opening order qty by share count and/or dollar notional — whichever is tighter.
+ * Caps opening order qty by share count and/or dollar notional.
+ * When allotFullCap is true, each trigger uses the full remaining allowance under the cap(s).
+ * Otherwise ruleQty is applied as a per-trade ceiling (legacy shares-per-trade behavior).
  * @returns {{ ok: true, qty: number } | { ok: false, skipMessage: string }}
  */
-function capOpeningOrderQty({ side, ruleQty, openQty, maxPosQty, maxPosValue, currentPrice }) {
+function capOpeningOrderQty({
+  side,
+  ruleQty,
+  openQty,
+  maxPosQty,
+  maxPosValue,
+  currentPrice,
+  allotFullCap = false
+}) {
   const sideLabel = side === 'long' ? 'long' : 'short';
-  let qty = ruleQty;
   const hasQtyCap = Number.isFinite(maxPosQty) && maxPosQty > 0;
   const hasValueCap = Number.isFinite(maxPosValue) && maxPosValue > 0;
 
-  if (hasQtyCap) {
-    if (openQty >= maxPosQty) {
+  if (hasQtyCap || hasValueCap) {
+    let qty = Infinity;
+
+    if (hasQtyCap) {
+      if (openQty >= maxPosQty) {
+        return { ok: false, skipMessage: `Max ${sideLabel} position limit reached` };
+      }
+      qty = Math.min(qty, maxPosQty - openQty);
+    }
+
+    if (hasValueCap) {
+      if (currentPrice == null || !Number.isFinite(currentPrice) || currentPrice <= 0) {
+        return { ok: false, skipMessage: 'No price available for max position value check' };
+      }
+      const currentValue = openQty * currentPrice;
+      if (currentValue >= maxPosValue) {
+        return { ok: false, skipMessage: `Max ${sideLabel} position value reached` };
+      }
+      qty = Math.min(qty, (maxPosValue - currentValue) / currentPrice);
+    }
+
+    if (!allotFullCap && Number.isFinite(ruleQty) && ruleQty > 0) {
+      qty = Math.min(qty, ruleQty);
+    }
+
+    qty = round6(qty);
+    if (qty <= 0) {
+      if (hasValueCap && hasQtyCap) {
+        return { ok: false, skipMessage: `Max ${sideLabel} position limit or value reached` };
+      }
+      if (hasValueCap) {
+        return { ok: false, skipMessage: `Max ${sideLabel} position value reached` };
+      }
       return { ok: false, skipMessage: `Max ${sideLabel} position limit reached` };
     }
-    qty = Math.min(qty, maxPosQty - openQty);
+
+    return { ok: true, qty };
   }
 
-  if (hasValueCap) {
-    if (currentPrice == null || !Number.isFinite(currentPrice) || currentPrice <= 0) {
-      return { ok: false, skipMessage: 'No price available for max position value check' };
-    }
-    const currentValue = openQty * currentPrice;
-    if (currentValue >= maxPosValue) {
-      return { ok: false, skipMessage: `Max ${sideLabel} position value reached` };
-    }
-    qty = Math.min(qty, (maxPosValue - currentValue) / currentPrice);
-  }
+  let qty = ruleQty;
 
-  if (!hasQtyCap && !hasValueCap && openQty > 0) {
+  if (openQty > 0) {
     return { ok: false, skipMessage: `Already in ${sideLabel} position — entry skipped` };
   }
 
   qty = round6(qty);
   if (qty <= 0) {
-    if (hasValueCap && hasQtyCap) {
-      return { ok: false, skipMessage: `Max ${sideLabel} position limit or value reached` };
-    }
-    if (hasValueCap) {
-      return { ok: false, skipMessage: `Max ${sideLabel} position value reached` };
-    }
     return { ok: false, skipMessage: `Max ${sideLabel} position limit reached` };
   }
 
@@ -167,6 +193,11 @@ function resolveOrderFromRule(rule, position, currentPrice = null) {
   const shortQty = Number(position?.closableShortQty || 0);
   const maxPos = Number(params.max_position_qty);
   const maxPosValue = Number(params.max_position_value);
+  const allotFullCap =
+    params.allot_full_cap === true ||
+    (params.allot_full_cap !== false &&
+      Number.isFinite(maxPosValue) &&
+      maxPosValue > 0);
 
   if (action === 'BTO') {
     const capped = capOpeningOrderQty({
@@ -175,7 +206,8 @@ function resolveOrderFromRule(rule, position, currentPrice = null) {
       openQty: longQty,
       maxPosQty: maxPos,
       maxPosValue,
-      currentPrice
+      currentPrice,
+      allotFullCap
     });
     if (!capped.ok) return capped;
     return { ok: true, qty: capped.qty, action };
@@ -188,7 +220,8 @@ function resolveOrderFromRule(rule, position, currentPrice = null) {
       openQty: shortQty,
       maxPosQty: maxPos,
       maxPosValue,
-      currentPrice
+      currentPrice,
+      allotFullCap
     });
     if (!capped.ok) return capped;
     return { ok: true, qty: capped.qty, action };

@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import html2canvas from 'html2canvas';
 import { getDocumentTheme, subscribeDocumentTheme } from '../utils/documentTheme.js';
+import { captureChartPlotHost } from '../utils/chartExportImage.js';
 
 function defaultTickerChartBg(isLight) {
   return isLight ? '#ffffff' : '#0f172a';
@@ -27,6 +27,7 @@ function isMostlyOpaqueCssColor(c) {
  *   getBackgroundColor?: (isLight: boolean) => string,
  *   getFallbackCanvas?: () => HTMLCanvasElement | null,
  *   onclone?: (clonedDoc: Document, clonedRoot: HTMLElement) => void,
+ *   fullscreenTargetRef?: import('react').RefObject<HTMLElement | null>,
  * }} opts
  */
 export function useChartSnapshotExport({
@@ -36,7 +37,8 @@ export function useChartSnapshotExport({
   disabled = false,
   getBackgroundColor = defaultTickerChartBg,
   getFallbackCanvas,
-  onclone
+  onclone,
+  fullscreenTargetRef: _fullscreenTargetRef = null
 }) {
   const chartTheme = useSyncExternalStore(subscribeDocumentTheme, getDocumentTheme, () => 'dark');
   const [exportingSnapshot, setExportingSnapshot] = useState(false);
@@ -75,53 +77,34 @@ export function useChartSnapshotExport({
     setExportFilename(filename);
     setExportModalError('');
 
-    const fallbackCanvas = () => {
-      if (typeof getFallbackCanvas === 'function') {
-        const c = getFallbackCanvas();
-        if (c) return c;
-      }
-      const canvas = host.querySelector('canvas');
-      return canvas instanceof HTMLCanvasElement ? canvas : null;
-    };
-
     setExportingSnapshot(true);
+
     try {
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      const isLight = chartTheme === 'light';
+      let exportBg = getBackgroundColor(isLight);
+      const bgSource = host || root;
+      if (bgSource && typeof window !== 'undefined') {
+        const c = window.getComputedStyle(bgSource).backgroundColor;
+        if (isMostlyOpaqueCssColor(c)) exportBg = c;
+      }
+
+      const mergedOnclone = (clonedDoc, clonedRoot) => {
+        if (clonedRoot instanceof HTMLElement) {
+          clonedRoot.classList.add('chart-export-snapshot');
+        }
+        onclone?.(clonedDoc, clonedRoot);
+      };
+
+      let canvas = await captureChartPlotHost(host, {
+        backgroundColor: exportBg,
+        root,
+        onclone: mergedOnclone
       });
 
-      let canvas = null;
-      if (root) {
-        const isLight = chartTheme === 'light';
-        let exportBg = getBackgroundColor(isLight);
-        if (typeof window !== 'undefined') {
-          const c = window.getComputedStyle(root).backgroundColor;
-          if (isMostlyOpaqueCssColor(c)) exportBg = c;
-        }
-        try {
-          canvas = await html2canvas(root, {
-            backgroundColor: exportBg,
-            scale: 1,
-            useCORS: true,
-            allowTaint: false,
-            logging: false,
-            foreignObjectRendering: false,
-            imageTimeout: 20000,
-            onclone: onclone
-              ? (clonedDoc, clonedRoot) => {
-                  if (clonedRoot instanceof HTMLElement) onclone(clonedDoc, clonedRoot);
-                }
-              : undefined
-          });
-        } catch (e) {
-          console.warn('[useChartSnapshotExport] html2canvas failed', e);
-          canvas = null;
-        }
+      if ((!canvas || canvas.width < 8 || canvas.height < 8) && typeof getFallbackCanvas === 'function') {
+        canvas = getFallbackCanvas();
       }
 
-      if (!canvas || canvas.width < 8 || canvas.height < 8) {
-        canvas = fallbackCanvas();
-      }
       if (!canvas || canvas.width < 8 || canvas.height < 8) {
         setExportModalError('Could not capture the chart. Try again after the chart finishes loading.');
         setExportModalStatus('error');
@@ -137,7 +120,16 @@ export function useChartSnapshotExport({
     } finally {
       setExportingSnapshot(false);
     }
-  }, [buildFilename, chartTheme, disabled, getBackgroundColor, getFallbackCanvas, onclone, plotHostRef, snapshotRootRef]);
+  }, [
+    buildFilename,
+    chartTheme,
+    disabled,
+    getBackgroundColor,
+    getFallbackCanvas,
+    onclone,
+    plotHostRef,
+    snapshotRootRef
+  ]);
 
   useEffect(() => {
     if (!exportModalOpen) return;
@@ -173,6 +165,7 @@ export function useChartSnapshotExport({
 /** Hide footer controls in ticker chart snapshots. */
 export function applyTickerChartSnapshotCloneFixes(_clonedDoc, clonedRoot) {
   if (!(clonedRoot instanceof HTMLElement)) return;
+  clonedRoot.classList.add('chart-export-snapshot');
   clonedRoot
     .querySelectorAll('.ticker-chart-footer-icons, .ticker-chart-resize, .chart-section-icon-actions')
     .forEach((el) => el.remove());

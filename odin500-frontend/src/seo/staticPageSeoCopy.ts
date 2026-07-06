@@ -10,7 +10,7 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
   '/': {
     heading: 'Odin500 — U.S. stock market data and analytics platform',
     paragraphs: [
-      'Odin500 provides U.S. equity market dashboards, sector heatmaps, OHLC historical prices, index and ETF return analytics, Odin trading signals, market news, statistic tables, stock split calendars, ticker research reports, premium data plans, and a paper-trading simulator.',
+      'Odin500 provides U.S. equity market dashboards, sector heatmaps, OHLC historical prices, index and ETF return analytics, Odin trading signals, market news, statistic tables, stock split calendars, ticker research reports, premium data plans, and a virtual portfolio simulator.',
       'Sign up free to access charts and basic signals, or explore the market dashboard, indices, sectors, and ticker pages without an account on many public routes.'
     ],
     links: [
@@ -40,14 +40,14 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
     ],
     links: [
       { href: '/about', label: 'Profile settings' },
-      { href: '/paper-trading', label: 'Paper trading' },
+      { href: '/paper-trading', label: 'Virtual portfolio' },
       { href: '/market', label: 'Market dashboard' }
     ]
   },
   '/paper-trading': {
-    heading: 'Your paper portfolio',
+    heading: 'Your virtual portfolio',
     paragraphs: [
-      'Practice U.S. stock trading with simulated portfolios, paper orders, and performance analytics without risking real capital.',
+      'Practice U.S. stock trading with simulated virtual portfolios, orders, and performance analytics without risking real capital.',
       'Publish a portfolio to share read-only holdings and performance on the public gallery.'
     ],
     links: [
@@ -57,9 +57,9 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
     ]
   },
   '/paper-trading/public': {
-    heading: 'Public paper portfolios',
+    heading: 'Public virtual portfolios',
     paragraphs: [
-      'Browse paper portfolios published by Odin500 users. View holdings, equity curves, closed trades, and sector allocation in read-only mode.',
+      'Browse virtual portfolios published by Odin500 users. View holdings, equity curves, closed trades, and sector allocation in read-only mode.',
       'Publish your own portfolio from Your Portfolio when you are ready to share.'
     ],
     links: [

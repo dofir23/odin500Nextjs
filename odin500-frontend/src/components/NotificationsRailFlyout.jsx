@@ -33,7 +33,7 @@ function formatWhen(iso) {
 export function NotificationsRailFlyout({ open, onClose, docked = false }) {
   const { notifications, unreadCount, busy, error, reload, markRead, markAllRead } = useNotifications({
     enabled: open,
-    pollMs: 60_000
+    panelOpen: open
   });
 
   useEffect(() => {

@@ -4,12 +4,11 @@ import { Chart } from 'react-chartjs-2';
 import '../utils/chartJsSetup.js';
 import { fmtPct, fmtPctSigned } from '../utils/formatDisplayNumber.js';
 import {
-  CHART_CMP_COLOR_AXIS,
-  CHART_CMP_COLOR_GRID,
-  CHART_CMP_COLOR_GRID_ZERO,
   fmtPctSignedAxis,
   fmtPctSignedCompact
 } from '../utils/chartComparisonTheme.js';
+import { useChartComparisonColors } from '../hooks/useChartComparisonColors.js';
+import { useChartExportCapture } from '../hooks/useChartExportCapture.js';
 import { TICKER_RETURNS_COL_AVG, TICKER_RETURNS_COL_BAR, TICKER_RETURNS_COL_NEG } from './StatsTickerReturnsBarChart.jsx';
 
 function slotCountForMode(periodMode) {
@@ -57,8 +56,11 @@ export function StatsPeriodSlotReturnsBarChart({
   className = ''
 }) {
   const chartRef = useRef(/** @type {import('chart.js').Chart | null} */ (null));
+  const cmpColors = useChartComparisonColors();
+  const exportCapture = useChartExportCapture();
   const n = slotCountForMode(periodMode);
-  const showBarLabels = chartFullscreen || (periodMode !== 'weekly' && periodMode !== 'daily');
+  const showBarLabels = chartFullscreen || exportCapture;
+  const expandPlot = chartFullscreen || exportCapture;
 
   const categoryLabels = useMemo(
     () => Array.from({ length: n }, (_, i) => String(i + 1)),
@@ -100,7 +102,7 @@ export function StatsPeriodSlotReturnsBarChart({
           minBarLength: 2,
           order: 2,
           datalabels: {
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.dataLabel,
             display: (ctx) => {
               if (!showBarLabels) return false;
               const raw = ctx.dataset.rawPcts?.[ctx.dataIndex];
@@ -128,17 +130,17 @@ export function StatsPeriodSlotReturnsBarChart({
                 type: 'line',
                 label: 'Average',
                 data: avgLineData,
-                borderColor: TICKER_RETURNS_COL_AVG,
-                backgroundColor: TICKER_RETURNS_COL_AVG,
+                borderColor: cmpColors.avgLine,
+                backgroundColor: cmpColors.avgLine,
                 borderWidth: 1.5,
                 pointRadius: 0,
                 pointHoverRadius: 0,
                 fill: false,
                 order: 1,
                 datalabels: {
-                  display: (ctx) => ctx.dataIndex === n - 1,
+                  display: (ctx) => showBarLabels && ctx.dataIndex === n - 1,
                   formatter: () => `Avg ${fmtPct(avgReturn, { plainPositive: true })}`,
-                  color: TICKER_RETURNS_COL_AVG,
+                  color: cmpColors.avgLine,
                   anchor: 'end',
                   align: 'bottom',
                   offset: 4,
@@ -149,7 +151,7 @@ export function StatsPeriodSlotReturnsBarChart({
           : [])
       ]
     }),
-    [categoryLabels, values, barColors, avgLineData, n, showBarLabels, avgReturn]
+    [categoryLabels, values, barColors, avgLineData, n, showBarLabels, avgReturn, cmpColors]
   );
 
   const options = useMemo(
@@ -193,7 +195,7 @@ export function StatsPeriodSlotReturnsBarChart({
           ticks: {
             autoSkip: false,
             maxRotation: 0,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             font: { size: 11, weight: '600' },
             callback: (_val, index) => sparseLabels[index] ?? ''
           }
@@ -204,8 +206,8 @@ export function StatsPeriodSlotReturnsBarChart({
           grid: {
             color: (ctx) => {
               const v = ctx.tick?.value;
-              if (v === 0 || Math.abs(Number(v)) < 1e-9) return CHART_CMP_COLOR_GRID_ZERO;
-              return CHART_CMP_COLOR_GRID;
+              if (v === 0 || Math.abs(Number(v)) < 1e-9) return cmpColors.gridZero;
+              return cmpColors.grid;
             },
             lineWidth: (ctx) => {
               const v = ctx.tick?.value;
@@ -214,7 +216,7 @@ export function StatsPeriodSlotReturnsBarChart({
           },
           ticks: {
             stepSize: 5,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             padding: 6,
             font: { size: 10, weight: '600' },
             callback: (value) => fmtPctSignedAxis(value)
@@ -222,7 +224,7 @@ export function StatsPeriodSlotReturnsBarChart({
         }
       }
     }),
-    [yMin, yMax, sparseLabels, periodMode, weekAxisLabels, avgReturn]
+    [yMin, yMax, sparseLabels, periodMode, weekAxisLabels, avgReturn, cmpColors]
   );
 
   useEffect(() => {
@@ -230,14 +232,14 @@ export function StatsPeriodSlotReturnsBarChart({
     if (!chart) return;
     chart.resize();
     chart.update('none');
-  }, [plotHeight, chartFullscreen, slotValues, avgReturn, yMin, yMax, periodMode]);
+  }, [plotHeight, chartFullscreen, exportCapture, showBarLabels, slotValues, avgReturn, yMin, yMax, periodMode, cmpColors]);
 
-  const heightStyle = chartFullscreen ? '100%' : `${Math.max(140, plotHeight)}px`;
+  const heightStyle = expandPlot ? '100%' : `${Math.max(140, plotHeight)}px`;
 
   return (
     <div
       className={'stats-period-slot-returns-bar-chart ticker-monthly__chartjs' + (className ? ` ${className}` : '')}
-      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: chartFullscreen ? 180 : 140 }}
+      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: expandPlot ? 180 : 140 }}
       aria-label={`${periodMode} returns bar chart for selected year`}
     >
       <Chart ref={chartRef} type="bar" data={data} options={options} />

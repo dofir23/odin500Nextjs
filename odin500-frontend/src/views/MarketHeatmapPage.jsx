@@ -452,6 +452,7 @@ export default function MarketHeatmapPage({ initialData = null }) {
     exportModalOpen,
     exportModalStatus,
     exportPreviewUrl,
+    exportFilename,
     exportModalError,
     openExportModal,
     closeExportModal,
@@ -459,6 +460,7 @@ export default function MarketHeatmapPage({ initialData = null }) {
   } = useChartSnapshotExport({
     snapshotRootRef: heatmapVizRef,
     plotHostRef: treemapHostRef,
+    fullscreenTargetRef: heatmapVizRef,
     buildFilename: buildHeatmapSnapshotFilename,
     disabled: loading || !filteredRows.length,
     getBackgroundColor: (isLight) => (isLight ? '#f8fafc' : '#0b0f16')
@@ -1082,6 +1084,8 @@ export default function MarketHeatmapPage({ initialData = null }) {
         title="Export heatmap"
         titleId={exportTitleId}
         previewAlt="Exported market heatmap"
+        shareLabel="Market heatmap"
+        exportFilename={exportFilename}
       />
     </div>
   );

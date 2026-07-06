@@ -91,7 +91,7 @@ Review index rails on the [market dashboard](/market) and [heatmap](/heatmap) fo
 
 ## Explore Odin500
 
-- [Market dashboard](/market) · [Heatmap](/heatmap) · [Ticker report example](/ticker-report/aapl) · [Paper trading](/paper-trading)
+- [Market dashboard](/market) · [Heatmap](/heatmap) · [Ticker report example](/ticker-report/aapl) · [Virtual portfolio](/paper-trading)
 
 ---
 

@@ -14,9 +14,9 @@ export const ROUTE_METADATA: Record<
   { title: string; description: string; canonical?: string }
 > = {
   '/': {
-    title: 'Odin500 – U.S. Stock Market Data, Charts, Signals & Paper Trading',
+    title: 'Odin500 – U.S. Stock Market Data, Charts, Signals & Virtual Portfolio',
     description:
-      'Free U.S. stock market platform with live dashboards, sector heatmaps, OHLC historical data, index and ETF analytics, Odin trading signals, news, return tables, and paper trading.',
+      'Free U.S. stock market platform with live dashboards, sector heatmaps, OHLC historical data, index and ETF analytics, Odin trading signals, news, return tables, and virtual portfolio trading.',
     canonical: `${SITE_ORIGIN}/`
   },
   '/market': {
@@ -92,15 +92,15 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/accounts`
   },
   '/paper-trading': {
-    title: 'Your Paper Portfolio – Simulate Stock Trading Free',
+    title: 'Your Virtual Portfolio – Simulate Stock Trading Free',
     description:
-      'Practice stock trading with paper portfolios, simulated strategies, and performance analytics without risking real money.',
+      'Practice stock trading with virtual portfolios, simulated strategies, and performance analytics without risking real money.',
     canonical: `${SITE_ORIGIN}/paper-trading`
   },
   '/paper-trading/public': {
-    title: 'Public Paper Portfolios – Community Trading Strategies',
+    title: 'Public Virtual Portfolios – Community Trading Strategies',
     description:
-      'Browse published paper portfolios from Odin500 users. View holdings, performance, and trade history in read-only mode.',
+      'Browse published virtual portfolios from Odin500 users. View holdings, performance, and trade history in read-only mode.',
     canonical: `${SITE_ORIGIN}/paper-trading/public`
   },
   '/login': {
@@ -302,9 +302,9 @@ export function resolveDynamicRouteMetadata(pathname: string) {
   const publicPaperMatch = path.match(/^\/paper-trading\/public\/([0-9a-f-]{36})$/i);
   if (publicPaperMatch) {
     return {
-      title: 'Published Paper Portfolio – Holdings & Performance',
+      title: 'Published Virtual Portfolio – Holdings & Performance',
       description:
-        'View a published Odin500 paper portfolio with simulated holdings, equity curve, closed trades, and sector allocation.',
+        'View a published Odin500 virtual portfolio with simulated holdings, equity curve, closed trades, and sector allocation.',
       canonical: `${SITE_ORIGIN}/paper-trading/public/${publicPaperMatch[1]}`
     };
   }

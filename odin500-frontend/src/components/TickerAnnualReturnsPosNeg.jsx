@@ -430,7 +430,7 @@ export function TickerAnnualReturnsPosNeg({
   return (
     <div className="ticker-annual-donut">
       {seoNarrative ? <p className="sr-only">{seoNarrative}</p> : null}
-      <div ref={sectionRef} className="ticker-annual-figma__section ticker-annual-donut__section">
+      <div ref={sectionRef} className="ticker-annual-figma__section ticker-annual-donut__section bg-white dark:bg-transparent">
         <div className="ticker-annual-figma__toolbar">
           <PosNegToolbarBadgeWithIcon periodMode={periodMode} pn={pn} onClick={onViewMore} />
           <div className="ticker-annual-figma__toolbar-end">

@@ -196,12 +196,6 @@ function applyNpSnapshotCloneFixes(clonedDoc, clonedRoot) {
   placeBadges();
 }
 
-async function dataUrlToPngFile(dataUrl, filename) {
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  return new File([blob], filename, { type: 'image/png' });
-}
-
 export function NormalizedPerformanceCard({
   selectedKeys,
   onSelectedKeysChange,
@@ -217,8 +211,6 @@ export function NormalizedPerformanceCard({
   const [error, setError] = useState('');
   const [series, setSeries] = useState({});
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [exportPageUrl, setExportPageUrl] = useState('');
-  const [exportShareHint, setExportShareHint] = useState('');
   const cardRef = useRef(null);
   const snapshotExportRef = useRef(null);
   const chartHostRef = useRef(null);
@@ -253,6 +245,7 @@ export function NormalizedPerformanceCard({
   } = useChartSnapshotExport({
     snapshotRootRef: snapshotExportRef,
     plotHostRef: chartHostRef,
+    fullscreenTargetRef: cardRef,
     buildFilename: buildNpExportFilename,
     disabled: loading,
     getBackgroundColor: getNpChartBgColor,
@@ -647,95 +640,8 @@ export function NormalizedPerformanceCard({
   }, []);
 
   const handleOpenExportModal = useCallback(() => {
-    setExportPageUrl(typeof window !== 'undefined' ? window.location.href : '');
-    setExportShareHint('');
     openExportModal();
   }, [openExportModal]);
-
-  const exportShareText = useMemo(
-    () => `Normalized performance chart (${tf}) — Odin500`,
-    [tf]
-  );
-
-  const openShareUrl = useCallback((url) => {
-    if (!url) return;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }, []);
-
-  const shareTwitter = useCallback(() => {
-    const u = new URL('https://twitter.com/intent/tweet');
-    u.searchParams.set('text', exportShareText);
-    if (exportPageUrl) u.searchParams.set('url', exportPageUrl);
-    openShareUrl(u.toString());
-  }, [exportShareText, exportPageUrl, openShareUrl]);
-
-  const shareFacebook = useCallback(() => {
-    if (!exportPageUrl) return;
-    const u = new URL('https://www.facebook.com/sharer/sharer.php');
-    u.searchParams.set('u', exportPageUrl);
-    openShareUrl(u.toString());
-  }, [exportPageUrl, openShareUrl]);
-
-  const shareLinkedIn = useCallback(() => {
-    if (!exportPageUrl) return;
-    const u = new URL('https://www.linkedin.com/sharing/share-offsite/');
-    u.searchParams.set('url', exportPageUrl);
-    openShareUrl(u.toString());
-  }, [exportPageUrl, openShareUrl]);
-
-  const shareReddit = useCallback(() => {
-    if (!exportPageUrl) return;
-    const u = new URL('https://www.reddit.com/submit');
-    u.searchParams.set('url', exportPageUrl);
-    u.searchParams.set('title', exportShareText);
-    openShareUrl(u.toString());
-  }, [exportPageUrl, exportShareText, openShareUrl]);
-
-  const copyPageLink = useCallback(async () => {
-    if (!exportPageUrl) return;
-    try {
-      await navigator.clipboard.writeText(exportPageUrl);
-      setExportShareHint('Link copied to clipboard.');
-    } catch {
-      setExportShareHint('Could not copy link.');
-    }
-  }, [exportPageUrl]);
-
-  const copyChartImage = useCallback(async () => {
-    if (!exportPreviewUrl || !exportFilename) return;
-    try {
-      if (!navigator.clipboard?.write) {
-        setExportShareHint('Image copy is not supported in this browser.');
-        return;
-      }
-      const file = await dataUrlToPngFile(exportPreviewUrl, exportFilename);
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })]);
-      setExportShareHint('Image copied. Paste it into a message or document.');
-    } catch {
-      setExportShareHint('Could not copy image. Use Download instead.');
-    }
-  }, [exportPreviewUrl, exportFilename]);
-
-  const nativeShareImage = useCallback(async () => {
-    if (!exportPreviewUrl || !exportFilename) return;
-    try {
-      const file = await dataUrlToPngFile(exportPreviewUrl, exportFilename);
-      const shareData = { files: [file], title: 'Normalized performance', text: exportShareText };
-      if (!navigator.share) {
-        setExportShareHint('System share is not available in this browser.');
-        return;
-      }
-      if (typeof navigator.canShare === 'function' && !navigator.canShare(shareData)) {
-        setExportShareHint('Sharing this image is not supported here. Try Copy image or Download.');
-        return;
-      }
-      await navigator.share(shareData);
-      setExportShareHint('');
-    } catch (e) {
-      if (e && /** @type {{ name?: string }} */ (e).name === 'AbortError') return;
-      setExportShareHint('Share was cancelled or failed.');
-    }
-  }, [exportPreviewUrl, exportFilename, exportShareText]);
 
   useEffect(() => {
     const onFsChange = () => {
@@ -903,6 +809,8 @@ export function NormalizedPerformanceCard({
         onDownload={downloadFromExportModal}
         titleId="np-export-modal-title"
         previewAlt="Exported normalized performance chart"
+        shareLabel={`Normalized performance chart (${tf})`}
+        exportFilename={exportFilename}
       />
     </>
   );

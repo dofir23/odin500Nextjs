@@ -2,18 +2,11 @@
 import { useMemo, useState } from 'react';
 import { PaperManageModal } from './PaperManageModal.jsx';
 import { StrategyRuleForm } from './StrategyRuleForm.jsx';
-import { buildRulePayloads, validateRuleForm } from './strategyRuleUtils.js';
+import { buildRulePayloads, defaultStrategyNameForPortfolio, validateRuleForm } from './strategyRuleUtils.js';
 import { STRATEGY_SCHEDULE_HELP } from '../../utils/strategySchedule.js';
-
-const WIZARD_TEMPLATES = [
-  { id: 'dip', label: 'Buy the Dip', hint: 'Enter on L1 (deepest pullback)' },
-  { id: 'trend', label: 'Ride the Trend', hint: 'Enter on L2–L3 (stronger trend)' },
-  { id: 'custom', label: 'Custom', hint: 'Build your own rule' }
-];
 
 const WIZARD_STEPS = [
   { key: 'account', label: 'Portfolio' },
-  { key: 'strategy', label: 'Strategy' },
   { key: 'rules', label: 'Rules' }
 ];
 
@@ -28,11 +21,14 @@ export function StrategyAccountWizard({
 }) {
   const [step, setStep] = useState(0);
   const [accountName, setAccountName] = useState('');
-  const [strategyName, setStrategyName] = useState('');
   const [draftRuleForm, setDraftRuleForm] = useState(null);
-  const [ruleTemplate, setRuleTemplate] = useState('custom');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  const strategyName = useMemo(
+    () => defaultStrategyNameForPortfolio(accountName),
+    [accountName]
+  );
 
   const canCreate = useMemo(() => {
     if (!draftRuleForm) return false;
@@ -42,9 +38,7 @@ export function StrategyAccountWizard({
   function reset() {
     setStep(0);
     setAccountName('');
-    setStrategyName('');
     setDraftRuleForm(null);
-    setRuleTemplate('custom');
     setError('');
     setBusy(false);
   }
@@ -54,48 +48,26 @@ export function StrategyAccountWizard({
     onClose?.();
   }
 
-  function validateStep(targetStep) {
-    if (targetStep >= 1 && !accountName.trim()) {
-      setError('Portfolio name is required');
-      return false;
-    }
-    if (targetStep >= 2 && !strategyName.trim()) {
-      setError('Strategy name is required');
-      return false;
-    }
-    return true;
-  }
-
   function goNext() {
-    if (step === 0) {
-      if (!validateStep(1)) return;
-      setError('');
-      setStep(1);
+    if (!accountName.trim()) {
+      setError('Portfolio name is required');
       return;
     }
-    if (step === 1) {
-      if (!validateStep(2)) return;
-      setError('');
-      setStep(2);
-    }
+    setError('');
+    setStep(1);
   }
 
   function goBack() {
     setError('');
-    setStep((s) => Math.max(0, s - 1));
+    setStep(0);
   }
 
   async function finish() {
     const accName = accountName.trim();
-    const stratName = strategyName.trim();
+    const stratName = defaultStrategyNameForPortfolio(accName);
     if (!accName) {
       setError('Enter a portfolio name');
       setStep(0);
-      return;
-    }
-    if (!stratName) {
-      setError('Enter a strategy name');
-      setStep(1);
       return;
     }
     const formErr = validateRuleForm(draftRuleForm, { existingRules: [] });
@@ -127,7 +99,6 @@ export function StrategyAccountWizard({
   }
 
   const accountFormId = 'paper-wizard-step-account-form';
-  const strategyFormId = 'paper-wizard-step-strategy-form';
 
   const footer = (
     <div className="paper-strategy-wizard__actions">
@@ -139,10 +110,10 @@ export function StrategyAccountWizard({
           Back
         </button>
       ) : null}
-      {step < 2 ? (
+      {step < 1 ? (
         <button
           type="submit"
-          form={step === 0 ? accountFormId : strategyFormId}
+          form={accountFormId}
           className="paper-btn paper-btn--submit-entry"
           disabled={busy}
         >
@@ -167,7 +138,7 @@ export function StrategyAccountWizard({
       open={open}
       title="New strategy account"
       titleId="paper-strategy-wizard-title"
-      modalClassName={'paper-strategy-wizard' + (step === 2 ? ' paper-strategy-wizard--rules' : '')}
+      modalClassName={'paper-strategy-wizard' + (step === 1 ? ' paper-strategy-wizard--rules' : '')}
       onClose={handleClose}
       footer={footer}
     >
@@ -198,7 +169,7 @@ export function StrategyAccountWizard({
           }}
         >
           <p className="paper-strategy-wizard__intro">
-            Create a dedicated paper portfolio with automated rules. {STRATEGY_SCHEDULE_HELP}
+            Create a dedicated virtual portfolio with automated rules. {STRATEGY_SCHEDULE_HELP}
           </p>
           <label className="paper-field" htmlFor="paper-wizard-account-name">
             <span className="paper-field__label">Portfolio name</span>
@@ -216,79 +187,31 @@ export function StrategyAccountWizard({
               autoFocus
             />
           </label>
-
+          {strategyName ? (
+            <p className="paper-strategy-muted paper-strategy-wizard__strategy-note">
+              Strategy name: <strong>{strategyName}</strong>
+            </p>
+          ) : null}
         </form>
       ) : null}
 
       {step === 1 ? (
-        <form
-          id={strategyFormId}
-          className="paper-strategy-wizard__panel"
-          data-tour="paper-wizard-step-strategy"
-          onSubmit={(e) => {
-            e.preventDefault();
-            goNext();
-          }}
-        >
-          <p className="paper-strategy-wizard__intro">
-            Name the strategy that will control trades for{' '}
-            <strong>{accountName.trim() || 'this portfolio'}</strong>.
-          </p>
-          <label className="paper-field" htmlFor="paper-wizard-strategy-name">
-            <span className="paper-field__label">Strategy name</span>
-            <input
-              id="paper-wizard-strategy-name"
-              type="text"
-              className="paper-input paper-strategy-wizard__input"
-              value={strategyName}
-              onChange={(e) => {
-                setStrategyName(e.target.value);
-                setError('');
-              }}
-              placeholder="e.g. AAPL long on L2"
-              disabled={busy}
-              autoFocus
-            />
-          </label>
-        </form>
-      ) : null}
-
-      {step === 2 ? (
         <div className="paper-strategy-wizard__panel" data-tour="paper-wizard-step-rules">
           <div className="paper-strategy-wizard__summary-card">
             <span className="paper-strategy-wizard__summary-label">Setup summary</span>
             <p className="paper-strategy-wizard__summary-text">
-              <strong>{accountName.trim()}</strong> · {strategyName.trim()}
+              <strong>{accountName.trim()}</strong> · {strategyName}
             </p>
           </div>
 
           <section className="paper-strategy-wizard__section">
             <h4 className="paper-strategy-wizard__section-title">Add rule</h4>
-            <div className="paper-rule-templates" role="group" aria-label="Rule templates">
-              {WIZARD_TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={
-                    'paper-rule-templates__btn' +
-                    (ruleTemplate === t.id ? ' paper-rule-templates__btn--active' : '')
-                  }
-                  disabled={busy}
-                  onClick={() => setRuleTemplate(t.id)}
-                >
-                  <span className="paper-rule-templates__label">{t.label}</span>
-                  <span className="paper-rule-templates__hint">{t.hint}</span>
-                </button>
-              ))}
-            </div>
             <StrategyRuleForm
-              key={`wizard-rule-${ruleTemplate}`}
               formId="paper-wizard-add-rule-form"
               variant="modal"
               busy={busy}
               hideActions
               existingRules={[]}
-              templatePreset={ruleTemplate}
               showScheduleNote
               onFormChange={setDraftRuleForm}
             />

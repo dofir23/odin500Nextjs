@@ -3,27 +3,67 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchJsonCached, getAuthToken } from '../store/apiStore.js';
 
+/** Sunday (local) — weekly newsletter and in-app notifications are published. */
+export function isNewsletterNotificationDay(date = new Date()) {
+  return date.getDay() === 0;
+}
+
+/**
+ * Poll interval for notification fetches.
+ * Sunday: frequent (new issue may land around noon UTC).
+ * Weekdays: badge every 6h; panel open every 5 min.
+ */
+export function getNotificationPollMs({ panelOpen = false, date = new Date() } = {}) {
+  if (isNewsletterNotificationDay(date)) {
+    return panelOpen ? 60_000 : 90_000;
+  }
+  if (panelOpen) return 5 * 60_000;
+  return 6 * 60 * 60_000;
+}
+
+function notificationCacheTtlMs() {
+  return isNewsletterNotificationDay() ? 15_000 : 10 * 60_000;
+}
+
 /**
  * In-app notifications + unread badge for the right-rail bell.
+ * @param {{ enabled?: boolean, pollMs?: number, smartPoll?: boolean, panelOpen?: boolean }} opts
  */
-export function useNotifications({ enabled = true, pollMs = 60_000 } = {}) {
+export function useNotifications({
+  enabled = true,
+  pollMs = 60_000,
+  smartPoll = true,
+  panelOpen = false
+} = {}) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts = {}) => {
     if (!enabled || !getAuthToken()) {
       setNotifications([]);
       setUnreadCount(0);
       return;
     }
+    const forceFetch = opts.force === true || isNewsletterNotificationDay();
     setBusy(true);
     setError('');
+    const cacheTtlMs = notificationCacheTtlMs();
     try {
       const [listRes, countRes] = await Promise.all([
-        fetchJsonCached({ path: '/api/notifications?limit=40', auth: true, ttlMs: 15_000, force: true }),
-        fetchJsonCached({ path: '/api/notifications/unread-count', auth: true, ttlMs: 15_000, force: true })
+        fetchJsonCached({
+          path: '/api/notifications?limit=40',
+          auth: true,
+          ttlMs: cacheTtlMs,
+          force: forceFetch
+        }),
+        fetchJsonCached({
+          path: '/api/notifications/unread-count',
+          auth: true,
+          ttlMs: cacheTtlMs,
+          force: forceFetch
+        })
       ]);
       setNotifications(Array.isArray(listRes.data?.notifications) ? listRes.data.notifications : []);
       setUnreadCount(Number(countRes.data?.count) || 0);
@@ -35,21 +75,39 @@ export function useNotifications({ enabled = true, pollMs = 60_000 } = {}) {
   }, [enabled]);
 
   useEffect(() => {
-    void load();
+    void load({ force: true });
   }, [load]);
 
   useEffect(() => {
     if (!enabled || !getAuthToken()) return undefined;
-    const onAuth = () => void load();
+    const onAuth = () => void load({ force: true });
     window.addEventListener('odin-auth-updated', onAuth);
     return () => window.removeEventListener('odin-auth-updated', onAuth);
   }, [enabled, load]);
 
   useEffect(() => {
-    if (!enabled || !pollMs || !getAuthToken()) return undefined;
-    const t = window.setInterval(() => void load(), pollMs);
-    return () => window.clearInterval(t);
-  }, [enabled, pollMs, load]);
+    if (!enabled || !getAuthToken()) return undefined;
+
+    let cancelled = false;
+    let timer;
+
+    const schedule = () => {
+      const delay = smartPoll ? getNotificationPollMs({ panelOpen }) : pollMs;
+      if (!delay || delay <= 0) return;
+      timer = window.setTimeout(async () => {
+        if (cancelled) return;
+        await load();
+        schedule();
+      }, delay);
+    };
+
+    schedule();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [enabled, load, smartPoll, pollMs, panelOpen]);
 
   const markRead = useCallback(
     async (id) => {
@@ -93,7 +151,9 @@ export function useNotifications({ enabled = true, pollMs = 60_000 } = {}) {
     }
   }, []);
 
-  return { notifications, unreadCount, busy, error, reload: load, markRead, markAllRead };
+  const reload = useCallback(() => load({ force: true }), [load]);
+
+  return { notifications, unreadCount, busy, error, reload, markRead, markAllRead };
 };
 
 /**

@@ -21,6 +21,9 @@ import {
   getDisabledSignalBuckets,
   getExitSignalRestrictions,
   RULE_FORM_TEMPLATES,
+  deriveLimitModeFromForm,
+  deriveTradeSideFromAction,
+  signalBucketsForTradeSide,
   ruleToForm,
   validateRuleForm
 } from './strategyRuleUtils.js';
@@ -28,7 +31,8 @@ import { paperActionLabel } from './paperActionLabels.js';
 import { STRATEGY_SCHEDULE_HELP } from '../../utils/strategySchedule.js';
 
 const EMPTY = {
-  uiRuleType: 'signal_side_long',
+  uiRuleType: 'signal_bucket',
+  tradeSide: 'long',
   tickers: [],
   action: 'BTO',
   qty: '1',
@@ -40,11 +44,12 @@ const EMPTY = {
   bracketEnabled: false,
   bracketStopLoss: '',
   bracketTakeProfit: '',
-  exitEnabled: false,
-  exitUiRuleType: 'signal_side_neutral',
+  exitEnabled: true,
+  exitUiRuleType: 'signal_bucket',
   exitCloseAll: true,
   exitQty: '1',
   exitThreshold: '',
+  allotFullCap: true,
   exitSignalBuckets: []
 };
 
@@ -66,18 +71,33 @@ export function StrategyRuleForm({
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
   const [tickerSource, setTickerSource] = useState('manual');
+  const [limitMode, setLimitMode] = useState('shares');
   const [selectedWatchlistKey, setSelectedWatchlistKey] = useState('');
   const { options: watchlistOptions, loading: watchlistsLoading } = useWatchlistOptions();
   const isEditing = Boolean(editingRule?.id);
   const excludeRuleId = editingRule?.id ?? editingRule?._localId ?? null;
+  const simplifiedLayout = variant === 'modal' && !isEditing;
+  const tradeSide = form.tradeSide || deriveTradeSideFromAction(form.action);
 
   useEffect(() => {
     if (editingRule) {
-      setForm(ruleToForm(editingRule));
+      const loaded = ruleToForm(editingRule);
+      const mode = deriveLimitModeFromForm(loaded);
+      if (mode === 'dollars') {
+        loaded.maxPositionQty = '';
+      } else {
+        loaded.maxPositionValue = '';
+      }
+      setForm(loaded);
+      setLimitMode(mode);
       setTickerSource('manual');
       setSelectedWatchlistKey('');
     } else {
-      setForm(EMPTY);
+      setForm({
+        ...EMPTY,
+        allotFullCap: variant === 'modal'
+      });
+      setLimitMode('shares');
       setTickerSource('manual');
       setSelectedWatchlistKey('');
     }
@@ -107,7 +127,11 @@ export function StrategyRuleForm({
       const next = { ...f, action: nextAction };
       if (isOpeningPaperAction(nextAction)) {
         next.closeAll = false;
-        if (!next.maxPositionQty) next.maxPositionQty = '10';
+        const hasDollarCap =
+          next.maxPositionValue !== '' &&
+          Number.isFinite(Number(next.maxPositionValue)) &&
+          Number(next.maxPositionValue) > 0;
+        if (!hasDollarCap && !next.maxPositionQty) next.maxPositionQty = '10';
       }
       if (isClosingPaperAction(nextAction)) {
         next.maxPositionQty = '';
@@ -206,6 +230,30 @@ export function StrategyRuleForm({
 
   const selectedWatchlist = watchlistOptions.find((o) => o.key === selectedWatchlistKey);
 
+  function switchTradeSide(next) {
+    if (next === tradeSide) return;
+    setError('');
+    setForm((f) => ({
+      ...f,
+      tradeSide: next,
+      action: next === 'long' ? 'BTO' : 'STO',
+      uiRuleType: 'signal_bucket',
+      exitUiRuleType: 'signal_bucket',
+      exitEnabled: true,
+      exitCloseAll: true,
+      signalBuckets: [],
+      exitSignalBuckets: []
+    }));
+  }
+
+  const entrySignalBuckets = useMemo(
+    () => signalBucketsForTradeSide(tradeSide, 'entry'),
+    [tradeSide]
+  );
+
+  const entrySignalLabel = tradeSide === 'long' ? 'Entry long signals' : 'Entry short signals';
+  const exitSignalLabel = tradeSide === 'long' ? 'Exit long signals' : 'Exit short signals';
+
   function switchTickerSource(next) {
     setTickerSource(next);
     setError('');
@@ -214,6 +262,25 @@ export function StrategyRuleForm({
     } else {
       setForm((f) => ({ ...f, tickers: [] }));
       setSelectedWatchlistKey('');
+    }
+  }
+
+  function switchLimitMode(next) {
+    if (next === limitMode) return;
+    setLimitMode(next);
+    setError('');
+    if (next === 'shares') {
+      setForm((f) => ({
+        ...f,
+        maxPositionValue: '',
+        maxPositionQty: f.maxPositionQty || '10'
+      }));
+    } else {
+      setForm((f) => ({
+        ...f,
+        maxPositionQty: '',
+        maxPositionValue: f.maxPositionValue || ''
+      }));
     }
   }
 
@@ -231,40 +298,61 @@ export function StrategyRuleForm({
   const isClose = isClosingPaperAction(form.action);
   const editTicker = form.tickers[0] || '';
 
-  const showExitSection = isOpen && !isEditing;
+  const showExitSection = isOpen && !isEditing && !simplifiedLayout;
   const exitAction = deriveExitAction(form.action);
   const exitActionLabel = exitAction ? paperActionLabel(exitAction) : '';
 
   const entryPseudoRules = useMemo(
-    () => (showExitSection ? buildEntryRules(form) : []),
-    [showExitSection, form]
+    () => (showExitSection || simplifiedLayout ? buildEntryRules(form) : []),
+    [showExitSection, simplifiedLayout, form]
   );
 
   const exitRuleTypeOptions = useMemo(() => {
-    if (!showExitSection) return [];
+    if (!showExitSection && !simplifiedLayout) return [];
     return buildRuleTypeOptions(entryPseudoRules, form.tickers, exitAction, null).filter((opt) =>
       getAllowedActionsForRuleType(
         opt.id,
-        opt.id === 'signal_bucket' ? form.exitSignalBuckets : []
+        opt.id === 'signal_bucket' ? form.exitSignalBuckets : [],
+        exitAction
       ).includes(exitAction)
     );
-  }, [showExitSection, entryPseudoRules, form.tickers, form.exitSignalBuckets, exitAction]);
+  }, [showExitSection, simplifiedLayout, entryPseudoRules, form.tickers, form.exitSignalBuckets, exitAction]);
 
   const exitDisabledBuckets = useMemo(
     () =>
-      showExitSection
+      showExitSection || simplifiedLayout
         ? getDisabledSignalBuckets(entryPseudoRules, form.tickers, exitAction, null)
         : new Set(),
-    [showExitSection, entryPseudoRules, form.tickers, exitAction]
+    [showExitSection, simplifiedLayout, entryPseudoRules, form.tickers, exitAction]
   );
 
   const exitBlockedBuckets = useMemo(
     () =>
-      showExitSection
+      showExitSection || simplifiedLayout
         ? getExitSignalRestrictions(entryPseudoRules, form.tickers, exitAction, null).blockedBuckets
         : new Set(),
-    [showExitSection, entryPseudoRules, form.tickers, exitAction]
+    [showExitSection, simplifiedLayout, entryPseudoRules, form.tickers, exitAction]
   );
+
+  const exitEntryBlockedBuckets = useMemo(
+    () => new Set(form.signalBuckets),
+    [form.signalBuckets]
+  );
+
+  const exitSelectDisabledBuckets = useMemo(() => {
+    const combined = new Set(exitDisabledBuckets);
+    for (const b of exitEntryBlockedBuckets) combined.add(b);
+    return combined;
+  }, [exitDisabledBuckets, exitEntryBlockedBuckets]);
+
+  useEffect(() => {
+    if (!simplifiedLayout) return;
+    const blocked = new Set(form.signalBuckets);
+    const pruned = form.exitSignalBuckets.filter((b) => !blocked.has(b));
+    if (pruned.length !== form.exitSignalBuckets.length) {
+      setForm((f) => ({ ...f, exitSignalBuckets: pruned }));
+    }
+  }, [form.signalBuckets, simplifiedLayout]);
 
   const exitShowThreshold =
     form.exitUiRuleType === 'price_above' || form.exitUiRuleType === 'price_below';
@@ -299,6 +387,11 @@ export function StrategyRuleForm({
       if (actionChanged) {
         if (isOpeningPaperAction(next.action)) {
           next.closeAll = false;
+          const hasDollarCap =
+            next.maxPositionValue !== '' &&
+            Number.isFinite(Number(next.maxPositionValue)) &&
+            Number(next.maxPositionValue) > 0;
+          if (!hasDollarCap && !next.maxPositionQty) next.maxPositionQty = '10';
         }
         if (isClosingPaperAction(next.action)) {
           next.maxPositionQty = '';
@@ -329,6 +422,7 @@ export function StrategyRuleForm({
     }
     if (!isEditing) {
       setForm(EMPTY);
+      setLimitMode('shares');
       setTickerSource('manual');
       setSelectedWatchlistKey('');
     }
@@ -337,6 +431,7 @@ export function StrategyRuleForm({
 
   function handleCancel() {
     setForm(EMPTY);
+    setLimitMode('shares');
     setTickerSource('manual');
     setSelectedWatchlistKey('');
     setError('');
@@ -496,6 +591,145 @@ export function StrategyRuleForm({
           </div>
         ) : null}
 
+        {simplifiedLayout ? (
+          <>
+            <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--side">
+              <div className="paper-field paper-strategy-rule-form__field--side">
+                <span className="paper-field__label">Position side</span>
+                <div className="paper-strategy-ticker-source__tabs" role="tablist" aria-label="Position side">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tradeSide === 'long'}
+                    className={
+                      'paper-strategy-ticker-source__tab' +
+                      (tradeSide === 'long' ? ' paper-strategy-ticker-source__tab--active' : '')
+                    }
+                    disabled={busy}
+                    onClick={() => switchTradeSide('long')}
+                  >
+                    Long
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tradeSide === 'short'}
+                    className={
+                      'paper-strategy-ticker-source__tab' +
+                      (tradeSide === 'short' ? ' paper-strategy-ticker-source__tab--active' : '')
+                    }
+                    disabled={busy}
+                    onClick={() => switchTradeSide('short')}
+                  >
+                    Short
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="paper-strategy-signal-grid">
+              <SignalBucketMultiSelect
+                label={entrySignalLabel}
+                selected={form.signalBuckets}
+                allowedBuckets={entrySignalBuckets}
+                disabledBuckets={disabledBuckets}
+                exitBlockedBuckets={exitRestrictions.blockedBuckets}
+                busy={busy}
+                showPills
+                onChange={(signalBuckets) =>
+                  update({
+                    uiRuleType: 'signal_bucket',
+                    signalBuckets,
+                    exitEnabled: true,
+                    exitCloseAll: true
+                  })
+                }
+              />
+              <SignalBucketMultiSelect
+                label={exitSignalLabel}
+                selected={form.exitSignalBuckets}
+                disabledBuckets={exitSelectDisabledBuckets}
+                entryBlockedBuckets={exitEntryBlockedBuckets}
+                exitBlockedBuckets={exitBlockedBuckets}
+                busy={busy}
+                showPills
+                onChange={(exitSignalBuckets) =>
+                  update({
+                    exitUiRuleType: 'signal_bucket',
+                    exitEnabled: true,
+                    exitCloseAll: true,
+                    exitSignalBuckets
+                  })
+                }
+              />
+            </div>
+
+            <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--limits">
+              <div className="paper-field paper-strategy-rule-form__field--position-limit">
+                <div className="paper-strategy-ticker-source">
+                  <span className="paper-field__label">Position limit</span>
+                  <div
+                    className="paper-strategy-ticker-source__tabs"
+                    role="tablist"
+                    aria-label="Position limit type"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={limitMode === 'shares'}
+                      className={
+                        'paper-strategy-ticker-source__tab' +
+                        (limitMode === 'shares' ? ' paper-strategy-ticker-source__tab--active' : '')
+                      }
+                      disabled={busy}
+                      onClick={() => switchLimitMode('shares')}
+                    >
+                      Max shares
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={limitMode === 'dollars'}
+                      className={
+                        'paper-strategy-ticker-source__tab' +
+                        (limitMode === 'dollars' ? ' paper-strategy-ticker-source__tab--active' : '')
+                      }
+                      disabled={busy}
+                      onClick={() => switchLimitMode('dollars')}
+                    >
+                      Max amount
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="number"
+                  className="paper-input"
+                  min={limitMode === 'shares' ? '0.000001' : '0.01'}
+                  step={limitMode === 'shares' ? 'any' : '0.01'}
+                  value={limitMode === 'shares' ? form.maxPositionQty : form.maxPositionValue}
+                  onChange={(e) =>
+                    limitMode === 'shares'
+                      ? update({ maxPositionQty: e.target.value })
+                      : update({ maxPositionValue: e.target.value })
+                  }
+                  placeholder={
+                    limitMode === 'shares' ? 'Stop buying at this size' : 'e.g. 5000'
+                  }
+                  disabled={busy}
+                  aria-label={
+                    limitMode === 'shares' ? 'Max shares owned' : 'Max position amount in dollars'
+                  }
+                />
+                {limitMode === 'dollars' ? (
+                  <p className="paper-strategy-muted paper-strategy-rule-form__limit-note">
+                    This amount is allotted to every symbol you selected (not split across tickers).
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--primary">
           <label className="paper-field paper-strategy-rule-form__field--rule-type">
             <span className="paper-field__label">Rule type</span>
@@ -574,30 +808,62 @@ export function StrategyRuleForm({
         {isOpen ? (
           <>
             <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--limits">
-              <label className="paper-field paper-strategy-rule-form__field--max">
-                <span className="paper-field__label">Max shares owned</span>
+              <div className="paper-field paper-strategy-rule-form__field--position-limit">
+                <div className="paper-strategy-ticker-source">
+                  <span className="paper-field__label">Position limit</span>
+                  <div
+                    className="paper-strategy-ticker-source__tabs"
+                    role="tablist"
+                    aria-label="Position limit type"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={limitMode === 'shares'}
+                      className={
+                        'paper-strategy-ticker-source__tab' +
+                        (limitMode === 'shares' ? ' paper-strategy-ticker-source__tab--active' : '')
+                      }
+                      disabled={busy}
+                      onClick={() => switchLimitMode('shares')}
+                    >
+                      Max shares
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={limitMode === 'dollars'}
+                      className={
+                        'paper-strategy-ticker-source__tab' +
+                        (limitMode === 'dollars' ? ' paper-strategy-ticker-source__tab--active' : '')
+                      }
+                      disabled={busy}
+                      onClick={() => switchLimitMode('dollars')}
+                    >
+                      Max amount
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="number"
                   className="paper-input"
-                  min="0.000001"
-                  step="any"
-                  value={form.maxPositionQty}
-                  onChange={(e) => update({ maxPositionQty: e.target.value })}
-                  placeholder="Stop buying at this size"
+                  min={limitMode === 'shares' ? '0.000001' : '0.01'}
+                  step={limitMode === 'shares' ? 'any' : '0.01'}
+                  value={limitMode === 'shares' ? form.maxPositionQty : form.maxPositionValue}
+                  onChange={(e) =>
+                    limitMode === 'shares'
+                      ? update({ maxPositionQty: e.target.value })
+                      : update({ maxPositionValue: e.target.value })
+                  }
+                  placeholder={
+                    limitMode === 'shares' ? 'Stop buying at this size' : 'e.g. 5000'
+                  }
+                  disabled={busy}
+                  aria-label={
+                    limitMode === 'shares' ? 'Max shares owned' : 'Max position amount in dollars'
+                  }
                 />
-              </label>
-              <label className="paper-field paper-strategy-rule-form__field--max-value">
-                <span className="paper-field__label">Max dollar limit (optional)</span>
-                <input
-                  type="number"
-                  className="paper-input"
-                  min="0.01"
-                  step="0.01"
-                  value={form.maxPositionValue}
-                  onChange={(e) => update({ maxPositionValue: e.target.value })}
-                  placeholder="e.g. 5000"
-                />
-              </label>
+              </div>
             </div>
             <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--full">
               <div className="paper-bracket paper-bracket--strategy">
@@ -683,7 +949,9 @@ export function StrategyRuleForm({
                 <div className="paper-exit-rule__fields">
                   <div className="paper-strategy-rule-form__row paper-strategy-rule-form__row--secondary">
                     <label className="paper-field paper-strategy-rule-form__field--rule-type">
-                      <span className="paper-field__label">Sell when…</span>
+                      <span className="paper-field__label">
+                        {exitAction === 'BTC' ? 'Cover when…' : 'Sell when…'}
+                      </span>
                       <ThemedDropdown
                         className="paper-strategy-rule-form__dd"
                         wideLabel
@@ -777,8 +1045,17 @@ export function StrategyRuleForm({
             </div>
           </div>
         ) : null}
+          </>
+        )}
       </div>
-      {isOpen ? (
+      {simplifiedLayout ? (
+        <p className="paper-strategy-muted paper-strategy-rule-form__hint">
+          {tradeSide === 'long' ? 'Buys' : 'Shorts'} when entry signals fire, up to your max position limit.
+          {' '}
+          {tradeSide === 'long' ? 'Sells' : 'Covers'} the full position when exit signals fire.
+        </p>
+      ) : null}
+      {isOpen && !simplifiedLayout ? (
         <p className="paper-strategy-muted paper-strategy-rule-form__hint">
           {hideActions
             ? 'Buys stop when you hit max shares or max dollar limit — whichever comes first.'

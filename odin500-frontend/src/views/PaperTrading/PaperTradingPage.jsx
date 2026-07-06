@@ -345,8 +345,8 @@ function PaperTradingPageContent() {
               value={selectedAccountId}
               options={accountOptions}
               onChange={setActiveAccountId}
-              title="Paper account"
-              ariaLabelPrefix="Paper account"
+              title="Virtual portfolio account"
+              ariaLabelPrefix="Virtual portfolio account"
               labelFallback="Select account"
               wideLabel
               disabled={accountLoading || accountOptions.length === 0}
@@ -404,8 +404,8 @@ function PaperTradingPageContent() {
               aria-label={deletingAccount ? 'Deleting account' : 'Delete account'}
               title={
                 (accounts?.length ?? 0) <= 1
-                  ? 'Keep at least one paper trading account'
-                  : 'Permanently delete this paper account'
+                  ? 'Keep at least one virtual portfolio account'
+                  : 'Permanently delete this virtual portfolio account'
               }
               onClick={openDeleteModal}
             >
@@ -421,7 +421,7 @@ function PaperTradingPageContent() {
 
       <PaperManageModal
         open={modal === 'create'}
-        title="New paper account"
+        title="New virtual portfolio account"
         titleId="paper-create-account-title"
         onClose={closeModal}
         footer={

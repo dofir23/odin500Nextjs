@@ -770,10 +770,37 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+.paper-order__size .paper-strategy-ticker-source {
+  margin-bottom: 0.5rem;
+}
+
+.paper-order__size .paper-field__input {
+  width: 100%;
+}
+
 .paper-qty-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.paper-qty-presets--amount {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.paper-qty-presets--amount .paper-qty-presets__btn {
+  flex: none;
+  min-width: 0;
+  padding: 0.4rem 0.3rem;
+  font-size: 0.72rem;
+}
+
+.paper-qty-presets--amount .paper-qty-presets__btn--all {
+  grid-column: 1 / -1;
+  flex: none;
+  min-width: 0;
 }
 
 .paper-qty-presets__btn {
@@ -3139,6 +3166,91 @@
   font-size: 0.75rem;
 }
 
+.paper-checkbox-dropdown__trigger--pills {
+  min-height: 2.5rem;
+  height: auto;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.paper-signal-buckets__pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.paper-signal-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+.paper-signal-pill--l1 {
+  background: rgba(248, 113, 113, 0.22);
+  color: #fecaca;
+}
+
+.paper-signal-pill--l2 {
+  background: rgba(74, 222, 128, 0.2);
+  color: #bbf7d0;
+}
+
+.paper-signal-pill--l3 {
+  background: rgba(56, 189, 248, 0.22);
+  color: #bae6fd;
+}
+
+.paper-signal-pill--s1 {
+  background: rgba(148, 163, 184, 0.28);
+  color: #e2e8f0;
+}
+
+.paper-signal-pill--s2 {
+  background: rgba(51, 65, 85, 0.85);
+  color: #f8fafc;
+}
+
+.paper-signal-pill--s3 {
+  background: rgba(180, 83, 9, 0.35);
+  color: #fde68a;
+}
+
+.paper-signal-pill--n {
+  background: rgba(139, 92, 246, 0.28);
+  color: #ddd6fe;
+}
+
+.paper-strategy-signal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.paper-strategy-wizard__strategy-note {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+}
+
+.paper-strategy-rule-form__limit-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 520px) {
+  .paper-strategy-signal-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .paper-strategy-rule-form .app-dropdown__item--disabled,
 .app-dropdown__item--disabled {
   opacity: 0.42;
@@ -3739,6 +3851,7 @@
 
 .paper-strategy-rule-form__field--max,
 .paper-strategy-rule-form__field--max-value,
+.paper-strategy-rule-form__field--position-limit,
 .paper-strategy-rule-form__field--threshold {
   flex: 0.95 1 7.5rem;
   max-width: 11rem;
@@ -3751,6 +3864,14 @@
   width: 100%;
 }
 
+.paper-strategy-rule-form__field--position-limit {
+  flex: 1 1 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
 .paper-strategy-rule-form__row--tickers > .paper-strategy-rule-form__field--tickers,
 .paper-strategy-rule-form__row--prices > .paper-strategy-ticker-prices {
   flex: 1 1 100%;
@@ -3759,7 +3880,7 @@
 }
 
 .paper-strategy-rule-form__row--limits > .paper-field {
-  flex: 1 1 calc(50% - 0.35rem);
+  flex: 1 1 100%;
   min-width: min(100%, 10rem);
   max-width: none;
 }
@@ -3790,12 +3911,12 @@
 @media (min-width: 520px) {
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--primary > .paper-field,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--secondary > .paper-field,
-  .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--limits > .paper-field,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--secondary > .paper-strategy-close-qty {
     flex: 1 1 calc(50% - 0.5rem);
     max-width: none;
   }
 
+  .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--limits > .paper-field,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--tickers > .paper-field,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__row--prices > .paper-strategy-ticker-prices {
     flex: 1 1 100%;
@@ -3808,6 +3929,7 @@
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__field--qty,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__field--max,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__field--max-value,
+  .paper-strategy-rule-form--modal .paper-strategy-rule-form__field--position-limit,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__field--threshold,
   .paper-strategy-rule-form--modal .paper-strategy-rule-form__field--close-qty {
     min-width: 0;

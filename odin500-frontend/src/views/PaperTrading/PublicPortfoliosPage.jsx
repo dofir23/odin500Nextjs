@@ -46,7 +46,7 @@ function PublicPortfoliosPageContent() {
         <div>
           <h1 className="paper-header__title">Public Portfolios</h1>
           <p className="paper-header__sub">
-            Browse paper portfolios published by Odin500 users. View-only snapshots of holdings and performance.
+            Browse virtual portfolios published by Odin500 users. View-only snapshots of holdings and performance.
           </p>
         </div>
         <div className="paper-header__actions">
@@ -70,7 +70,7 @@ function PublicPortfoliosPageContent() {
         <div className="paper-empty paper-empty--public">
           <p>No published portfolios yet</p>
           <p className="paper-empty__hint">
-            Publish your paper account from{' '}
+            Publish your virtual portfolio account from{' '}
             <Link to="/paper-trading" className="paper-link">
               Your Portfolio
             </Link>{' '}
@@ -106,7 +106,7 @@ function PublicPortfoliosPageContent() {
                 <p className="paper-public-card__desc">{p.publish_description}</p>
               ) : (
                 <p className="paper-public-card__desc paper-public-card__desc--muted">
-                  Published paper portfolio — tap to view holdings and performance.
+                  Published virtual portfolio — tap to view holdings and performance.
                 </p>
               )}
 

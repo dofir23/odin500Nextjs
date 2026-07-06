@@ -167,7 +167,7 @@ export function HomePageBody() {
               Signals, news hub, return tables, statistic data, stock split calendar, index pages
               for S&P 500 / Dow Jones / Nasdaq-100, sector ETF pages, per-ticker OHLC charts and
               historical downloads, ticker research reports, relative performance tools, premium
-              subscription plans, and a paper-trading simulator with optional strategy automation.
+              subscription plans, and a virtual portfolio simulator with optional strategy automation.
             </p>
             <p>
               Data is derived from daily OHLC prices and proprietary signal models. Users can sign up

@@ -55,7 +55,7 @@ export function PortfolioInsightsTab({
         <div className="paper-help-banner" role="note">
           <p className="paper-help-banner__title">What is this page?</p>
           <p>
-            Review how your paper portfolios are doing, compare them side by side, and see which sectors you are
+            Review how your virtual portfolios are doing, compare them side by side, and see which sectors you are
             invested in. Numbers update from your simulated trades — nothing here uses real money.
           </p>
         </div>

@@ -503,7 +503,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                   (isPaperRoute ? ' app-sidebar__row--active' : '')
                 }
                 role="group"
-                aria-label="Paper trading"
+                aria-label="Virtual portfolio"
                 onMouseEnter={() => {
                   warmRoute('/paper-trading');
                   warmRoute('/paper-trading/public');
@@ -521,19 +521,19 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                     warmRoute('/paper-trading');
                     warmRoute('/paper-trading/public');
                   }}
-                  title="Your paper portfolio (opens menu)"
+                  title="Your virtual portfolio (opens menu)"
                 >
                   <span className="app-sidebar__row-icon">
                     <IconWallet />
                   </span>
-                  <span className="app-sidebar__row-label">Paper Trading</span>
+                  <span className="app-sidebar__row-label">Virtual portfolio</span>
                 </NavLink>
                 <button
                   type="button"
                   className="app-sidebar__indices-chevron-btn"
                   aria-expanded={paperOpen}
                   aria-controls="app-sidebar-paper-options"
-                  aria-label={paperOpen ? 'Collapse paper trading submenu' : 'Expand paper trading submenu'}
+                  aria-label={paperOpen ? 'Collapse virtual portfolio submenu' : 'Expand virtual portfolio submenu'}
                   onClick={() => {
                     setPaperOpen((wasOpen) => {
                       const nextOpen = !wasOpen;
@@ -558,7 +558,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 </button>
               </div>
               {paperOpen ? (
-                <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Paper trading options">
+                <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Virtual portfolio options">
                   <NavRow
                     to="/paper-trading"
                     icon={IconWallet}

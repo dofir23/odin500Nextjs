@@ -5,12 +5,11 @@ import '../utils/chartJsSetup.js';
 import { formatWeekAxisDate } from '../utils/isoWeek.js';
 import { fmtPct, fmtPctSigned } from '../utils/formatDisplayNumber.js';
 import {
-  CHART_CMP_COLOR_AXIS,
-  CHART_CMP_COLOR_GRID,
-  CHART_CMP_COLOR_GRID_ZERO,
   fmtPctSignedAxis,
   fmtPctSignedCompact
 } from '../utils/chartComparisonTheme.js';
+import { useChartComparisonColors } from '../hooks/useChartComparisonColors.js';
+import { useChartExportCapture } from '../hooks/useChartExportCapture.js';
 
 export const TICKER_RETURNS_COL_BAR = '#2563eb';
 export const TICKER_RETURNS_COL_NEG = '#f59e0b';
@@ -82,30 +81,6 @@ function computePercentAxis(seriesValues, avgExtra, plotPx) {
   const yMax = Math.ceil(hi / step) * step;
   buildTicks(yMin, yMax, step);
   return { yMin, yMax };
-}
-
-function shouldLabelBar(r, i, n, periodMode, chartFullscreen) {
-  if (chartFullscreen) return true;
-  if (periodMode === 'monthly') {
-    if (n <= 24) return true;
-    if (Math.abs(Number(r.totalReturn)) >= 12) return true;
-    return false;
-  }
-  if (periodMode === 'weekly') {
-    if (n <= 24) return true;
-    if (Math.abs(Number(r.totalReturn)) >= 20) return true;
-    return false;
-  }
-  if (periodMode === 'daily') {
-    if (n <= 18) return true;
-    if (Math.abs(Number(r.totalReturn)) >= 4) return true;
-    return false;
-  }
-  if (periodMode === 'quarterly') {
-    if (n <= 32) return true;
-    return Math.abs(Number(r.totalReturn)) >= 15;
-  }
-  return true;
 }
 
 function buildSparseXLabels(displayRows, periodMode) {
@@ -187,8 +162,11 @@ export function StatsTickerReturnsBarChart({
   className = ''
 }) {
   const chartRef = useRef(/** @type {import('chart.js').Chart | null} */ (null));
+  const cmpColors = useChartComparisonColors();
+  const exportCapture = useChartExportCapture();
   const n = rows.length;
-  const showBarLabels = chartFullscreen;
+  const showBarLabels = chartFullscreen || exportCapture;
+  const expandPlot = chartFullscreen || exportCapture;
 
   const labels = useMemo(() => buildSparseXLabels(rows, periodMode), [rows, periodMode]);
   const categoryLabels = useMemo(() => rows.map((r) => r.xLabel || r.rowKey), [rows]);
@@ -219,11 +197,11 @@ export function StatsTickerReturnsBarChart({
           minBarLength: 2,
           order: 2,
           datalabels: {
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.dataLabel,
             display: (ctx) => {
               if (!showBarLabels) return false;
-              const row = rows[ctx.dataIndex];
-              return row ? shouldLabelBar(row, ctx.dataIndex, n, periodMode, chartFullscreen) : false;
+              const raw = ctx.dataset.rawPcts?.[ctx.dataIndex];
+              return raw != null && Number.isFinite(raw);
             },
             formatter: (_v, ctx) => {
               const raw = ctx.dataset.rawPcts?.[ctx.dataIndex];
@@ -247,20 +225,20 @@ export function StatsTickerReturnsBarChart({
                 type: 'line',
                 label: 'Average',
                 data: avgLineData,
-                borderColor: TICKER_RETURNS_COL_AVG,
-                backgroundColor: TICKER_RETURNS_COL_AVG,
+                borderColor: cmpColors.avgLine,
+                backgroundColor: cmpColors.avgLine,
                 borderWidth: 2.5,
                 pointRadius: 0,
                 pointHoverRadius: 0,
                 fill: false,
                 order: 1,
                 datalabels: {
-                  display: (ctx) => ctx.dataIndex === n - 1,
+                  display: (ctx) => showBarLabels && ctx.dataIndex === n - 1,
                   formatter: () => {
                     const sign = avgReturn >= 0 ? '+' : '';
                     return `Av. ${sign}${fmtPct(avgReturn, { plainPositive: true })}`;
                   },
-                  color: TICKER_RETURNS_COL_AVG,
+                  color: cmpColors.avgLine,
                   anchor: 'end',
                   align: (ctx) => {
                     const yScale = ctx.chart.scales.y;
@@ -276,7 +254,7 @@ export function StatsTickerReturnsBarChart({
           : [])
       ]
     }),
-    [categoryLabels, returns, barColors, avgLineData, rows, n, periodMode, chartFullscreen, showBarLabels, avgReturn]
+    [categoryLabels, returns, barColors, avgLineData, rows, n, periodMode, chartFullscreen, showBarLabels, avgReturn, cmpColors]
   );
 
   const options = useMemo(() => {
@@ -319,7 +297,7 @@ export function StatsTickerReturnsBarChart({
           ticks: {
             autoSkip: false,
             maxRotation: 0,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             font: { size: 11, weight: '600' },
             callback: (_val, index) => labels[index] ?? ''
           }
@@ -330,8 +308,8 @@ export function StatsTickerReturnsBarChart({
           grid: {
             color: (ctx) => {
               const v = ctx.tick?.value;
-              if (v === 0 || Math.abs(Number(v)) < 1e-9) return CHART_CMP_COLOR_GRID_ZERO;
-              return CHART_CMP_COLOR_GRID;
+              if (v === 0 || Math.abs(Number(v)) < 1e-9) return cmpColors.gridZero;
+              return cmpColors.grid;
             },
             lineWidth: (ctx) => {
               const v = ctx.tick?.value;
@@ -339,7 +317,7 @@ export function StatsTickerReturnsBarChart({
             }
           },
           ticks: {
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             padding: 6,
             font: { size: 11, weight: '600' },
             callback: (value) => fmtPctSignedAxis(value)
@@ -347,21 +325,21 @@ export function StatsTickerReturnsBarChart({
         }
       }
     };
-  }, [yExtent, labels, rows, avgReturn]);
+  }, [yExtent, labels, rows, avgReturn, cmpColors]);
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     chart.resize();
     chart.update('none');
-  }, [plotHeight, chartFullscreen, rows, avgReturn]);
+  }, [plotHeight, chartFullscreen, exportCapture, showBarLabels, rows, avgReturn, cmpColors]);
 
-  const heightStyle = chartFullscreen ? '100%' : `${Math.max(140, plotHeight)}px`;
+  const heightStyle = expandPlot ? '100%' : `${Math.max(140, plotHeight)}px`;
 
   return (
     <div
       className={'stats-ticker-returns-bar-chart' + (className ? ` ${className}` : '')}
-      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: chartFullscreen ? 180 : 140 }}
+      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: expandPlot ? 180 : 140 }}
       aria-label={`${periodMode} returns bar chart`}
     >
       <Chart ref={chartRef} type="bar" data={data} options={options} />

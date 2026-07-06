@@ -9,7 +9,7 @@ export const SERVER_NAV_LINKS: ServerNavLink[] = [
   { href: '/market', label: 'Markets' },
   { href: '/indices/dow-jones', label: 'Indices' },
   { href: '/ticker/AAPL', label: 'Tickers' },
-  { href: '/paper-trading', label: 'Paper Trading' },
+  { href: '/paper-trading', label: 'Virtual portfolio' },
   { href: '/market-movers', label: 'Market Movers' },
   { href: '/heatmap', label: 'Heatmaps' },
   { href: '/sector-data/xlk', label: 'Sector Data' },

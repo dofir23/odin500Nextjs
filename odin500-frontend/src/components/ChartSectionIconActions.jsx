@@ -95,6 +95,7 @@ export function ChartSectionIconActions({
     exportModalOpen,
     exportModalStatus,
     exportPreviewUrl,
+    exportFilename,
     exportModalError,
     openExportModal,
     closeExportModal,
@@ -102,6 +103,7 @@ export function ChartSectionIconActions({
   } = useChartSnapshotExport({
     snapshotRootRef,
     plotHostRef,
+    fullscreenTargetRef: fsRef,
     buildFilename,
     disabled,
     getBackgroundColor,
@@ -137,6 +139,8 @@ export function ChartSectionIconActions({
         title={exportModalTitle}
         titleId={titleId}
         previewAlt={exportPreviewAlt}
+        shareLabel={exportPreviewAlt || exportModalTitle}
+        exportFilename={exportFilename}
       />
     </>
   );

@@ -213,12 +213,18 @@ export function TickerAnnualReturnsFigma({
   const sectionRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const chartFsShellRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const chartCardRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const statsSectionRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const statsFsShellRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const statsChartCardRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const assignChartCardRef = useCallback((el) => {
     chartCardRef.current = el;
   }, []);
   const { isFullscreen: chartFs } = useChartFullscreen(chartFsShellRef);
+  const { isFullscreen: statsFs } = useChartFullscreen(statsFsShellRef);
   const fsPlotSize = useChartFullscreenPlotSize(chartFsShellRef);
+  const statsFsPlotSize = useChartFullscreenPlotSize(statsFsShellRef);
   const plotPxEffective = fsPlotSize?.height ?? plotPx;
+  const statsPlotPxEffective = statsFsPlotSize?.height ?? plotPx;
 
   const [showTable, setShowTable] = useState(false);
 
@@ -488,7 +494,44 @@ export function TickerAnnualReturnsFigma({
     () => buildTickerChartExportFilename(`${periodMode}-returns`, symbol),
     [periodMode, symbol]
   );
+  const buildStatsExportFilename = useCallback(
+    () => buildTickerChartExportFilename(`${periodMode}-stats-posneg-minmax`, symbol),
+    [periodMode, symbol]
+  );
   const chartExportDisabled = loading || !displayRows.length;
+  const statsExportDisabled = loading || !stats;
+
+  const onDownloadStatsCsv = useCallback(() => {
+    if (!stats) return;
+    const sym = String(symbol || 'ticker').toUpperCase();
+    const periodSlug =
+      periodMode === 'quarterly'
+        ? 'quarterly'
+        : periodMode === 'monthly'
+          ? 'monthly'
+          : periodMode === 'weekly'
+            ? 'weekly'
+            : periodMode === 'daily'
+              ? 'daily'
+              : 'annual';
+    const lines = [
+      'metric,value',
+      `positive_${pn.lower},${stats.pos}`,
+      `negative_${pn.lower},${stats.neg}`,
+      `max_return_pct,${stats.max}`,
+      `min_return_pct,${stats.min}`,
+      `average_return_pct,${stats.avg}`,
+      `median_return_pct,${stats.med ?? ''}`,
+      `total_${pn.lower},${selectionTotal.count}`
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sym}-${periodSlug}-stats-posneg-minmax.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [stats, symbol, periodMode, pn.lower, selectionTotal.count]);
 
   const onOpenPeriodPage = useCallback(() => {
     const symPart = String(symbol || '').trim() || DEFAULT_TICKER_ROUTE_SYMBOL;
@@ -609,8 +652,10 @@ export function TickerAnnualReturnsFigma({
     return years.map((y, i) => ({ year: y, color: TICKER_RETURNS_YEAR_PALETTE[i % TICKER_RETURNS_YEAR_PALETTE.length] }));
   }, [displayRows, periodMode]);
 
-  const summaryPlotHeight = plotPxEffective != null ? Math.min(plotPxEffective, fsPlotSize ? plotPxEffective : 320) : 240;
-  const donutPlotHeight = plotPxEffective != null ? Math.min(plotPxEffective, fsPlotSize ? plotPxEffective : 220) : 220;
+  const summaryPlotHeight =
+    statsPlotPxEffective != null ? Math.min(statsPlotPxEffective, statsFsPlotSize ? statsPlotPxEffective : 320) : 240;
+  const donutPlotHeight =
+    statsPlotPxEffective != null ? Math.min(statsPlotPxEffective, statsFsPlotSize ? statsPlotPxEffective : 220) : 220;
 
   if (!rows.length) {
     if (loading) {
@@ -662,7 +707,7 @@ export function TickerAnnualReturnsFigma({
       <div
         ref={sectionRef}
         className={
-          'ticker-annual-figma__section ticker-annual-figma__section--chartjs' +
+          'ticker-annual-figma__section ticker-annual-figma__section--chartjs bg-white dark:bg-transparent' +
           (resize.enabled ? ' ticker-annual-figma__section--resize' : '')
         }
         style={
@@ -767,62 +812,73 @@ export function TickerAnnualReturnsFigma({
       </div>
 
       {!hideStatsSection ? (
-        <div className="ticker-annual-figma__section">
+        <div ref={statsSectionRef} className="ticker-annual-figma__section bg-white dark:bg-transparent">
           <div className="ticker-annual-figma__stats-head">
             <span className="ticker-annual-figma__badge">
               <ReturnsChartPieIcon />
-              <span className="ticker-annual-figma__badge-text uppercase">
+              <span className="ticker-annual-figma__badge-text uppercase text-slate-900 dark:text-white font-semibold" >
                 {pn.statsLabel} stats — positive / negative, min max
               </span>
               <ChartInfoTip tip={CHART_INFO_TIPS.tickerAnnualStats} align="end" />
             </span>
-            <div className="ticker-annual-figma__stats-actions">
+            <div className="ticker-annual-figma__stats-actions ticker-annual-figma__toolbar-icons">
               <ReturnsChartToolbar
                 showViewMore={false}
-                showDownload={false}
                 onToggleTable={() => setShowTable((v) => !v)}
                 showTable={showTable}
+                onDownload={onDownloadStatsCsv}
+                downloadDisabled={statsExportDisabled}
+              />
+              <ChartSectionIconActions
+                snapshotRootRef={statsSectionRef}
+                plotHostRef={statsChartCardRef}
+                fullscreenTargetRef={statsFsShellRef}
+                buildFilename={buildStatsExportFilename}
+                disabled={statsExportDisabled}
+                exportPreviewAlt={`${pn.statsLabel} stats pos/neg min-max for ${String(symbol || '').toUpperCase()}`}
               />
             </div>
           </div>
 
-          <div className="ticker-annual-figma__split">
-            <div className="ticker-annual-figma__chart-card ticker-annual-figma__chart-card--donut ticker-annual-figma__chart-card--chartjs">
-              {stats ? (
-                <StatsTickerReturnsPosNegDonut
-                  pos={stats.pos}
-                  neg={stats.neg}
-                  plotHeight={donutPlotHeight}
-                  chartFullscreen={chartFs}
-                />
-              ) : null}
-              <p className="ticker-annual-figma__total-years-caption">
-                Total : <strong>{selectionTotal.count}</strong> {selectionTotal.unit}
-              </p>
-              <div className="ticker-annual-figma__legends ticker-annual-figma__legend--donut flex">
-                <span className="ticker-annual-figma__legend-item">
-                  <span className="ticker-annual-figma__swatch ticker-annual-figma__swatch--blue" aria-hidden />
-                  # positive {pn.lower}
-                </span>
-                <span className="ticker-annual-figma__legend-item">
-                <span className="ticker-annual-figma__swatch" aria-hidden style={{ background: TICKER_RETURNS_COL_NEG }} />
-                  # negative {pn.lower}
-                </span>
-              </div>
-            </div>
-            <div className="ticker-annual-figma__chart-card ticker-annual-figma__chart-card--summary ticker-annual-figma__chart-card--chartjs">
-              {stats ? (
-                <StatsTickerReturnsSummaryBarChart
-                  stats={stats}
-                  plotHeight={summaryPlotHeight}
-                  chartFullscreen={chartFs}
-                />
-              ) : null}
-              {stats ? (
-                <div className="ticker-annual-figma__summary-total-years">
+          <div ref={statsFsShellRef} className="ticker-chart-fs-shell">
+            <div ref={statsChartCardRef} className="ticker-annual-figma__split">
+              <div className="ticker-annual-figma__chart-card ticker-annual-figma__chart-card--donut ticker-annual-figma__chart-card--chartjs">
+                {stats ? (
+                  <StatsTickerReturnsPosNegDonut
+                    pos={stats.pos}
+                    neg={stats.neg}
+                    plotHeight={donutPlotHeight}
+                    chartFullscreen={statsFs}
+                  />
+                ) : null}
+                <p className="ticker-annual-figma__total-years-caption text-black dark:text-white">
                   Total : <strong>{selectionTotal.count}</strong> {selectionTotal.unit}
+                </p>
+                <div className="ticker-annual-figma__legends ticker-annual-figma__legend--donut flex">
+                  <span className="ticker-annual-figma__legend-item">
+                    <span className="ticker-annual-figma__swatch ticker-annual-figma__swatch--blue" aria-hidden />
+                    # positive {pn.lower}
+                  </span>
+                  <span className="ticker-annual-figma__legend-item">
+                    <span className="ticker-annual-figma__swatch" aria-hidden style={{ background: TICKER_RETURNS_COL_NEG }} />
+                    # negative {pn.lower}
+                  </span>
                 </div>
-              ) : null}
+              </div>
+              <div className="ticker-annual-figma__chart-card ticker-annual-figma__chart-card--summary ticker-annual-figma__chart-card--chartjs">
+                {stats ? (
+                  <StatsTickerReturnsSummaryBarChart
+                    stats={stats}
+                    plotHeight={summaryPlotHeight}
+                    chartFullscreen={statsFs}
+                  />
+                ) : null}
+                {stats ? (
+                  <div className="ticker-annual-figma__summary-total-years">
+                    Total : <strong>{selectionTotal.count}</strong> {selectionTotal.unit}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

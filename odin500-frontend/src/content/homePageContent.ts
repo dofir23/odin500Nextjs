@@ -45,9 +45,9 @@ export const HOME_USE_CASES = [
   {
     title: 'Practice without risk',
     body:
-      'Paper trading simulates fills at Odin daily closes with realistic slippage. Run manual orders or automated strategy rules, track P&L, sector exposure, and closed-trade analytics.',
+      'Virtual portfolio simulates fills at Odin daily closes with realistic slippage. Run manual orders or automated strategy rules, track P&L, sector exposure, and closed-trade analytics.',
     href: '/paper-trading',
-    linkLabel: 'Try paper trading'
+    linkLabel: 'Try virtual portfolio'
   }
 ];
 
@@ -138,7 +138,7 @@ export const HOME_DATA_COVERAGE: HomeDataCoverageItem[] = [
   },
   {
     id: 'paper',
-    title: 'Paper trading',
+    title: 'Virtual portfolio',
     summary:
       'Virtual portfolios with $100,000 starting capital, order blotter, strategy automation, and performance charts.',
     href: '/paper-trading'
@@ -183,7 +183,7 @@ export const HOME_FEATURES = [
     href: '/ticker-report/aapl'
   },
   {
-    title: 'Paper trading simulator',
+    title: 'Virtual portfolio simulator',
     body:
       'Place market orders, manage positions, automate strategy rules, and compare portfolio performance to benchmarks.',
     href: '/paper-trading'
@@ -209,7 +209,7 @@ export const HOME_NAV_PRODUCT = [
   { href: '/market', label: 'Market dashboard' },
   { href: '/heatmap', label: 'Heatmaps' },
   { href: '/odin-signals', label: 'Odin Signals' },
-  { href: '/paper-trading', label: 'Paper trading' },
+  { href: '/paper-trading', label: 'Virtual portfolio' },
   { href: '/premium', label: 'Pricing' }
 ];
 
@@ -366,13 +366,13 @@ export const HOME_SHOWCASE: HomeShowcaseItem[] = [
   },
   {
     id: 'paper-trading',
-    title: 'Paper trading simulator',
+    title: 'Virtual portfolio simulator',
     description:
       'Practice with virtual capital, realistic daily-close fills, order blotters, strategy automation, and portfolio performance charts — no real money at risk.',
     href: '/paper-trading',
-    linkLabel: 'Try paper trading',
+    linkLabel: 'Try virtual portfolio',
     imageKey: 'paperTrading',
-    imageAlt: 'Odin500 paper trading portfolio chart and order ticket'
+    imageAlt: 'Odin500 virtual portfolio chart and order ticket'
   },
   {
     id: 'news',

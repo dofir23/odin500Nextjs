@@ -3,15 +3,14 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Bar } from 'react-chartjs-2';
 import '../utils/chartJsSetup.js';
 import {
-  CHART_CMP_COLOR_AXIS,
   CHART_CMP_COLOR_BENCH,
-  CHART_CMP_COLOR_GRID,
-  CHART_CMP_COLOR_GRID_ZERO,
   CHART_CMP_COLOR_TICK,
   finiteComparisonPct,
   fmtPctSignedAxis,
   fmtPctSignedCompact
 } from '../utils/chartComparisonTheme.js';
+import { useChartComparisonColors } from '../hooks/useChartComparisonColors.js';
+import { useChartExportCapture } from '../hooks/useChartExportCapture.js';
 import { fmtPctSigned } from '../utils/formatDisplayNumber.js';
 
 /**
@@ -117,6 +116,10 @@ export function BenchmarkBarsChart({
   className = ''
 }) {
   const chartRef = useRef(/** @type {import('chart.js').Chart<'bar'> | null} */ (null));
+  const cmpColors = useChartComparisonColors();
+  const exportCapture = useChartExportCapture();
+  const showBarLabels = chartFullscreen || exportCapture;
+  const expandPlot = chartFullscreen || exportCapture;
 
   const labels = useMemo(() => rows.map((r) => r.tf), [rows]);
 
@@ -187,7 +190,7 @@ export function BenchmarkBarsChart({
         },
         datalabels: {
           display: (ctx) => {
-            if (!chartFullscreen) return false;
+            if (!showBarLabels) return false;
             const raw = ctx.dataset.rawPcts?.[ctx.dataIndex];
             return raw != null && Number.isFinite(raw);
           },
@@ -213,7 +216,7 @@ export function BenchmarkBarsChart({
           ticks: {
             autoSkip: false,
             maxRotation: 0,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             font: { size: 11, weight: '600' }
           }
         },
@@ -235,13 +238,13 @@ export function BenchmarkBarsChart({
           grid: {
             color: (ctx) => {
               const v = ctx.tick?.value;
-              if (v === 0 || Math.abs(v) < 1e-9) return CHART_CMP_COLOR_GRID_ZERO;
-              return CHART_CMP_COLOR_GRID;
+              if (v === 0 || Math.abs(v) < 1e-9) return cmpColors.gridZero;
+              return cmpColors.grid;
             }
           },
           ticks: {
             maxTicksLimit: 8,
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             padding: 6,
             font: { size: 10, weight: '600' },
             callback: (value) => fmtPctSignedAxis(symlogToPct(value))
@@ -249,21 +252,21 @@ export function BenchmarkBarsChart({
         }
       }
     };
-  }, [yExtent, chartFullscreen]);
+  }, [yExtent, chartFullscreen, showBarLabels, cmpColors]);
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     chart.resize();
     chart.update('none');
-  }, [plotHeight, chartFullscreen, rows]);
+  }, [plotHeight, chartFullscreen, exportCapture, showBarLabels, rows, cmpColors]);
 
-  const heightStyle = chartFullscreen ? '100%' : `${plotHeight}px`;
+  const heightStyle = expandPlot ? '100%' : `${plotHeight}px`;
 
   return (
     <div
       className={'benchmark-bars-chart' + (className ? ` ${className}` : '')}
-      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: chartFullscreen ? 180 : undefined }}
+      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: expandPlot ? 180 : undefined }}
     >
       <Bar ref={chartRef} data={data} options={options} />
     </div>

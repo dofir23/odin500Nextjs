@@ -213,16 +213,19 @@ export function MonthlyReturnsChartSkeleton({ periodMode = 'monthly', plotHeight
         }
       >
         <div className="ticker-monthly__head ticker-monthly__head--split">
-          <div className="ticker-monthly__title-block">
-            <span className="ticker-monthly__title uppercase">{title}</span>
+          <div className="ticker-monthly__head-top">
+            <div className="ticker-monthly__title-block">
+              <span className="ticker-monthly__title uppercase">{title}</span>
+            </div>
+            <div className="ticker-monthly__head-icons ticker-annual-figma__actions ticker-annual-figma__actions--skeleton">
+              <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn" />
+              <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn" />
+              <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn-wide" />
+              <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn" />
+            </div>
           </div>
-          <div className="ticker-monthly__head-icons ticker-annual-figma__actions ticker-annual-figma__actions--skeleton">
-          <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--dd" />
-            <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn" />
-            <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn" />
-            <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn-wide" />
-            <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--btn" />
-            
+          <div className="ticker-monthly__head-range">
+            <span className="ticker-annual-figma__skel-pill ticker-annual-figma__skel-pill--dd" />
           </div>
         </div>
         <div

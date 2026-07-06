@@ -73,7 +73,7 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
   ],
   '/paper-trading/public': [
     { name: 'Market', path: '/market' },
-    { name: 'Paper trading', path: '/paper-trading' },
+    { name: 'Virtual portfolio', path: '/paper-trading' },
     { name: 'Public portfolios', path: '/paper-trading/public' }
   ],
   '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }]
@@ -165,7 +165,7 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
   if (publicPaperMatch) {
     return [
       { name: 'Market', path: '/market' },
-      { name: 'Paper trading', path: '/paper-trading' },
+      { name: 'Virtual portfolio', path: '/paper-trading' },
       { name: 'Public portfolios', path: '/paper-trading/public' },
       { name: 'Portfolio', path }
     ];

@@ -12577,6 +12577,14 @@ a.ticker-page__metric-label--link:hover {
   margin-left: auto;
 }
 
+.ticker-annual-figma__stats-actions.ticker-annual-figma__toolbar-icons {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px 8px;
+  flex-shrink: 0;
+}
+
 .ticker-annual-figma__total-years-caption {
   margin: 0;
   padding: 2px 8px 0;
@@ -12584,7 +12592,6 @@ a.ticker-page__metric-label--link:hover {
   text-align: center;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--ticker-muted);
   line-height: 1.25;
 }
 
@@ -12610,7 +12617,7 @@ a.ticker-page__metric-label--link:hover {
 }
 
 [data-theme="light"] .ticker-annual-figma__summary-total-years {
-  color: #64748b;
+  color: black;
 }
 
 [data-theme="light"] .ticker-annual-figma__summary-total-years strong {
@@ -13557,6 +13564,18 @@ h3.returns-chart-title-heading {
   padding: 14px 12px 12px;
 }
 
+.ticker-annual-donut__panel.ticker-annual-figma__chart-card {
+  border-radius: 8px;
+}
+
+html[data-theme='light'] .ticker-annual-donut__panel.ticker-annual-figma__chart-card {
+  border: 1px solid #e2e8f0;
+}
+
+html:not([data-theme='light']) .ticker-annual-donut__panel.ticker-annual-figma__chart-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
 .ticker-annual-donut__panel-head {
   display: grid;
   grid-template-columns: minmax(32px, 1fr) auto minmax(32px, 1fr);
@@ -13753,22 +13772,40 @@ h3.returns-chart-title-heading {
   margin-bottom: 12px;
 }
 
-/* Title on the left; year + icon actions on one row, right-aligned */
+/* Title on the left; year filters center; icon actions on the right (matches annual/quarterly split toolbar) */
 .ticker-monthly__head--split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: 'title icons';
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 10px 8px;
+  justify-content: space-between;
+  gap: 8px 10px;
+}
+
+.ticker-monthly__head--split .ticker-monthly__head-top {
+  display: contents;
 }
 
 .ticker-monthly__head--split .ticker-monthly__title-block {
-  grid-area: title;
+  order: 1;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
-.ticker-monthly__head-icons {
-  grid-area: icons;
+.ticker-monthly__head--split .ticker-monthly__head-range {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px 8px;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.ticker-monthly__head--split .ticker-monthly__head-icons {
+  order: 3;
   display: inline-flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -13778,6 +13815,15 @@ h3.returns-chart-title-heading {
   flex-shrink: 0;
 }
 
+.ticker-monthly__head-icons {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: 0;
+  flex-shrink: 0;
+}
 .ticker-monthly__head-icons .returns-chart-toolbar,
 .ticker-monthly__toolbar-icons-bar.returns-chart-toolbar {
   margin-left: 0;
@@ -13819,6 +13865,17 @@ h3.returns-chart-title-heading {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.ticker-monthly__title-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ticker-monthly__title-block .ticker-monthly__title {
+  white-space: nowrap;
 }
 
 .ticker-monthly__title {
@@ -14436,8 +14493,11 @@ h3.returns-chart-title-heading {
   min-height: 260px;
 }
 
+.ticker-annual-figma__section.chart-export-capture,
+.ticker-chart-fs-shell.chart-export-capture,
 .ticker-chart-fs-shell:fullscreen,
 .ticker-chart-fs-shell:-webkit-full-screen,
+.ticker-s17__chart-shell.chart-export-capture,
 .ticker-s17__chart-shell:fullscreen,
 .ticker-s17__chart-shell:-webkit-full-screen {
   box-sizing: border-box;
@@ -14453,18 +14513,25 @@ h3.returns-chart-title-heading {
   overflow: hidden;
 }
 
+.ticker-chart-fs-shell.chart-export-capture .ticker-annual-figma__chart-card:not(.ticker-annual-figma__chart-card--donut),
 .ticker-chart-fs-shell:fullscreen .ticker-annual-figma__chart-card:not(.ticker-annual-figma__chart-card--donut),
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-annual-figma__chart-card:not(.ticker-annual-figma__chart-card--donut),
+.ticker-chart-fs-shell.chart-export-capture .ticker-annual-figma__chart-card.ticker-annual-figma__chart-card--summary,
 .ticker-chart-fs-shell:fullscreen .ticker-annual-figma__chart-card.ticker-annual-figma__chart-card--summary,
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-annual-figma__chart-card.ticker-annual-figma__chart-card--summary,
+.ticker-chart-fs-shell.chart-export-capture .ticker-quarterly__split,
 .ticker-chart-fs-shell:fullscreen .ticker-quarterly__split,
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-quarterly__split,
+.ticker-chart-fs-shell.chart-export-capture .ticker-annual-donut__split,
 .ticker-chart-fs-shell:fullscreen .ticker-annual-donut__split,
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-annual-donut__split,
+.ticker-chart-fs-shell.chart-export-capture .ticker-monthly-adv__split,
 .ticker-chart-fs-shell:fullscreen .ticker-monthly-adv__split,
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-monthly-adv__split,
+.ticker-s17__chart-shell.chart-export-capture .ticker-s17__chart,
 .ticker-s17__chart-shell:fullscreen .ticker-s17__chart,
 .ticker-s17__chart-shell:-webkit-full-screen .ticker-s17__chart,
+.ticker-s24__chart-shell.chart-export-capture .ticker-s24__chart.ticker-s17__chart,
 .ticker-s24__chart-shell:fullscreen .ticker-s24__chart.ticker-s17__chart,
 .ticker-s24__chart-shell:-webkit-full-screen .ticker-s24__chart.ticker-s17__chart {
   display: grid !important;
@@ -14498,8 +14565,10 @@ h3.returns-chart-title-heading {
 /* Bar / combo / waterfall SVGs — stretch to full panel */
 .ticker-chart-fs-shell:fullscreen .ticker-annual-figma__svg:not(.ticker-annual-figma__donut-svg),
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-annual-figma__svg:not(.ticker-annual-figma__donut-svg),
+.ticker-chart-fs-shell.chart-export-capture .ticker-annual-figma__chart-card--chartjs .stats-ticker-returns-bar-chart,
 .ticker-chart-fs-shell:fullscreen .ticker-annual-figma__chart-card--chartjs .stats-ticker-returns-bar-chart,
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-annual-figma__chart-card--chartjs .stats-ticker-returns-bar-chart,
+.ticker-chart-fs-shell.chart-export-capture .ticker-annual-figma__chart-card--chartjs .stats-period-slot-returns-bar-chart,
 .ticker-chart-fs-shell:fullscreen .ticker-annual-figma__chart-card--chartjs .stats-period-slot-returns-bar-chart,
 .ticker-chart-fs-shell:-webkit-full-screen .ticker-annual-figma__chart-card--chartjs .stats-period-slot-returns-bar-chart,
 .ticker-chart-fs-shell:fullscreen .ticker-monthly__svg,
@@ -14514,8 +14583,10 @@ h3.returns-chart-title-heading {
 .ticker-chart-resize-scope .ticker-chart-fs-shell:-webkit-full-screen .ticker-monthly__svg,
 .ticker-chart-resize-scope .ticker-chart-fs-shell:fullscreen .ticker-quarterly__svg,
 .ticker-chart-resize-scope .ticker-chart-fs-shell:-webkit-full-screen .ticker-quarterly__svg,
+.stats-cmp-chart.chart-export-capture .stats-cmp-chart__svg,
 .stats-cmp-chart:fullscreen .stats-cmp-chart__svg,
 .stats-cmp-chart:-webkit-full-screen .stats-cmp-chart__svg,
+.market-movers-page__bar-frame.chart-export-capture .market-movers-page__bar-svg,
 .market-movers-page__bar-frame:fullscreen .market-movers-page__bar-svg,
 .market-movers-page__bar-frame:-webkit-full-screen .market-movers-page__bar-svg {
   flex: 1 1 auto;
@@ -14773,6 +14844,11 @@ h3.returns-chart-title-heading {
   visibility: hidden;
 }
 
+.ticker-s17__bar-zone:hover .ticker-s17__bar-val {
+  opacity: 1;
+  visibility: visible;
+}
+
 .ticker-s17__bar-val--up {
   transform: translate(-50%, calc(-100% - 4px));
 }
@@ -14788,7 +14864,9 @@ h3.returns-chart-title-heading {
 .ticker-s17__chart-shell:fullscreen .ticker-s17__bar-val,
 .ticker-s17__chart-shell:-webkit-full-screen .ticker-s17__bar-val,
 .ticker-s24__chart-shell:fullscreen .ticker-s17__bar-val,
-.ticker-s24__chart-shell:-webkit-full-screen .ticker-s17__bar-val {
+.ticker-s24__chart-shell:-webkit-full-screen .ticker-s17__bar-val,
+.chart-export-capture .ticker-s17__bar-val,
+.chart-export-snapshot .ticker-s17__bar-val {
   opacity: 1;
   visibility: visible;
   font-size: 12px;
@@ -15082,10 +15160,21 @@ h3.returns-chart-title-heading {
   max-width: 120%;
   font-size: 9px;
   line-height: 1.1;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.ticker-s24__bar-zone:hover .ticker-s24__bar-val {
+  opacity: 1;
+  visibility: visible;
 }
 
 .ticker-s24__chart-shell:fullscreen .ticker-s24__bar-val,
-.ticker-s24__chart-shell:-webkit-full-screen .ticker-s24__bar-val {
+.ticker-s24__chart-shell:-webkit-full-screen .ticker-s24__bar-val,
+.chart-export-capture .ticker-s24__bar-val,
+.chart-export-snapshot .ticker-s24__bar-val {
+  opacity: 1;
+  visibility: visible;
   font-size: 11px;
 }
 
@@ -15636,9 +15725,14 @@ h3.returns-chart-title-heading {
   text-shadow: none;
 }
 [data-theme="light"] .ticker-annual-figma {
-  background: white;
   border-radius: 10px;
 }
+
+[data-theme="light"] .ticker-annual-figma__legend,
+[data-theme="light"] .ticker-annual-figma__legends {
+  color: #334155;
+}
+
 [data-theme="light"] .ticker-monthly {
   background: white;
   border-radius: 10px;
@@ -15987,7 +16081,7 @@ h3.returns-chart-title-heading {
 }
 
 [data-theme="light"] .ticker-s17__bar-val {
-  color: #334155;
+  color: #0f172a;
 }
 
 [data-theme="light"] .ticker-s17__bar-tip {
@@ -17589,6 +17683,15 @@ html[data-theme="light"] .market-movers-page__bar-interact-hint {
   fill: #93c5fd;
   font-size: 11px;
   font-weight: 700;
+  opacity: 0;
+}
+
+.market-movers-page__bar-col:hover + .market-movers-page__bar-value,
+.market-movers-page__bar-frame:fullscreen .market-movers-page__bar-value,
+.market-movers-page__bar-frame:-webkit-full-screen .market-movers-page__bar-value,
+.chart-export-capture .market-movers-page__bar-value,
+.chart-export-snapshot .market-movers-page__bar-value {
+  opacity: 1;
 }
 
 .market-movers-page__bar-x {
@@ -22128,15 +22231,44 @@ svg.ticker-quarterly__svg,
   }
 
   .ticker-monthly__head--split {
-    gap: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
   }
 
-  .ticker-monthly__head-icons {
-    gap: 4px;
+  .ticker-monthly__head--split .ticker-monthly__head-top {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
   }
 
-  .ticker-monthly__head-controls {
-    gap: 6px;
+  .ticker-monthly__head--split .ticker-monthly__title-block {
+    flex: 1 1 auto;
+    min-width: 0;
+    order: unset;
+  }
+
+  .ticker-monthly__head--split .ticker-monthly__head-icons {
+    flex: 0 0 auto;
+    order: unset;
+    margin-left: auto;
+  }
+
+  .ticker-monthly__head--split .ticker-monthly__head-range {
+    order: unset;
+    justify-content: flex-start;
+    margin-left: 0;
+    width: 100%;
+    flex: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   .ticker-annual-figma__stats-head {
@@ -23010,7 +23142,7 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
 [data-theme='light'] .relative-strength-page__cmp-charts-figma .stats-cmp-chart__y-axis,
 [data-theme='light'] .relative-strength-page__cmp-charts-figma .stats-cmp-chart__bar-label,
 [data-theme='light'] .relative-strength-page__cmp-charts-figma .stats-cmp-chart__line-label {
-  fill: #64748b;
+  fill: #1e293b;
 }
 
 [data-theme='light'] .relative-strength-page__cmp-charts-figma .stats-cmp-chart__titlebox {
@@ -23231,11 +23363,11 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
 
 [data-theme='light'] .stats-cmp-chart__bar-label,
 [data-theme='light'] .stats-cmp-chart__x {
-  fill: #6b7280;
+  fill: #334155;
 }
 
 [data-theme='light'] .stats-cmp-chart__y-axis {
-  fill: #64748b;
+  fill: #1e293b;
 }
 
 [data-theme='light'] .stats-cmp-chart__line-label {
@@ -23836,6 +23968,86 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
   min-height: 360px;
 }
 
+/* Export capture: full viewport behind modal (opacity > 0 so html2canvas can paint). */
+.chart-export-capture {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100dvh !important;
+  z-index: 399 !important;
+  opacity: 0.01 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+.ticker-chart-fs-shell.chart-export-capture-plot {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-export-capture .stats-cmp-chart__head,
+.chart-export-capture .ticker-annual-figma__toolbar,
+.chart-export-capture .ticker-chart-toolbar-row,
+.chart-export-capture .np-card__head,
+.chart-export-capture .np-card__tf-row,
+.chart-export-capture .np-card__chips-row,
+.chart-export-capture .chart-section-icon-actions,
+.chart-export-capture .ticker-chart-footer-icons,
+.chart-export-capture .ticker-chart-resize {
+  display: none !important;
+}
+
+.ticker-annual-figma__chart-card.chart-export-capture,
+.stats-cmp-chart__plot-host.chart-export-capture,
+.ticker-chart-plot-host.chart-export-capture,
+.stats-cmp-chart.chart-export-capture,
+.ticker-annual-figma__section.chart-export-capture,
+.ticker-chart-body--main.chart-export-capture,
+.np-card.chart-export-capture,
+.heatmap-main__viz.chart-export-capture,
+.market-movers-page__bar-frame.chart-export-capture {
+  box-sizing: border-box;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  min-height: 100dvh !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ticker-annual-figma__section.chart-export-capture .ticker-chart-fs-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.stats-cmp-chart.chart-export-capture .stats-cmp-chart__plot-host,
+.ticker-chart-body--main.chart-export-capture .ticker-chart-plot-host,
+.np-card.chart-export-capture .np-chart-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme='light'] .np-export-modal__share--dock {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
 /* Normalized performance — export preview modal */
 .np-export-overlay {
   position: fixed;
@@ -23920,6 +24132,7 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
 }
 
 .np-export-modal__preview-wrap {
+  position: relative;
   border-radius: 8px;
   border: 1px solid rgba(71, 85, 105, 0.55);
   background: rgba(0, 0, 0, 0.35);
@@ -23927,8 +24140,36 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   min-height: 120px;
   max-height: min(52vh, 480px);
+}
+
+.np-export-modal__share--dock {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.np-export-modal__share--dock .np-export-modal__share-grid {
+  gap: 6px;
+}
+
+.np-export-modal__share--dock .np-export-modal__share-btn--icon {
+  width: 34px;
+  height: 34px;
+}
+
+.np-export-modal__share--dock .np-export-modal__share-hint {
+  display: none;
 }
 
 .np-export-modal__preview {
@@ -23937,6 +24178,48 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
   height: auto;
   max-height: min(52vh, 480px);
   object-fit: contain;
+  background: #0b1220;
+}
+
+.np-export-modal__share {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.np-export-modal__share-details {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  padding-top: 10px;
+}
+
+.np-export-modal__share-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  user-select: none;
+}
+
+.np-export-modal__share-summary::-webkit-details-marker {
+  display: none;
+}
+
+.np-export-modal__share-summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.np-export-modal__share-details[open] .np-export-modal__share-summary::before {
+  transform: rotate(90deg);
+}
+
+.np-export-modal__share-details[open] .np-export-modal__share-summary {
+  margin-bottom: 10px;
 }
 
 .np-export-modal__share-label {
@@ -23983,6 +24266,91 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
   cursor: not-allowed;
 }
 
+.np-export-modal__share-btn--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.np-export-modal__share-btn--instagram:hover:not(:disabled) {
+  color: #e1306c;
+  border-color: rgba(225, 48, 108, 0.45);
+  background: rgba(225, 48, 108, 0.12);
+}
+
+.np-export-modal__share-btn--x:hover:not(:disabled) {
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.55);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.np-export-modal__share-btn--facebook:hover:not(:disabled) {
+  color: #1877f2;
+  border-color: rgba(24, 119, 242, 0.45);
+  background: rgba(24, 119, 242, 0.12);
+}
+
+.np-export-modal__share-btn--linkedin:hover:not(:disabled) {
+  color: #0a66c2;
+  border-color: rgba(10, 102, 194, 0.45);
+  background: rgba(10, 102, 194, 0.12);
+}
+
+.np-export-modal__caption-wrap {
+  margin-top: 12px;
+}
+
+.np-export-modal__caption-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.np-export-modal__caption-head .np-export-modal__share-label {
+  margin: 0;
+}
+
+.np-export-modal__caption-copy {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.np-export-modal__caption-copy:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.np-export-modal__caption-copy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.np-export-modal__caption {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.35);
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: inherit;
+  resize: vertical;
+}
+
 .np-export-modal__share-hint {
   margin: 8px 0 0;
   font-size: 12px;
@@ -23991,11 +24359,44 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
 
 .np-export-modal__foot {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 12px 16px;
   border-top: 1px solid rgba(148, 163, 184, 0.15);
   flex-shrink: 0;
+}
+
+.np-export-modal__foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.np-export-modal__foot-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.np-export-modal__share--inline {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.np-export-modal__share--inline .np-export-modal__share-grid {
+  gap: 6px;
+}
+
+.np-export-modal__share--inline .np-export-modal__share-btn--icon {
+  width: 34px;
+  height: 34px;
+}
+
+.np-export-modal__share--inline .np-export-modal__share-hint {
+  display: none;
 }
 
 .np-export-modal__btn {
@@ -24063,6 +24464,18 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
   background: #f8fafc;
 }
 
+[data-theme='light'] .np-export-modal__share-details {
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .np-export-modal__share-summary {
+  color: #64748b;
+}
+
+[data-theme='light'] .np-export-modal__share {
+  border-color: #e2e8f0;
+}
+
 [data-theme='light'] .np-export-modal__share-btn {
   border-color: #cbd5e1;
   background: #f8fafc;
@@ -24071,6 +24484,18 @@ html[data-theme='light'] .relative-strength-page__chart-card--np .np-chart-wrap 
 
 [data-theme='light'] .np-export-modal__share-btn:hover:not(:disabled) {
   background: #f1f5f9;
+}
+
+[data-theme='light'] .np-export-modal__caption-copy {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+}
+
+[data-theme='light'] .np-export-modal__caption {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
 }
 
 [data-theme='light'] .np-export-modal__btn--ghost {

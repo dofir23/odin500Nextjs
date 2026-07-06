@@ -4,12 +4,11 @@ import { Bar } from 'react-chartjs-2';
 import '../utils/chartJsSetup.js';
 import { fmtPctSigned } from '../utils/formatDisplayNumber.js';
 import {
-  CHART_CMP_COLOR_AXIS,
-  CHART_CMP_COLOR_GRID,
-  CHART_CMP_COLOR_GRID_ZERO,
   fmtPctSignedAxis,
   fmtPctSignedCompact
 } from '../utils/chartComparisonTheme.js';
+import { useChartComparisonColors } from '../hooks/useChartComparisonColors.js';
+import { useChartExportCapture } from '../hooks/useChartExportCapture.js';
 import { TICKER_RETURNS_COL_BAR, TICKER_RETURNS_COL_NEG } from './StatsTickerReturnsBarChart.jsx';
 
 function computeSummaryYExtent(values) {
@@ -33,6 +32,10 @@ export function StatsTickerReturnsSummaryBarChart({
   className = ''
 }) {
   const chartRef = useRef(/** @type {import('chart.js').Chart<'bar'> | null} */ (null));
+  const cmpColors = useChartComparisonColors();
+  const exportCapture = useChartExportCapture();
+  const showBarLabels = chartFullscreen || exportCapture;
+  const expandPlot = chartFullscreen || exportCapture;
 
   const items = useMemo(
     () => [
@@ -65,8 +68,9 @@ export function StatsTickerReturnsSummaryBarChart({
           borderRadius: 2,
           minBarLength: 2,
           datalabels: {
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.dataLabel,
             display: (ctx) => {
+              if (!showBarLabels) return false;
               const raw = ctx.dataset.rawPcts?.[ctx.dataIndex];
               return raw != null && Number.isFinite(raw);
             },
@@ -88,7 +92,7 @@ export function StatsTickerReturnsSummaryBarChart({
         }
       ]
     }),
-    [labels, values, barColors]
+    [labels, values, barColors, cmpColors, showBarLabels]
   );
 
   const options = useMemo(
@@ -118,7 +122,7 @@ export function StatsTickerReturnsSummaryBarChart({
         x: {
           grid: { display: false },
           ticks: {
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             font: { size: 11, weight: '700' }
           }
         },
@@ -128,8 +132,8 @@ export function StatsTickerReturnsSummaryBarChart({
           grid: {
             color: (ctx) => {
               const v = ctx.tick?.value;
-              if (v === 0 || Math.abs(Number(v)) < 1e-9) return CHART_CMP_COLOR_GRID_ZERO;
-              return CHART_CMP_COLOR_GRID;
+              if (v === 0 || Math.abs(Number(v)) < 1e-9) return cmpColors.gridZero;
+              return cmpColors.grid;
             },
             lineWidth: (ctx) => {
               const v = ctx.tick?.value;
@@ -137,7 +141,7 @@ export function StatsTickerReturnsSummaryBarChart({
             }
           },
           ticks: {
-            color: CHART_CMP_COLOR_AXIS,
+            color: cmpColors.axis,
             padding: 6,
             font: { size: 11, weight: '600' },
             callback: (value) => fmtPctSignedAxis(value)
@@ -145,7 +149,7 @@ export function StatsTickerReturnsSummaryBarChart({
         }
       }
     }),
-    [yExtent]
+    [yExtent, cmpColors]
   );
 
   useEffect(() => {
@@ -153,14 +157,14 @@ export function StatsTickerReturnsSummaryBarChart({
     if (!chart) return;
     chart.resize();
     chart.update('none');
-  }, [plotHeight, chartFullscreen, stats]);
+  }, [plotHeight, chartFullscreen, exportCapture, showBarLabels, stats, cmpColors]);
 
-  const heightStyle = chartFullscreen ? '100%' : `${Math.min(320, plotHeight ?? 240)}px`;
+  const heightStyle = expandPlot ? '100%' : `${Math.min(320, plotHeight ?? 240)}px`;
 
   return (
     <div
       className={'stats-ticker-returns-summary-bar-chart' + (className ? ` ${className}` : '')}
-      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: chartFullscreen ? 160 : 140 }}
+      style={{ width: '100%', height: heightStyle, display: 'block', minHeight: expandPlot ? 160 : 140 }}
     >
       <Bar ref={chartRef} data={data} options={options} />
     </div>

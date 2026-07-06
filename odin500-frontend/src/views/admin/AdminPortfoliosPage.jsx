@@ -46,7 +46,7 @@ function AdminPortfoliosContent() {
   }
 
   return (
-    <AdminShell title="Published portfolios" subtitle="All public paper portfolios across users.">
+    <AdminShell title="Published portfolios" subtitle="All public virtual portfolios across users.">
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
       {loading ? (

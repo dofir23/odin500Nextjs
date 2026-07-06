@@ -117,7 +117,7 @@ export function PaperAccountCreateMenu({ onManualAccount, onStrategyAccount, dis
             ref={menuRef}
             className="app-dropdown__menu app-dropdown__menu--portal paper-create-menu__menu"
             role="menu"
-            aria-label="Add paper account"
+            aria-label="Add virtual portfolio account"
             style={{
               position: 'fixed',
               top: menuPos.top,
@@ -154,10 +154,10 @@ export function PaperAccountCreateMenu({ onManualAccount, onStrategyAccount, dis
           (open ? ' paper-create-menu__trigger--open' : '')
         }
         disabled={disabled}
-        aria-label="Add paper account"
+        aria-label="Add virtual portfolio account"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Add a manual or automated paper account"
+        title="Add a manual or automated virtual portfolio account"
         onClick={() => setOpen((v) => !v)}
       >
         <Plus className="paper-btn__icon" aria-hidden />

@@ -79,7 +79,7 @@ export function usePaperAccount() {
     } catch (err) {
       if (fetchGen !== accountFetchGenRef.current) return;
       if (shouldIgnoreRouteLoadError(err)) return;
-      setError(err?.message || 'Failed to load paper account');
+      setError(err?.message || 'Failed to load virtual portfolio account');
       setAccount(null);
     } finally {
       if (fetchGen === accountFetchGenRef.current) {

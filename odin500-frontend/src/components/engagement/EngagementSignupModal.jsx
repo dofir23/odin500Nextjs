@@ -27,7 +27,7 @@ export function EngagementSignupModal({ open, onSignup, onLogin }) {
             <li>Download market data in <strong>CSV</strong> format</li>
             <li>Create, update, and delete <strong>watchlists</strong></li>
             <li>
-              Open <strong>paper trading accounts</strong> with custom automated strategies
+              Open <strong>virtual portfolio accounts</strong> with custom automated strategies
             </li>
             <li>Create and delete strategy rules tailored to your workflow</li>
             <li>Run and monitor simulated portfolios with Odin signals and watchlist leaders</li>

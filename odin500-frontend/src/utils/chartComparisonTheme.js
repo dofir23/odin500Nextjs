@@ -10,6 +10,18 @@ export const CHART_CMP_COLOR_GRID = 'rgba(148, 163, 184, 0.14)';
 export const CHART_CMP_COLOR_GRID_ZERO = 'rgba(148, 163, 184, 0.35)';
 export const CHART_CMP_COLOR_AXIS = 'rgba(148, 163, 184, 0.78)';
 
+/** Readable axis / bar-value colors per document theme. */
+export function getChartComparisonColors(theme = 'dark') {
+  const isLight = theme === 'light';
+  return {
+    axis: isLight ? '#475569' : CHART_CMP_COLOR_AXIS,
+    dataLabel: isLight ? '#0f172a' : '#e2e8f0',
+    grid: isLight ? 'rgba(71, 85, 105, 0.2)' : CHART_CMP_COLOR_GRID,
+    gridZero: isLight ? 'rgba(71, 85, 105, 0.42)' : CHART_CMP_COLOR_GRID_ZERO,
+    avgLine: isLight ? '#c2410c' : '#f97316'
+  };
+}
+
 export function fmtPctSignedAxis(v) {
   if (!Number.isFinite(Number(v))) return '—';
   const n = Number(v);

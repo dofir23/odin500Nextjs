@@ -6,7 +6,7 @@
     "signal_alert": { "pathTemplate": "/ticker/{symbol}", "label": "Ticker signals" },
     "newsletter": { "pathTemplate": "/newsletter/{slug}", "label": "Weekly newsletter" },
     "ticker_spotlight": { "pathTemplate": "/ticker/{symbol}", "label": "Ticker page" },
-    "paper_trading": { "path": "/paper-trading", "label": "Paper trading" },
+    "paper_trading": { "path": "/paper-trading", "label": "Virtual portfolio" },
     "pro_cta": { "path": "/premium", "label": "Odin500 Pro" },
     "signup": { "path": "/signup", "label": "Sign up free" }
   }

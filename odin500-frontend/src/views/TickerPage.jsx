@@ -1595,6 +1595,7 @@ export default function TickerPage({ initialData = null }) {
     exportModalOpen: chartExportModalOpen,
     exportModalStatus: chartExportModalStatus,
     exportPreviewUrl: chartExportPreviewUrl,
+    exportFilename: chartExportFilename,
     exportModalError: chartExportModalError,
     openExportModal: openChartExportModal,
     closeExportModal: closeChartExportModal,
@@ -1602,6 +1603,7 @@ export default function TickerPage({ initialData = null }) {
   } = useChartSnapshotExport({
     snapshotRootRef: chartBodyRef,
     plotHostRef: chartPlotHostRef,
+    fullscreenTargetRef: chartBodyRef,
     buildFilename: buildMainChartExportFilename,
     disabled: mainChartExportDisabled,
     onclone: applyTickerChartSnapshotCloneFixes
@@ -2703,6 +2705,8 @@ export default function TickerPage({ initialData = null }) {
         onDownload={downloadChartExport}
         title="Export chart"
         previewAlt={`Exported chart for ${sym}`}
+        shareLabel={`${sym} chart`}
+        exportFilename={chartExportFilename}
       />
     </div>
   );

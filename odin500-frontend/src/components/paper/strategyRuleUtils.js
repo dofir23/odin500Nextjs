@@ -19,6 +19,34 @@ export const RULE_TYPE_OPTIONS = [
 export const SIGNAL_BUCKETS = ['L1', 'L2', 'L3', 'S1', 'S2', 'S3', 'N'];
 export const LONG_SIGNAL_BUCKETS = ['L1', 'L2', 'L3'];
 export const SHORT_SIGNAL_BUCKETS = ['S1', 'S2', 'S3'];
+/** Sell / cover triggers for long positions (STC). */
+export const EXIT_LONG_SIGNAL_BUCKETS = ['N', 'S1', 'S2', 'S3'];
+/** Cover triggers for short positions (BTC). */
+export const EXIT_SHORT_SIGNAL_BUCKETS = ['L1', 'L2', 'L3', 'N'];
+/** Entry short includes neutral (N) per Odin short-side entries. */
+export const ENTRY_SHORT_SIGNAL_BUCKETS = ['S1', 'S2', 'S3', 'N'];
+
+/** @param {'long' | 'short'} side @param {'entry' | 'exit'} phase */
+export function signalBucketsForTradeSide(side, phase) {
+  const isLong = side === 'long';
+  if (phase === 'entry') {
+    return isLong ? LONG_SIGNAL_BUCKETS : ENTRY_SHORT_SIGNAL_BUCKETS;
+  }
+  return isLong ? EXIT_LONG_SIGNAL_BUCKETS : EXIT_SHORT_SIGNAL_BUCKETS;
+}
+
+/** @param {string} action */
+export function deriveTradeSideFromAction(action) {
+  const a = String(action || 'BTO').toUpperCase();
+  return a === 'STO' || a === 'BTC' ? 'short' : 'long';
+}
+
+/** Default strategy name for a portfolio (one strategy per account). */
+export function defaultStrategyNameForPortfolio(portfolioName) {
+  const base = String(portfolioName || '').trim();
+  if (!base) return '';
+  return `${base}-strategy`;
+}
 
 function ruleIdentity(rule) {
   return rule?.id ?? rule?._localId ?? null;
@@ -169,12 +197,21 @@ export function buildRuleTypeOptions(rules, tickers, action, excludeRuleId = nul
 }
 
 /** Actions valid for a rule type (hidden options are omitted from the form). */
-export function getAllowedActionsForRuleType(uiRuleType, signalBuckets = []) {
+export function getAllowedActionsForRuleType(uiRuleType, signalBuckets = [], closeAction = null) {
   const all = ['BTO', 'STO', 'STC', 'BTC'];
   const type = String(uiRuleType || 'always');
+  const exit = closeAction ? String(closeAction).toUpperCase() : null;
 
-  if (type === 'signal_side_long') return ['BTO', 'STC'];
-  if (type === 'signal_side_short') return ['STO', 'BTC'];
+  if (type === 'signal_side_long') {
+    const allowed = ['BTO', 'STC'];
+    if (exit === 'BTC') allowed.push('BTC');
+    return allowed;
+  }
+  if (type === 'signal_side_short') {
+    const allowed = ['STO', 'BTC'];
+    if (exit === 'STC') allowed.push('STC');
+    return allowed;
+  }
   if (type === 'signal_side_neutral') return ['STC', 'BTC'];
 
   if (type === 'signal_bucket') {
@@ -185,10 +222,12 @@ export function getAllowedActionsForRuleType(uiRuleType, signalBuckets = []) {
       if (LONG_SIGNAL_BUCKETS.includes(b)) {
         allowed.add('BTO');
         allowed.add('STC');
+        if (exit === 'BTC') allowed.add('BTC');
       }
       if (SHORT_SIGNAL_BUCKETS.includes(b)) {
         allowed.add('STO');
         allowed.add('BTC');
+        if (exit === 'STC') allowed.add('STC');
       }
       if (b === 'N') {
         allowed.add('STC');
@@ -277,6 +316,11 @@ function buildSingleRulePayload(form, ticker) {
     const maxVal = Number(form.maxPositionValue);
     if (Number.isFinite(maxVal) && maxVal > 0) {
       payload.params.max_position_value = maxVal;
+    }
+    const hasCap =
+      (Number.isFinite(maxPos) && maxPos > 0) || (Number.isFinite(maxVal) && maxVal > 0);
+    if (hasCap && form.allotFullCap !== false) {
+      payload.params.allot_full_cap = true;
     }
     if (form.bracketEnabled) {
       const sl = Number(form.bracketStopLoss);
@@ -397,18 +441,24 @@ export function validateRuleForm(form, context = {}) {
 
   if (isOpeningPaperAction(action)) {
     const maxPos = Number(form.maxPositionQty);
-    if (!Number.isFinite(maxPos) || maxPos <= 0) {
-      return 'Max shares owned is required for Buy and Short rules';
-    }
     const maxValRaw = form.maxPositionValue;
-    if (maxValRaw !== '' && maxValRaw != null) {
-      const maxVal = Number(maxValRaw);
-      if (!Number.isFinite(maxVal) || maxVal <= 0) {
-        return 'Max dollar limit must be greater than 0';
-      }
+    const maxVal = Number(maxValRaw);
+    const hasSharesCap = Number.isFinite(maxPos) && maxPos > 0;
+    const hasDollarCap =
+      maxValRaw !== '' &&
+      maxValRaw != null &&
+      Number.isFinite(maxVal) &&
+      maxVal > 0;
+
+    if (!hasSharesCap && !hasDollarCap) {
+      return 'Set a max shares or max dollar position limit for Buy and Short rules';
     }
+    if (maxValRaw !== '' && maxValRaw != null && !hasDollarCap) {
+      return 'Max dollar limit must be greater than 0';
+    }
+
     const qty = Number(form.qty);
-    if (Number.isFinite(qty) && qty > maxPos) {
+    if (!ruleUsesFullCapAllotment(form) && hasSharesCap && Number.isFinite(qty) && qty > maxPos) {
       return 'Shares per trade cannot exceed max shares owned';
     }
     if (form.bracketEnabled) {
@@ -429,7 +479,7 @@ export function validateRuleForm(form, context = {}) {
   }
   if (uiType === 'signal_bucket') {
     const buckets = normalizeSignalBucketList(form.signalBuckets ?? form.signalBucket);
-    if (!buckets.length) return 'Select at least one signal bucket';
+    if (!buckets.length) return 'Select at least one entry signal';
     const disabled = getDisabledSignalBuckets(existingRules, tickers, action, excludeRuleId);
     for (const b of buckets) {
       if (disabled.has(b)) return `Signal ${b} is not available for this ticker and action`;
@@ -479,7 +529,11 @@ function validateExitSection(form) {
     if (!Number.isFinite(th) || th <= 0) return 'Sell rule: threshold price is required';
   }
 
-  const allowedExitActions = getAllowedActionsForRuleType(exitUiType, form.exitSignalBuckets);
+  const allowedExitActions = getAllowedActionsForRuleType(
+    exitUiType,
+    form.exitSignalBuckets,
+    exitAction
+  );
   if (!allowedExitActions.includes(exitAction)) {
     return 'Sell rule: chosen condition is not valid for this exit';
   }
@@ -500,10 +554,12 @@ function validateExitSection(form) {
 
   if (exitUiType === 'signal_bucket') {
     const buckets = normalizeSignalBucketList(form.exitSignalBuckets);
-    if (!buckets.length) return 'Sell rule: select at least one signal bucket';
+    if (!buckets.length) return 'Select at least one exit signal';
     for (const b of buckets) {
       if (blockedBuckets.has(b)) {
-        return `Sell rule: signal ${b} is already used by your Buy rule for this ticker`;
+        return exitAction === 'STC'
+          ? `Exit signal ${b} matches your entry rule for this ticker`
+          : `Exit signal ${b} matches your entry rule for this ticker`;
       }
     }
   }
@@ -525,6 +581,37 @@ export function formatRuleQty(rule) {
   if (rule?.params?.close_all) return 'ALL';
   const q = Number(rule.qty);
   return Number.isFinite(q) ? String(q) : '—';
+}
+
+export function ruleUsesFullCapAllotment(formOrRule) {
+  if (formOrRule?.allotFullCap === true) return true;
+  if (formOrRule?.params?.allot_full_cap === true) return true;
+  if (formOrRule?.allotFullCap === false || formOrRule?.params?.allot_full_cap === false) {
+    return false;
+  }
+  const maxVal = Number(formOrRule?.maxPositionValue ?? formOrRule?.params?.max_position_value);
+  return Number.isFinite(maxVal) && maxVal > 0;
+}
+
+export function formatRuleTradeSizeLabel(formOrRule) {
+  const action = String(formOrRule?.action || 'BTO').toUpperCase();
+  const closeAll = Boolean(formOrRule?.closeAll ?? formOrRule?.params?.close_all);
+  if (closeAll && isClosingPaperAction(action)) {
+    return 'full position';
+  }
+  if (isOpeningPaperAction(action) && ruleUsesFullCapAllotment(formOrRule)) {
+    const maxPos = Number(formOrRule?.maxPositionQty ?? formOrRule?.params?.max_position_qty);
+    const maxVal = Number(formOrRule?.maxPositionValue ?? formOrRule?.params?.max_position_value);
+    if (Number.isFinite(maxVal) && maxVal > 0) {
+      return `up to $${maxVal.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    }
+    if (Number.isFinite(maxPos) && maxPos > 0) {
+      return `up to ${maxPos} ${pluralShares(maxPos)}`;
+    }
+  }
+  const qty = formatRuleQty(formOrRule);
+  if (qty === 'ALL') return 'full position';
+  return `${qty} ${pluralShares(qty)}`;
 }
 
 /** @param {object} [params] */
@@ -636,12 +723,11 @@ export function buildRuleNaturalLanguagePreview(formOrRule) {
       : `${tickers.length} tickers`
     : 'your ticker';
 
-  const qtyRaw = closeAll && isClosingPaperAction(action) ? 'ALL' : formatRuleQty(formOrRule);
-  const qtyNum = Number(formOrRule.qty);
+  const qtyRaw = closeAll && isClosingPaperAction(action) ? 'ALL' : null;
   const qtyPhrase =
     qtyRaw === 'ALL'
       ? 'your full position'
-      : `${qtyRaw} ${pluralShares(qtyNum)}`;
+      : formatRuleTradeSizeLabel(formOrRule);
 
   const trigger = formatTriggerPhrase(uiType, formOrRule);
   const verb = formatActionVerb(action, closeAll);
@@ -720,17 +806,16 @@ export function buildRuleChips(rule) {
     ifLabel += Number.isFinite(th) ? `Price < $${th.toFixed(0)}` : 'Price below';
   } else ifLabel += 'Every check';
 
-  const qty = formatRuleQty(rule);
   const verb = formatActionVerb(action, closeAll);
-  const actionLabel =
-    qty === 'ALL' ? `${verb}` : `${verb} ${qty} ${pluralShares(qty)}`;
+  const sizeLabel = formatRuleTradeSizeLabel(rule);
+  const actionLabel = `${verb} ${sizeLabel}`;
 
   const tickerLabel = String(rule.ticker || '—').toUpperCase();
 
   let limitLabel = null;
   const maxPos = rule.params?.max_position_qty;
   const maxVal = rule.params?.max_position_value;
-  if (isOpeningPaperAction(action)) {
+  if (isOpeningPaperAction(action) && !ruleUsesFullCapAllotment(rule)) {
     const parts = [];
     if (maxPos != null && Number.isFinite(Number(maxPos))) {
       parts.push(`Max ${Number(maxPos)} shares`);
@@ -804,22 +889,37 @@ export function ruleSummaryInline(rule) {
   return `${typeLabel}${th} · ${actionLabel} ×${qtyLabel}${bracketNote}`;
 }
 
+/** UI tab for position limit (shares vs dollars). */
+export function deriveLimitModeFromForm(form) {
+  const maxVal = Number(form?.maxPositionValue);
+  if (
+    form?.maxPositionValue !== '' &&
+    form?.maxPositionValue != null &&
+    Number.isFinite(maxVal) &&
+    maxVal > 0
+  ) {
+    return 'dollars';
+  }
+  return 'shares';
+}
+
 /** Map API rule → StrategyRuleForm state (single ticker). */
 export function ruleToForm(rule) {
   const params = rule?.params || {};
+  const maxValNum =
+    params.max_position_value != null ? Number(params.max_position_value) : NaN;
+  const maxQtyNum =
+    params.max_position_qty != null ? Number(params.max_position_qty) : NaN;
+  const hasVal = Number.isFinite(maxValNum) && maxValNum > 0;
+  const hasQty = Number.isFinite(maxQtyNum) && maxQtyNum > 0;
+
   return {
     uiRuleType: apiRuleToUiType(rule),
     tickers: [String(rule.ticker || '').trim().toUpperCase()].filter(Boolean),
     action: String(rule.action || 'BTO').toUpperCase(),
     qty: String(rule.qty ?? '1'),
-    maxPositionQty:
-      params.max_position_qty != null && Number.isFinite(Number(params.max_position_qty))
-        ? String(params.max_position_qty)
-        : '10',
-    maxPositionValue:
-      params.max_position_value != null && Number.isFinite(Number(params.max_position_value))
-        ? String(params.max_position_value)
-        : '',
+    maxPositionQty: hasQty ? String(maxQtyNum) : hasVal ? '' : '10',
+    maxPositionValue: hasVal ? String(maxValNum) : '',
     closeAll: Boolean(params.close_all),
     threshold_value:
       rule.threshold_value != null && Number.isFinite(Number(rule.threshold_value))
@@ -834,7 +934,12 @@ export function ruleToForm(rule) {
     bracketTakeProfit: (() => {
       const b = parseRuleBracket(params);
       return b?.takeProfit != null ? String(b.takeProfit) : '';
-    })()
+    })(),
+    allotFullCap: params.allot_full_cap === true || (
+      params.allot_full_cap !== false &&
+      Number.isFinite(Number(params.max_position_value)) &&
+      Number(params.max_position_value) > 0
+    )
   };
 }
 

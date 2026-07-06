@@ -1,6 +1,8 @@
 'use client';
+import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseIcon } from './ModalCloseIcon.jsx';
+import { ChartExportSocialShare } from './ChartExportSocialShare.jsx';
 
 /**
  * Preview + download modal for chart PNG exports (shared np-export-modal styles).
@@ -14,6 +16,9 @@ import { ModalCloseIcon } from './ModalCloseIcon.jsx';
  *   title?: string,
  *   titleId?: string,
  *   previewAlt?: string,
+ *   shareLabel?: string,
+ *   sharePageUrl?: string,
+ *   exportFilename?: string,
  * }} props
  */
 export function ChartSnapshotExportModal({
@@ -25,9 +30,21 @@ export function ChartSnapshotExportModal({
   onDownload,
   title = 'Export chart',
   titleId = 'chart-export-modal-title',
-  previewAlt = 'Exported chart'
+  previewAlt = 'Exported chart',
+  shareLabel,
+  sharePageUrl,
+  exportFilename = 'odin500-chart.png'
 }) {
+  const shareChartLabel = shareLabel || previewAlt || title;
+  const resolvedPageUrl = useMemo(() => {
+    if (sharePageUrl) return sharePageUrl;
+    if (typeof window !== 'undefined') return window.location.href;
+    return '';
+  }, [sharePageUrl, open]);
+
   if (!open || typeof document === 'undefined') return null;
+
+  const showShare = Boolean(previewUrl && status === 'ready');
 
   return createPortal(
     <div
@@ -66,17 +83,30 @@ export function ChartSnapshotExportModal({
           ) : null}
         </div>
         <div className="np-export-modal__foot">
-          <button type="button" className="np-export-modal__btn np-export-modal__btn--ghost" onClick={onClose}>
-            Close
-          </button>
-          <button
-            type="button"
-            className="np-export-modal__btn np-export-modal__btn--primary"
-            onClick={onDownload}
-            disabled={!previewUrl}
-          >
-            Download
-          </button>
+          {showShare ? (
+            <ChartExportSocialShare
+              chartLabel={shareChartLabel}
+              pageUrl={resolvedPageUrl}
+              previewUrl={previewUrl}
+              filename={exportFilename}
+              variant="inline"
+            />
+          ) : (
+            <span className="np-export-modal__foot-spacer" aria-hidden />
+          )}
+          <div className="np-export-modal__foot-actions">
+            <button type="button" className="np-export-modal__btn np-export-modal__btn--ghost" onClick={onClose}>
+              Close
+            </button>
+            <button
+              type="button"
+              className="np-export-modal__btn np-export-modal__btn--primary"
+              onClick={onDownload}
+              disabled={!previewUrl}
+            >
+              Download
+            </button>
+          </div>
         </div>
       </div>
     </div>,
