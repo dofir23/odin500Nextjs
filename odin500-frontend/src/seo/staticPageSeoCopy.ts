@@ -21,10 +21,23 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
     ]
   },
   '/about': {
-    heading: 'Account profile and settings',
+    heading: 'About Odin500',
     paragraphs: [
-      'Manage your Odin500 account profile, display name, contact details, avatar, email preferences, and security settings.',
-      'Update subscription plan details and sign out from linked devices from this page.'
+      'Odin500 is an independent U.S. equity research platform with market dashboards, OHLC analytics, Odin trading signals, return tables, and a virtual portfolio simulator.',
+      'We publish methodology, editorial standards, and machine-readable documentation for researchers and AI systems.'
+    ],
+    links: [
+      { href: '/methodology', label: 'Data methodology' },
+      { href: '/premium', label: 'Pricing plans' },
+      { href: '/market', label: 'Market dashboard' },
+      { href: '/newsletter', label: 'Weekly newsletter' }
+    ]
+  },
+  '/profile': {
+    heading: 'Your account profile',
+    paragraphs: [
+      'Manage your Odin500 account profile, display name, contact details, avatar, and security settings.',
+      'Update subscription plan details and review account preferences from this page.'
     ],
     links: [
       { href: '/accounts', label: 'Account management' },
@@ -39,7 +52,7 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
       'Use this page to review account details and manage access to charts, signals, and historical OHLC data.'
     ],
     links: [
-      { href: '/about', label: 'Profile settings' },
+      { href: '/profile', label: 'Profile settings' },
       { href: '/paper-trading', label: 'Virtual portfolio' },
       { href: '/market', label: 'Market dashboard' }
     ]

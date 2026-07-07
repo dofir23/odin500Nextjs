@@ -14,6 +14,6 @@ export async function POST(request: Request) {
   if (!session?.access_token) {
     return NextResponse.json({ error: 'Invalid session' }, { status: 400 });
   }
-  await setSessionCookies(session);
+  await setSessionCookies(session, { remember: Boolean(body.remember) });
   return NextResponse.json({ ok: true });
 }

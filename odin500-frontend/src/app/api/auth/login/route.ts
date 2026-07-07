@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json(payload, { status: res.status });
   }
   if (payload?.session) {
-    await setSessionCookies(payload.session);
+    await setSessionCookies(payload.session, { remember: Boolean(body.remember) });
   }
   return NextResponse.json(payload);
 }

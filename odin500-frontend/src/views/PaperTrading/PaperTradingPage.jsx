@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { Loader2, RotateCcw, Trash2, Globe, GlobeLock } from 'lucide-react';
 import { PaperAccountCreateMenu } from '../../components/paper/PaperAccountCreateMenu.jsx';
@@ -7,6 +7,7 @@ import { apiUrl } from '../../utils/apiOrigin.js';
 import { fetchWithAuth } from '../../store/apiStore.js';
 import { useLoginGateOptional } from '../../context/LoginGateContext.jsx';
 import { useIsLoggedIn } from '../../hooks/useIsLoggedIn.js';
+import { GUEST_AUTH_ENTRY_PATHS } from '../../utils/authRedirect.js';
 import { usePaperAccount } from '../../hooks/usePaperAccount.js';
 import { usePaperPositions } from '../../hooks/usePaperPositions.js';
 import { usePaperOrders } from '../../hooks/usePaperOrders.js';
@@ -821,10 +822,14 @@ export default function PaperTradingPage() {
   const loginGate = useLoginGateOptional();
   const loggedIn = useIsLoggedIn();
   const authReady = loginGate?.authReady ?? false;
+  const promptedRef = useRef(false);
 
   useEffect(() => {
-    if (!authReady || loggedIn) return;
+    if (!authReady || loggedIn || promptedRef.current) return;
+    if (GUEST_AUTH_ENTRY_PATHS.has(window.location.pathname)) return;
+    promptedRef.current = true;
     loginGate?.showLoginRequired({
+      returnTo: '/paper-trading',
       onDismiss: () => {
         if (window.history.length > 1) navigate(-1);
         else navigate('/market', { replace: true });

@@ -28,6 +28,8 @@ body {
 .ssr-page-content {
   background: #0f172a;
   color: #e2e8f0;
+  margin-left: 20px;
+  margin-right: 20px;
 }
 
 .ssr-page-content a {

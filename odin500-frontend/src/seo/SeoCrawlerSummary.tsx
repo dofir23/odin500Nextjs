@@ -1,4 +1,5 @@
 import { resolveRequestMetadata } from '@/seo/metadata';
+import { resolveVisiblePageH1 } from '@/seo/resolveVisiblePageH1';
 import { formatReturnPct, pickDynamicReturn } from '@/seo/performanceSnippet';
 
 function pickPerf(performance: Record<string, unknown> | undefined, periodName: string) {
@@ -14,6 +15,7 @@ type SeoCrawlerSummaryProps = {
 /** Visually hidden summary for crawlers — does not affect the interactive UI. */
 export function SeoCrawlerSummary({ pathname, data }: SeoCrawlerSummaryProps) {
   const meta = resolveRequestMetadata(pathname);
+  const visibleH1 = resolveVisiblePageH1(pathname) || meta.title;
   const path = pathname.split('?')[0];
   const d = data as {
     symbol?: string;
@@ -49,7 +51,7 @@ export function SeoCrawlerSummary({ pathname, data }: SeoCrawlerSummaryProps) {
 
   return (
     <div className="sr-only" aria-hidden="true">
-      <h1>{meta.title}</h1>
+      <h1>{visibleH1}</h1>
       <p>{text}</p>
     </div>
   );

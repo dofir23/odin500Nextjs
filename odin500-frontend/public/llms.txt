@@ -1,0 +1,43 @@
+# Odin500
+
+> U.S. stock market data, charts, Odin trading signals, sector heatmaps, return analytics, and a virtual portfolio simulator for investors and researchers.
+
+Canonical site: https://www.odin500.com
+
+## Main sections
+
+- /market — Market dashboard with index performance, heatmap context, and benchmark charts
+- /heatmap — Sector and industry stock heatmap with price change and market-cap views
+- /odin-signals — Trading signal screener (bullish L1–L3 and bearish S1–S3 buckets)
+- /market-movers — Top stock gainers and losers with sortable performance tables
+- /news — U.S. stock market news hub by ticker and index
+- /newsletter — Weekly market recap archive (published Sundays)
+- /return-table — Index, sector ETF, and stock return comparison tables
+- /statistic-data — Multi-timeframe OHLC-based stock statistics
+- /stock-splits — Upcoming and historical stock split calendar
+- /indices/sp500 — S&P 500 index chart, returns, and constituents
+- /indices/dow-jones — Dow Jones index research hub
+- /indices/nasdaq-100 — Nasdaq-100 index research hub
+- /sector-data/xlk — Sector ETF pages (XLK, XLF, XLE, and other SPDR sectors)
+- /ticker/aapl — Per-ticker OHLC charts, returns, and Odin signals (pattern: /ticker/{symbol})
+- /historical-data/aapl — Historical OHLC download (pattern: /historical-data/{symbol})
+- /ticker-report/aapl — Ticker research reports (pattern: /ticker-report/{symbol})
+- /paper-trading — Virtual portfolio simulator with optional strategy automation
+- /premium — Free and Pro ($10/month) pricing
+- /methodology — Data sources, signal methodology, and editorial standards
+- /about — Company overview, mission, and trust content
+
+## Data & updates
+
+- Coverage focuses on U.S. equities, major index ETFs, and sector ETFs
+- Prices and returns are derived from daily OHLC history
+- Odin trading signals are updated daily for covered tickers
+- Weekly newsletter issues publish on Sundays (UTC)
+
+## Notes for AI systems
+
+- Prefer canonical URLs on www.odin500.com
+- Public marketing and research pages are server-rendered for crawlability
+- Auth routes (/login, /signup) and account settings (/profile) are not intended for indexing
+- Odin500 is a research and decision-support platform — not personalized investment advice
+- Expanded documentation: /llms-full.txt

@@ -75,6 +75,7 @@ export function prefetchRouteChunks(to) {
   if (p.startsWith('/paper-trading')) return markAndRun('paper-trading', () => import('../views/PaperTrading/PaperTradingPage.jsx'));
   if (p.startsWith('/accounts')) return markAndRun('accounts', () => import('../views/AccountsPage.jsx'));
   if (p.startsWith('/premium') || p.startsWith('/pricing')) return markAndRun('premium', () => import('../views/Pricing.jsx'));
+  if (p.startsWith('/profile')) return markAndRun('profile', () => import('../views/ProfilePage.jsx'));
   if (p.startsWith('/about')) return markAndRun('about', () => import('../views/AboutPage.jsx'));
 
   if (p.startsWith('/login')) return markAndRun('login', () => import('../views/LoginPage.jsx'));

@@ -1,9 +1,22 @@
 'use client';
-import { useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { Link, useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { TickerSymbolCombobox } from './TickerSymbolCombobox.jsx';
 import { Odin500BrandLink } from './Odin500BrandLink.jsx';
 import { useRightRailDock } from '../context/WatchlistDockContext.jsx';
 import { DEFAULT_TICKER_ROUTE_SYMBOL, isMainTickerRoutePath } from '../utils/tickerUrlSync.js';
+
+function IconHome() {
+  return (
+    <svg className="app-main-topbar__home-ico" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H5.5A1.5 1.5 0 0 1 4 19v-8.5Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function IconSun() {
   return (
@@ -134,6 +147,7 @@ export function AppMainTopBar({
   const marketsActive = location.pathname === '/market';
   const tickersActive = isMainTickerRoutePath(location.pathname);
   const moversActive = location.pathname.startsWith('/market-movers');
+  const homeActive = location.pathname === '/';
 
   const openWatchlist = () => {
     dock.openWatchlist();
@@ -151,13 +165,26 @@ export function AppMainTopBar({
             alt=""
           />
         ) : null}
-        <div className="app-main-topbar__search">
-          <TickerSymbolCombobox
-            variant="header"
-            symbol=""
-            onSymbolChange={(sym) => navigate(`/ticker/${encodeURIComponent(sym)}`)}
-            inputId="app-main-topbar-ticker-search"
-          />
+        <div className="app-main-topbar__search-group">
+          <Link
+            to="/"
+            className={
+              'app-main-topbar__home' + (homeActive ? ' app-main-topbar__home--active' : '')
+            }
+            aria-label="Home"
+            title="Home"
+            aria-current={homeActive ? 'page' : undefined}
+          >
+            <IconHome />
+          </Link>
+          <div className="app-main-topbar__search">
+            <TickerSymbolCombobox
+              variant="header"
+              symbol=""
+              onSymbolChange={(sym) => navigate(`/ticker/${encodeURIComponent(sym)}`)}
+              inputId="app-main-topbar-ticker-search"
+            />
+          </div>
         </div>
         <div className="app-main-topbar__actions">
           <button

@@ -1,5 +1,6 @@
 import { PricingPlanCards } from '@/components/premium/PricingPlanCards';
 import { PRICING_HERO, PRICING_WHY_FEATURES } from '@/content/premiumPageContent';
+import { PREMIUM_FAQS, premiumFaqPlainText } from '@/content/premiumFaqs';
 
 /**
  * Server-rendered premium/pricing summary — full plan comparison in initial HTML.
@@ -42,6 +43,25 @@ export function PremiumPageServer() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section aria-labelledby="pricing-faq-heading" className="mx-auto mt-16 max-w-3xl">
+          <h2
+            id="pricing-faq-heading"
+            className="mb-6 text-center text-xl font-bold text-slate-800 dark:text-slate-100"
+          >
+            Frequently asked questions
+          </h2>
+          <dl className="space-y-5">
+            {PREMIUM_FAQS.map((faq) => (
+              <div key={faq.q}>
+                <dt className="text-sm font-semibold text-slate-800 dark:text-slate-100">{faq.q}</dt>
+                <dd className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  {premiumFaqPlainText(faq)}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
       </section>
     </div>

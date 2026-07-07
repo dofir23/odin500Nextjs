@@ -209,7 +209,7 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
                       className="header-pop__item"
                       onClick={() => {
                         setProfileOpen(false);
-                        navigate('/about');
+                        navigate('/profile');
                       }}
                     >
                       Your Profile

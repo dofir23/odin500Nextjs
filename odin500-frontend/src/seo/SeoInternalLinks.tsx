@@ -21,7 +21,8 @@ const MARKET_HUB_LINKS = [
   { href: '/indices/nasdaq-100', label: 'Nasdaq 100 index' },
   { href: '/sector-data/xlk', label: 'Technology sector (XLK)' },
   { href: '/sector-data/xlf', label: 'Financials sector (XLF)' },
-  { href: '/premium', label: 'Premium plans' }
+  { href: '/premium', label: 'Premium plans' },
+  { href: '/methodology', label: 'Data methodology' }
 ];
 
 const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>> = {
@@ -32,6 +33,8 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
     { href: '/newsletter', label: 'Weekly newsletter' },
     { href: '/paper-trading', label: 'Virtual portfolio' },
     { href: '/premium', label: 'Premium plans' },
+    { href: '/methodology', label: 'Data methodology' },
+    { href: '/about', label: 'About Odin500' },
     { href: '/signup', label: 'Create account' }
   ],
   '/market': MARKET_HUB_LINKS,
@@ -43,19 +46,41 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
   '/return-table': MARKET_HUB_LINKS,
   '/stock-splits': MARKET_HUB_LINKS,
   '/about': [
-    { href: '/market', label: 'Market dashboard' },
+    { href: '/methodology', label: 'Data methodology' },
+    { href: '/premium', label: 'Pricing plans' },
+    { href: '/newsletter', label: 'Weekly newsletter' },
+    { href: '/market', label: 'Market dashboard' }
+  ],
+  '/profile': [
     { href: '/accounts', label: 'Account management' },
-    { href: '/paper-trading', label: 'Virtual portfolio' }
+    { href: '/paper-trading', label: 'Virtual portfolio' },
+    { href: '/market', label: 'Market dashboard' }
   ],
   '/accounts': [
-    { href: '/about', label: 'Profile settings' },
+    { href: '/profile', label: 'Your profile' },
     { href: '/paper-trading', label: 'Virtual portfolio' },
     { href: '/market', label: 'Market dashboard' }
   ],
   '/paper-trading': [
     { href: '/market', label: 'Market dashboard' },
     { href: '/odin-signals', label: 'Trading signals' },
-    { href: '/market-movers', label: 'Market movers' }
+    { href: '/market-movers', label: 'Market movers' },
+    { href: '/methodology', label: 'Data methodology' },
+    { href: '/about', label: 'About Odin500' }
+  ],
+  '/premium': [
+    { href: '/methodology', label: 'Data methodology' },
+    { href: '/about', label: 'About Odin500' },
+    { href: '/odin-signals', label: 'Odin signals' },
+    { href: '/paper-trading', label: 'Virtual portfolio' },
+    { href: '/newsletter', label: 'Weekly newsletter' }
+  ],
+  '/methodology': [
+    { href: '/about', label: 'About Odin500' },
+    { href: '/market', label: 'Market dashboard' },
+    { href: '/premium', label: 'Pricing plans' },
+    { href: '/newsletter', label: 'Weekly newsletter' },
+    { href: '/odin-signals', label: 'Trading signals' }
   ]
 };
 

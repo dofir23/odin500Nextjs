@@ -68,10 +68,16 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/stock-splits`
   },
   '/about': {
-    title: 'Account Profile & Settings – Stock Market Platform',
+    title: 'About Odin500 – U.S. Stock Market Data & Research Platform',
     description:
-      'Manage your account profile, subscription plan, email preferences, and security settings for the stock data platform.',
+      'Learn about Odin500: our mission, market data products, Odin trading signals, virtual portfolio tools, editorial standards, and how we support investors and researchers.',
     canonical: `${SITE_ORIGIN}/about`
+  },
+  '/profile': {
+    title: 'Your Profile & Account Settings – Odin500',
+    description:
+      'Manage your Odin500 account profile, display name, contact details, avatar, email preferences, plan, and security settings.',
+    canonical: `${SITE_ORIGIN}/profile`
   },
   '/premium': {
     title: 'Odin500 Pricing – Free Plan & Pro ($10/month) Full Access',
@@ -84,6 +90,12 @@ export const ROUTE_METADATA: Record<
     description:
       'Weekly U.S. stock market newsletter with index performance, sector rotation, Odin signal spotlights, and ticker report highlights from Odin500 data.',
     canonical: `${SITE_ORIGIN}/newsletter`
+  },
+  '/methodology': {
+    title: 'Odin500 Data Methodology – OHLC Sources, Signals & Editorial Policy',
+    description:
+      'How Odin500 sources U.S. equity OHLC data, generates daily Odin trading signals, publishes the weekly newsletter, and communicates research limitations.',
+    canonical: `${SITE_ORIGIN}/methodology`
   },
   '/accounts': {
     title: 'Account Management – Billing & Security Settings',

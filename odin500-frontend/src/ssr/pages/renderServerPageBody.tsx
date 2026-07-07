@@ -382,19 +382,38 @@ export function renderServerPageBody(pathname: string, data: unknown): ReactNode
   }
 
   if (path === '/news') {
+    const hubIntro = (
+      <section className="mb-6 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p>
+          Odin500 News Center aggregates U.S. stock market headlines for major indices, sector ETFs,
+          and individual tickers. Use it alongside the{' '}
+          <a href="/market">market dashboard</a>, <a href="/odin-signals">Odin signals screener</a>,
+          and <a href="/market-movers">market movers</a> to connect headlines with price action and
+          systematic signals.
+        </p>
+        <p className="mt-3">
+          Headlines are grouped by broad market news, index-level stories, and ticker-specific
+          coverage so you can scan what matters for SPY, QQQ, sector rotation, or a single symbol.
+        </p>
+      </section>
+    );
     const hasNews =
       (d.generalItems as unknown[])?.length ||
       (d.indexItems as unknown[])?.length ||
       (d.tickerItems as unknown[])?.length;
     if (!hasNews) {
       return (
-        <section className="text-sm">
-          <p>Latest U.S. stock market headlines by ticker and index.</p>
-        </section>
+        <>
+          {hubIntro}
+          <section className="text-sm">
+            <p>Latest U.S. stock market headlines by ticker and index.</p>
+          </section>
+        </>
       );
     }
     return (
       <>
+        {hubIntro}
         <NewsList items={(d.generalItems as unknown[]) || []} caption="Market news" />
         <NewsList items={(d.indexItems as unknown[]) || []} caption="Index news" />
         <NewsList items={(d.tickerItems as unknown[]) || []} caption="Ticker news" />

@@ -27,6 +27,7 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/return-table',
   '/stock-splits',
   '/about',
+  '/methodology',
   '/premium',
   '/ticker',
   '/ticker-report',

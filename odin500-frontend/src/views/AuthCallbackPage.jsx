@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { useNavigate, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { getSupabaseBrowserClient } from '../lib/supabaseBrowserClient.js';
 import { applyAuthSession, fetchWithAuth } from '../store/apiStore.js';
 import { apiUrl } from '../utils/apiOrigin.js';
 import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
+import { resolvePostLoginPath } from '../utils/authRedirect.js';
 
 const OAUTH_TIMEOUT_MS = 5000;
 
@@ -14,6 +15,7 @@ const OAUTH_TIMEOUT_MS = 5000;
  */
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const finishedRef = useRef(false);
 
   useEffect(() => {
@@ -28,14 +30,22 @@ export default function AuthCallbackPage() {
         window.clearTimeout(timerRef.id);
         timerRef.id = null;
       }
-      await applyAuthSession(session);
+      await applyAuthSession(session, {
+        remember: (() => {
+          try {
+            return localStorage.getItem('odin_login_remember') === '1';
+          } catch {
+            return false;
+          }
+        })()
+      });
       try {
         const em = session.user?.email;
         if (em) localStorage.setItem('market_api_email', String(em));
       } catch {
         /* ignore */
       }
-      let dest = '/market';
+      let dest = resolvePostLoginPath(searchParams, '/market');
       try {
         const res = await fetchWithAuth(apiUrl('/api/admin/me'), { method: 'GET' });
         if (res.ok) {
@@ -110,7 +120,7 @@ export default function AuthCallbackPage() {
         /* ignore */
       }
     };
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-center">

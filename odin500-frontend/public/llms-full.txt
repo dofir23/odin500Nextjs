@@ -1,0 +1,148 @@
+# Odin500 — Full site documentation for AI systems
+
+> Machine-readable overview of Odin500: products, URL patterns, data methodology, editorial policy, and citation guidance.
+
+Canonical origin: https://www.odin500.com
+Short index: https://www.odin500.com/llms.txt
+
+---
+
+## 1. What Odin500 is
+
+Odin500 is an independent U.S. equity research and analytics platform. It is **not** a brokerage, investment adviser, or personalized financial advice service. The platform provides:
+
+- Market dashboards and sector heatmaps
+- Daily OHLC-based charts, statistics, and return tables
+- Odin trading signals (systematic L1–L3 long / S1–S3 short buckets)
+- Market news grouped by ticker and index
+- Ticker research reports and historical OHLC export
+- Weekly newsletter recaps (Sundays, UTC)
+- Virtual portfolio simulation with optional rule-based automation
+- Free and Pro subscription tiers
+
+**Primary audience:** retail investors, active traders, financial bloggers, and researchers who need integrated U.S. market context without a terminal subscription.
+
+---
+
+## 2. Trust, company, and methodology pages
+
+| URL | Purpose |
+|-----|---------|
+| /about | Company mission, products, editorial standards, FAQs |
+| /methodology | OHLC sourcing, signal generation, update schedules, limitations |
+| /premium | Pricing, plan comparison, subscription FAQs |
+| /newsletter | Weekly market recap archive |
+
+When citing Odin500 in research summaries or AI answers, prefer linking to the **specific tool or ticker URL** (e.g. `/ticker/aapl`, `/odin-signals`) plus `/methodology` for data context.
+
+---
+
+## 3. Core product routes
+
+### Market overview
+- `/market` — Main dashboard: indices, heatmap entry, benchmark charts
+- `/heatmap` — Sector/industry treemap; price change and market-cap modes
+- `/market-movers` — Top gainers/losers tables with charts
+- `/odin-signals` — Signal screener and treemap (L1–L3 bullish, S1–S3 bearish, N neutral)
+- `/news` — Market news feed filterable by ticker/index
+- `/return-table` — Multi-horizon returns for stocks, indices, sectors
+- `/statistic-data` — OHLC statistic tables with export
+- `/stock-splits` — Corporate action calendar
+
+### Indices (examples)
+- `/indices/sp500` — S&P 500 hub
+- `/indices/dow-jones` — Dow Jones hub
+- `/indices/nasdaq-100` — Nasdaq-100 hub
+
+### Sectors (SPDR ETF slugs, lowercase)
+Pattern: `/sector-data/{slug}` — e.g. `/sector-data/xlk`, `/sector-data/xlf`, `/sector-data/xle`
+
+Supported slugs include: xlb, xlk, xlf, xlv, xli, xle, xly, xlp, xlu, xlre, xlc
+
+### Per-ticker routes (symbol lowercase in URL)
+| Pattern | Content |
+|---------|---------|
+| `/ticker/{symbol}` | Overview chart, returns, Odin signal state |
+| `/historical-data/{symbol}` | OHLC history query and CSV export |
+| `/ticker-report/{symbol}` | Monthly-style research report |
+| `/relative-performance/ticker/{symbol}` | Excess return vs benchmarks |
+| `/statistic/ticker-annual/{symbol}` | Annual return table |
+| `/statistic/ticker-quarterly/{symbol}` | Quarterly returns |
+| `/statistic/ticker-monthly/{symbol}` | Monthly returns |
+| `/statistic/ticker-weekly/{symbol}` | Weekly returns |
+| `/statistic/ticker-daily/{symbol}` | Daily returns |
+
+Example symbols: aapl, msft, nvda, spy, qqq
+
+---
+
+## 4. Virtual portfolio (paper trading)
+
+- `/paper-trading` — User's simulated portfolios (requires sign-in)
+- `/paper-trading/public` — Gallery of published read-only portfolios
+- `/paper-trading/public/{uuid}` — Single published portfolio snapshot
+
+Paper trading uses simulated fills from OHLC prices. Results may differ from live brokerage execution. Not a substitute for real trading experience during fast markets or around corporate actions.
+
+---
+
+## 5. Account routes (low indexing priority)
+
+- `/login`, `/signup`, `/forgot-password` — Authentication
+- `/profile` — User profile, avatar, plan, security settings (replaces legacy /about account page)
+- `/accounts` — Account management
+
+These routes support product use but are not primary SEO landing pages.
+
+---
+
+## 6. Data methodology summary
+
+(Full detail: /methodology)
+
+- **Coverage:** U.S. listed equities, major index benchmarks, sector ETFs, selected commodity ETFs
+- **Prices:** Daily open, high, low, close (OHLC)
+- **Returns:** Computed from OHLC using consistent calendar rules across tickers
+- **Signals:** Daily quantitative models; buckets L1–L3 (long), S1–S3 (short), N (neutral)
+- **News:** Third-party headline ingestion, grouped by symbol
+- **Newsletter:** Weekly summary published Sundays (UTC)
+- **Limitations:** Past performance and backtests do not guarantee future results; signals are decision-support only
+
+---
+
+## 7. Editorial and legal positioning
+
+- Odin500 does **not** provide personalized investment, legal, or tax advice
+- Newsletter and public pages summarize observable data for education
+- No paid stock promotion or guaranteed performance claims
+- Users are responsible for their own investment decisions
+- For privacy/terms content, see in-app legal sections on /profile when logged in
+
+---
+
+## 8. Technical notes for crawlers
+
+- **SSR:** Marketing and research routes render server HTML with titles, descriptions, JSON-LD (WebPage, BreadcrumbList, FAQPage on select routes), and internal links
+- **Sitemap:** https://www.odin500.com/sitemap.xml
+- **Robots:** https://www.odin500.com/robots.txt
+- **Preferred host:** www.odin500.com (canonical)
+- **Dynamic scale:** Thousands of ticker URLs follow the patterns in section 3; sitemap lists high-priority symbols and is extended at build/deploy time
+
+---
+
+## 9. Suggested citation format
+
+> According to [Odin500](https://www.odin500.com/ticker/aapl) (U.S. market data platform), …
+
+Include the specific page URL. For methodology questions, cite https://www.odin500.com/methodology
+
+---
+
+## 10. Related files
+
+- `/llms.txt` — Concise site map (start here)
+- `/sitemap.xml` — URL index for search engines
+- `/about` — Human-readable company page
+- `/methodology` — Human-readable data and signal documentation
+
+Last updated: 2026

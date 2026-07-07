@@ -2232,11 +2232,72 @@ backdrop-filter: blur(12px);
   border-bottom-color: rgba(15, 23, 42, 0.08);
 }
 
+.app-main-topbar__search-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  max-width: min(560px, 48vw);
+}
+
+.app-main-topbar__home {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--colors-opacity-bg-opacity-6, #ffffff1a);
+  background: var(--colors-opacity-bg-opacity-3, #ffffff08);
+  color: var(--colors-text-text-secondary, #94a3b8);
+  text-decoration: none;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.app-main-topbar__home:hover {
+  color: var(--colors-text-text-primary, #e2e8f0);
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.app-main-topbar__home:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 2px;
+}
+
+.app-main-topbar__home--active {
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.app-main-topbar__home-ico {
+  width: 20px;
+  height: 20px;
+}
+
+[data-theme='light'] .app-main-topbar__home {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.75);
+  color: #64748b;
+}
+
+[data-theme='light'] .app-main-topbar__home:hover,
+[data-theme='light'] .app-main-topbar__home--active {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+}
+
 .app-main-topbar__search {
   position: relative;
   flex: 1;
   min-width: 0;
-  max-width: min(520px, 42vw);
   display: flex;
   align-items: center;
 }
@@ -2735,6 +2796,12 @@ backdrop-filter: blur(12px);
     display: block;
   }
 
+  .app-main-topbar--mobile .app-main-topbar__search-group {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+
   .app-main-topbar--mobile .app-main-topbar__search {
     flex: 1;
     min-width: 0;
@@ -2840,6 +2907,10 @@ backdrop-filter: blur(12px);
   [data-theme='light'] .app-main-topbar__mobile-item--active {
     color: #0f172a;
     background: rgba(59, 130, 246, 0.12);
+  }
+
+  .app-main-topbar__search-group {
+    max-width: none;
   }
 
   .app-main-topbar__search {
@@ -16969,7 +17040,7 @@ html[data-theme="light"] .market-movers-page {
 
 .market-movers-page__title {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #f8fafc;

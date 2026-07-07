@@ -35,7 +35,8 @@ const FOOTER_SECTIONS = [
     title: 'Account',
     links: [
       { to: '/premium', label: 'Premium Plans' },
-      { to: '/about', label: 'Your Profile' }
+      { to: '/profile', label: 'Your Profile' },
+      { to: '/about', label: 'About Odin500' }
     ]
   }
 ];

@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext } from 'react';
-import { NavLink, useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { NavLink, useNavigate, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { Odin500BrandLink } from './Odin500BrandLink.jsx';
 import { Eye, EyeOff, Moon, Sun, X } from 'lucide-react';
 import heroImage from '../assets/Hero.png';
@@ -72,19 +72,31 @@ function AppleMark({ className }) {
 
 export function AuthSplitShell({ title = 'Welcome Back!', children }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { theme, toggleTheme } = useDocumentTheme();
+
+  const nextQuery = (() => {
+    const next = searchParams?.get('next');
+    if (next && next.startsWith('/')) return `?next=${encodeURIComponent(next)}`;
+    return '';
+  })();
 
   const handleGoogleSignIn = useCallback(async () => {
     try {
       const sb = await getSupabaseBrowserClient();
+      const next = searchParams?.get('next');
+      const callbackUrl =
+        next && next.startsWith('/')
+          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+          : `${window.location.origin}/auth/callback`;
       await sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback` }
+        options: { redirectTo: callbackUrl }
       });
     } catch {
-      navigate('/login?error=oauth', { replace: true });
+      navigate(`/login?error=oauth${nextQuery ? nextQuery.replace('?', '&') : ''}`, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, nextQuery, searchParams]);
 
   const isDark = theme === 'dark';
 
@@ -174,10 +186,10 @@ export function AuthSplitShell({ title = 'Welcome Back!', children }) {
                 isDark ? 'bg-black/30 ring-1 ring-white/[0.07]' : 'bg-slate-200/90 ring-1 ring-slate-300/70'
               }`}
             >
-              <NavLink to="/login" className={({ isActive }) => tabClass(isActive)}>
+              <NavLink to={`/login${nextQuery}`} className={({ isActive }) => tabClass(isActive)}>
                 Sign in
               </NavLink>
-              <NavLink to="/signup" className={({ isActive }) => tabClass(isActive)}>
+              <NavLink to={`/signup${nextQuery}`} className={({ isActive }) => tabClass(isActive)}>
                 Sign up
               </NavLink>
             </div>

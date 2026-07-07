@@ -138,7 +138,7 @@ function getExpiresAtSec() {
 }
 
 /** Persist session via httpOnly cookies (Next BFF) and sync client auth state. */
-export async function applyAuthSession(session) {
+export async function applyAuthSession(session, options = {}) {
   if (!session?.access_token) return false;
   memoryStore.token = 'cookie';
   if (typeof window === 'undefined') return true;
@@ -147,7 +147,7 @@ export async function applyAuthSession(session) {
     const res = await fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session }),
+      body: JSON.stringify({ session, remember: Boolean(options.remember) }),
       credentials: 'same-origin'
     });
     if (!res.ok) {
@@ -205,6 +205,7 @@ export async function initAuthSessionOnLoad() {
       if (payload?.authenticated) {
         memoryStore.token = 'cookie';
         dispatchAuthUpdated();
+        await refreshSessionOnce();
         scheduleProactiveRefresh();
         return;
       }

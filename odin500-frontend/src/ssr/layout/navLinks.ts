@@ -20,6 +20,8 @@ export const SERVER_NAV_LINKS: ServerNavLink[] = [
   { href: '/odin-signals', label: 'Odin Signals' },
   { href: '/stock-splits', label: 'Stock Splits' },
   { href: '/premium', label: 'Premium' },
-  { href: '/about', label: 'Profile' },
+  { href: '/methodology', label: 'Methodology' },
+  { href: '/about', label: 'About' },
+  { href: '/profile', label: 'Profile' },
   { href: '/accounts', label: 'Accounts' }
 ];

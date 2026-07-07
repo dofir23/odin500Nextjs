@@ -1,8 +1,9 @@
 'use client';
-import { useContext, useState } from 'react';
-import { Link } from '@/navigation/appRouterCompat.jsx';
+import { useContext, useEffect, useState } from 'react';
+import { Link, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { useAuthGuestRedirect } from '../hooks/useAuthGuestRedirect.js';
 import { KeyRound, Mail } from 'lucide-react';
+import { resolvePostLoginPath } from '../utils/authRedirect.js';
 import { login, updateDisplayName } from '../services/authApi.js';
 import { applyAuthSession } from '../store/apiStore.js';
 import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
@@ -10,6 +11,7 @@ import { AuthField, AuthShellThemeContext, AuthSplitShell } from '../components/
 import { PENDING_DISPLAY_NAME_KEY } from '../utils/signupSession.js';
 
 function LoginForm() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +20,16 @@ function LoginForm() {
   const [error, setError] = useState('');
   const theme = useContext(AuthShellThemeContext);
   const isDark = theme === 'dark';
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('odin_login_remember') === '1') {
+        setRemember(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -29,12 +41,12 @@ function LoginForm() {
     setBusy(true);
     setError('');
     try {
-      const payload = await login(em, password);
+      const payload = await login(em, password, remember);
       const session = payload?.session;
       if (!session?.access_token) {
         throw new Error('Login succeeded but no access token was returned.');
       }
-      await applyAuthSession(session);
+      await applyAuthSession(session, { remember });
       localStorage.setItem('market_api_email', em);
       try {
         const pending = sessionStorage.getItem(PENDING_DISPLAY_NAME_KEY);
@@ -58,7 +70,10 @@ function LoginForm() {
           /* ignore */
         }
       }
-      hardNavigate(payload?.isAdmin ? '/admin' : '/market');
+      const dest = payload?.isAdmin
+        ? '/admin'
+        : resolvePostLoginPath(searchParams, '/market');
+      hardNavigate(dest);
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

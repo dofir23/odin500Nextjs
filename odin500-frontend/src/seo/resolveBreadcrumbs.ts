@@ -63,6 +63,10 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { name: 'Market', path: '/market' },
     { name: 'About', path: '/about' }
   ],
+  '/profile': [
+    { name: 'Market', path: '/market' },
+    { name: 'Profile', path: '/profile' }
+  ],
   '/accounts': [
     { name: 'Market', path: '/market' },
     { name: 'Accounts', path: '/accounts' }
@@ -76,7 +80,11 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { name: 'Virtual portfolio', path: '/paper-trading' },
     { name: 'Public portfolios', path: '/paper-trading/public' }
   ],
-  '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }]
+  '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }],
+  '/methodology': [
+    { name: 'Market', path: '/market' },
+    { name: 'Methodology', path: '/methodology' }
+  ]
 };
 
 /** Auto-generate breadcrumb trail from pathname for JSON-LD. */

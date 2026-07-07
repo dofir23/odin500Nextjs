@@ -61,6 +61,11 @@ export const PAGE_SEO_CATALOG = {
       'Query and export historical OHLC data for AAPL: daily, weekly, monthly, quarterly, and annual price history with CSV download.'
   },
   '/about': {
+    title: 'About Odin500 – U.S. Stock Market Data & Research Platform',
+    description:
+      'Learn about Odin500: mission, market data products, Odin trading signals, virtual portfolio tools, and editorial standards.'
+  },
+  '/profile': {
     title: 'Your Odin500 Profile & Account Settings',
     description: 'Manage your Odin500 account profile, plan, email, and security settings.'
   },

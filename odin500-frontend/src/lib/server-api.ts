@@ -4,11 +4,17 @@ import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
   EXPIRES_AT_COOKIE,
+  REMEMBER_ME_COOKIE,
   cookieOptions,
-  maxAgeFromExpiresAt,
+  accessCookieMaxAge,
+  refreshCookieMaxAge,
   sessionFromBody,
   type SessionPayload
 } from '@/lib/auth-cookies';
+
+export type SessionCookieOptions = {
+  remember?: boolean;
+};
 
 function backendUrl(path: string) {
   const base = API_ORIGIN.replace(/\/$/, '');
@@ -16,15 +22,31 @@ function backendUrl(path: string) {
   return `${base}${p}`;
 }
 
-export async function setSessionCookies(session: SessionPayload) {
+export async function setSessionCookies(
+  session: SessionPayload,
+  options: SessionCookieOptions = {}
+) {
   const parsed = sessionFromBody(session);
   if (!parsed) return false;
   const jar = await cookies();
-  const maxAge = maxAgeFromExpiresAt(parsed.expiresAt);
-  jar.set(ACCESS_TOKEN_COOKIE, parsed.accessToken, cookieOptions(maxAge));
-  jar.set(REFRESH_TOKEN_COOKIE, parsed.refreshToken, cookieOptions(maxAge * 2));
+
+  let remember = options.remember;
+  if (remember == null) {
+    remember = jar.get(REMEMBER_ME_COOKIE)?.value === '1';
+  }
+
+  const accessMaxAge = accessCookieMaxAge(parsed.expiresAt);
+  const refreshMaxAge = refreshCookieMaxAge(remember);
+
+  jar.set(ACCESS_TOKEN_COOKIE, parsed.accessToken, cookieOptions(accessMaxAge));
+  jar.set(REFRESH_TOKEN_COOKIE, parsed.refreshToken, cookieOptions(refreshMaxAge));
   if (parsed.expiresAt) {
-    jar.set(EXPIRES_AT_COOKIE, String(parsed.expiresAt), cookieOptions(maxAge * 2));
+    jar.set(EXPIRES_AT_COOKIE, String(parsed.expiresAt), cookieOptions(refreshMaxAge));
+  }
+  if (remember) {
+    jar.set(REMEMBER_ME_COOKIE, '1', cookieOptions(refreshMaxAge));
+  } else if (options.remember === false) {
+    jar.delete(REMEMBER_ME_COOKIE);
   }
   return true;
 }
@@ -34,6 +56,7 @@ export async function clearSessionCookies() {
   jar.delete(ACCESS_TOKEN_COOKIE);
   jar.delete(REFRESH_TOKEN_COOKIE);
   jar.delete(EXPIRES_AT_COOKIE);
+  jar.delete(REMEMBER_ME_COOKIE);
 }
 
 export async function getAccessTokenFromCookies() {

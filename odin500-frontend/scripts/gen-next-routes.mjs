@@ -21,7 +21,8 @@ const staticMeta = {
   'src/app/(protected)/accounts/page.tsx': '/accounts',
   'src/app/(protected)/paper-trading/page.tsx': '/paper-trading',
   'src/app/(protected)/premium/page.tsx': '/premium',
-  'src/app/(protected)/about/page.tsx': '/about'
+  'src/app/(protected)/about/page.tsx': '/about',
+  'src/app/(protected)/profile/page.tsx': '/profile'
 };
 
 const dynamicMeta = {
@@ -214,7 +215,8 @@ const clientOnlyRoutes = [
   ['src/app/(auth)/auth/callback/page.tsx', '@/views/AuthCallbackPage.jsx', 'AuthCallbackPage'],
   ['src/app/(protected)/accounts/page.tsx', '@/views/AccountsPage.jsx', 'AccountsPage'],
   ['src/app/(protected)/paper-trading/page.tsx', '@/views/PaperTrading/PaperTradingPage.jsx', 'PaperTradingPage'],
-  ['src/app/(protected)/about/page.tsx', '@/views/AboutPage.jsx', 'AboutPage']
+  ['src/app/(protected)/about/page.tsx', '@/views/AboutPage.jsx', 'AboutPage'],
+  ['src/app/(protected)/profile/page.tsx', '@/views/ProfilePage.jsx', 'ProfilePage']
 ];
 
 function metaBlockFor(file) {

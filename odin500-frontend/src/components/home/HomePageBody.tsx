@@ -168,6 +168,8 @@ export function HomePageBody() {
               for S&P 500 / Dow Jones / Nasdaq-100, sector ETF pages, per-ticker OHLC charts and
               historical downloads, ticker research reports, relative performance tools, premium
               subscription plans, and a virtual portfolio simulator with optional strategy automation.
+              See our <a href="/methodology">data methodology</a> for sources, signal standards, and
+              editorial policy.
             </p>
             <p>
               Data is derived from daily OHLC prices and proprietary signal models. Users can sign up
@@ -244,7 +246,7 @@ export function HomePageBody() {
                 <a href="/signup">Sign up</a>
               </li>
               <li>
-                <a href="/about">Profile</a>
+                <a href="/profile">Profile</a>
               </li>
             </ul>
           </div>

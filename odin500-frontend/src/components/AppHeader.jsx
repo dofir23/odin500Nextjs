@@ -210,7 +210,7 @@ export function AppHeader({ compact = false, theme = 'dark', onToggleTheme = nul
                         className="header-pop__item"
                         onClick={() => {
                           setProfileOpen(false);
-                          navigate('/about');
+                          navigate('/profile');
                         }}
                       >
                         Your Profile

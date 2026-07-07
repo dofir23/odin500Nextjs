@@ -241,7 +241,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
     (e) => {
       if (loggedIn) return;
       e.preventDefault();
-      loginGate?.showLoginRequired();
+      loginGate?.showLoginRequired({ returnTo: '/paper-trading' });
     },
     [loggedIn, loginGate]
   );
@@ -292,7 +292,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
         </div>
         {loggedIn ? (
           <>
-            <Link to="/about" className="header-pop__item" onClick={closeProfileMenu}>
+            <Link to="/profile" className="header-pop__item" onClick={closeProfileMenu}>
               Your Profile
             </Link>
             <button type="button" className="header-pop__item" onClick={closeProfileMenu}>
@@ -539,7 +539,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                       const nextOpen = !wasOpen;
                       if (nextOpen) {
                         if (!loggedIn) {
-                          loginGate?.showLoginRequired();
+                          loginGate?.showLoginRequired({ returnTo: '/paper-trading' });
                           return nextOpen;
                         }
                         navigate('/paper-trading');

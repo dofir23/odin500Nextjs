@@ -210,7 +210,9 @@ export const HOME_NAV_PRODUCT = [
   { href: '/heatmap', label: 'Heatmaps' },
   { href: '/odin-signals', label: 'Odin Signals' },
   { href: '/paper-trading', label: 'Virtual portfolio' },
-  { href: '/premium', label: 'Pricing' }
+  { href: '/premium', label: 'Pricing' },
+  { href: '/methodology', label: 'Methodology' },
+  { href: '/about', label: 'About' }
 ];
 
 export const HOME_NAV_EXPLORE = [
@@ -414,6 +416,7 @@ export function getHomePagePrefetchRoutes(): string[] {
 
   add('/login');
   add('/about');
+  add('/profile');
 
   const priority = ['/market', '/signup', '/login'];
   const rest = [...hrefs].filter((h) => !priority.includes(h)).sort();

@@ -77,11 +77,11 @@ export async function updateDisplayName(displayName) {
   return payload;
 }
 
-export async function login(email, password) {
+export async function login(email, password, remember = false) {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, remember: Boolean(remember) }),
     credentials: 'same-origin'
   });
   const payload = await parseJsonSafe(response);

@@ -5,16 +5,7 @@ import { useLocation, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { useLoginGateOptional } from '../context/LoginGateContext.jsx';
 import { getAuthToken, isAuthHydrated } from '../store/apiStore.js';
 import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
-
-const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
-
-function resolvePostLoginPath(searchParams, fallback = '/market') {
-  const next = searchParams?.get('next');
-  if (next && next.startsWith('/') && !GUEST_AUTH_ENTRY_PATHS.has(next.split('?')[0])) {
-    return next;
-  }
-  return fallback;
-}
+import { GUEST_AUTH_ENTRY_PATHS, resolvePostLoginPath } from '../utils/authRedirect.js';
 
 /**
  * Redirect users with an active session away from login/signup entry pages.
