@@ -1,11 +1,12 @@
+import '@/styles/home-page.css';
 import { HomePageBody } from './HomePageBody';
-import { HomePageHeader } from './HomePageHeader';
+import { HomePageHeaderServer } from './HomePageHeaderServer';
 
-/** Server HTML mirror — plain anchors, no client nav handler (see HomeInstantNav on client). */
+/** Full marketing homepage as static HTML — visible with JavaScript disabled. */
 export function HomePageServerContent() {
   return (
     <div className="home-page">
-      <HomePageHeader />
+      <HomePageHeaderServer />
       <HomePageBody />
     </div>
   );

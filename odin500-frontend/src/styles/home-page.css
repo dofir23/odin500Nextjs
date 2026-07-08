@@ -31,6 +31,19 @@ html[data-theme='light'] .home-header {
   border-bottom-color: rgba(15, 23, 42, 0.08);
 }
 
+/* Server header logos (both in HTML; CSS picks theme) */
+.home-header__logo--light {
+  display: none;
+}
+
+html[data-theme='light'] .home-header__logo--dark {
+  display: none;
+}
+
+html[data-theme='light'] .home-header__logo--light {
+  display: inline-block;
+}
+
 .home-header__inner {
   max-width: var(--home-max);
   margin: 0 auto;

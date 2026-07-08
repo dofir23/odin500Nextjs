@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 
 type FullSsrPageProps = {
   /** Server-rendered page — visible without JavaScript. */
@@ -10,6 +10,7 @@ type FullSsrPageProps = {
 
 /**
  * Full SSR page: server HTML in document flow; client layer shown after `data-app-hydrated`.
+ * Client is wrapped in Suspense so useSearchParams does not bail the whole route to CSR.
  */
 export function FullSsrPage({ server, client, className }: FullSsrPageProps) {
   return (
@@ -17,7 +18,9 @@ export function FullSsrPage({ server, client, className }: FullSsrPageProps) {
       <div className="full-ssr-page__server" data-ssr-primary>
         {server}
       </div>
-      <div className="full-ssr-page__client client-page-enhance">{client}</div>
+      <div className="full-ssr-page__client client-page-enhance">
+        <Suspense fallback={null}>{client}</Suspense>
+      </div>
     </div>
   );
 }

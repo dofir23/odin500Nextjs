@@ -21,13 +21,17 @@ export function useNavigate() {
 
 export function useLocation() {
   const pathname = usePathname() || '/';
-  const searchParams = useNextSearchParams();
-  const qs = searchParams?.toString();
+  // Avoid useSearchParams during SSR/static render — it forces CSR bailout.
+  // Read query from window after mount via the returned object shape consumers expect.
+  let search = '';
+  if (typeof window !== 'undefined') {
+    search = window.location.search || '';
+  }
   return {
     pathname,
-    search: qs ? `?${qs}` : '',
-    hash: '',
-    key: qs ? `${pathname}?${qs}` : pathname
+    search,
+    hash: typeof window !== 'undefined' ? window.location.hash || '' : '',
+    key: search ? `${pathname}${search}` : pathname
   };
 }
 

@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { Providers } from './providers';
 import './globals.css';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '@/seo/siteConfig.js';
 import { defaultOgImages } from '@/seo/ogImages';
@@ -34,13 +32,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.png" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              .home-header__logo--light { display: none; }
+              html[data-theme='light'] .home-header__logo--dark { display: none; }
+              html[data-theme='light'] .home-header__logo--light { display: inline-block; }
+              noscript .full-ssr-page__client { display: none !important; }
+              noscript .full-ssr-page__server { display: block !important; }
+            `
+          }}
+        />
       </head>
       <body suppressHydrationWarning>
         <GoogleAnalytics />
         <JsonLdSitewide />
-        <Suspense fallback={null}>
-          <Providers>{children}</Providers>
-        </Suspense>
+        {children}
       </body>
     </html>
   );
