@@ -316,7 +316,7 @@ export async function fetchMarketDashboardData(
 ): Promise<MarketDashboardInitialData | null> {
   const summaryTickers = uniqueMarketSummaryTickers(SUMMARY_RETURNS_DEFS);
 
-  const [railRes, heatmapRes, watchlistRes, returnsRes] = await Promise.all([
+  const [railRes, heatmapRes, returnsRes] = await Promise.all([
     postMarketJson('/api/market/market-rail-snapshot', {
       timeframe,
       series: RAIL_SNAPSHOT_SERIES
@@ -328,7 +328,7 @@ export async function fetchMarketDashboardData(
   const railSnapshot =
     railRes?.success && railRes.byKey ? (railRes.byKey as Record<string, unknown>) : null;
   const heatmapThumb = rowsFromTickerDetails(heatmapRes);
-  const watchlistRows = rowsFromTickerDetails(watchlistRes);
+  const watchlistRows = heatmapThumb;
   const summaryReturns = (
     returnsRes ? buildValsFromBatch(returnsRes, SUMMARY_RETURNS_DEFS) : {}
   ) as Record<string, Record<string, number | undefined>>;
