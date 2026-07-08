@@ -1073,9 +1073,61 @@ function buildQuarterlyPeriodSpecs(endDate, fromYear) {
   return specs;
 }
 
+function minMaxDatesFromPeriods(periods) {
+  let min = null;
+  let max = null;
+  for (const p of periods || []) {
+    const s = String(p.start_date_requested || '').slice(0, 10);
+    const e = String(p.end_date_requested || '').slice(0, 10);
+    if (!s || !e) continue;
+    if (!min || s < min) min = s;
+    if (!max || e > max) max = e;
+  }
+  return { min, max };
+}
+
+/** Earliest date needed for a single bounded OHLC fetch (avoids repeated full-table scans). */
+function resolvePriceSeriesStart(endDate, annualFromYear, options = {}) {
+  const {
+    includeDynamic = true,
+    includePredefined = true,
+    includeAnnual = true,
+    includeMonthly = true,
+    includeQuarterly = true,
+    customRange = null
+  } = options;
+
+  let earliest = new Date(endDate);
+
+  if (includePredefined && PREDEFINED_START_YEARS.length) {
+    const y = PREDEFINED_START_YEARS[PREDEFINED_START_YEARS.length - 1];
+    const pre = new Date(y, 0, 1);
+    if (pre < earliest) earliest = pre;
+  }
+  if (includeDynamic) {
+    const dyn = new Date(endDate);
+    dyn.setDate(endDate.getDate() - Math.floor(50 * 365));
+    if (dyn < earliest) earliest = dyn;
+  }
+  const yearStart = new Date(Math.max(1970, annualFromYear), 0, 1);
+  if ((includeAnnual || includeMonthly || includeQuarterly) && yearStart < earliest) {
+    earliest = yearStart;
+  }
+  if (customRange && customRange.length === 2) {
+    const customStart = new Date(customRange[0]);
+    if (!Number.isNaN(customStart.getTime()) && customStart < earliest) earliest = customStart;
+  }
+  return earliest;
+}
+
 async function calculatePeriodsViaSql(ticker, periods) {
   if (!Array.isArray(periods) || periods.length === 0) return [];
+  const { min: rangeStart, max: rangeEnd } = minMaxDatesFromPeriods(periods);
   const periodsSql = buildPeriodsSqlUnion(periods);
+  const dateFilter =
+    rangeStart && rangeEnd
+      ? 'AND Date BETWEEN @rangeStart AND @rangeEnd'
+      : '';
   const query = `
     WITH periods AS (
       ${periodsSql}
@@ -1087,6 +1139,7 @@ async function calculatePeriodsViaSql(ticker, periods) {
       FROM \`${TABLE_FQN}\`
       WHERE UPPER(TRIM(CAST(Ticker AS STRING))) = @ticker
         AND Close IS NOT NULL
+        ${dateFilter}
     ),
     span_rows AS (
       SELECT
@@ -1130,9 +1183,14 @@ async function calculatePeriodsViaSql(ticker, periods) {
     FROM spans
     ORDER BY start_date_requested, period
   `;
+  const params = { ticker: String(ticker || '').toUpperCase().trim() };
+  if (rangeStart && rangeEnd) {
+    params.rangeStart = rangeStart;
+    params.rangeEnd = rangeEnd;
+  }
   const [rows] = await bigquery.query({
     query,
-    params: { ticker: String(ticker || '').toUpperCase().trim() }
+    params
   });
   return (rows || []).map((r) => ({
     period: String(r.period || ''),
@@ -1492,18 +1550,43 @@ async function buildAllReturnsPayloadFromPrices(
   const includeMonthly = options.includeMonthly !== false;
   const includeQuarterly = options.includeQuarterly !== false;
   const includeCustom = options.includeCustom !== false;
-  const minDt = await getMinDateForTicker(t);
+
+  let priceSeries = Array.isArray(prices) && prices.length ? prices : null;
+  const needsPriceSeries =
+    includeDynamic ||
+    includePredefined ||
+    includeAnnual ||
+    includeMonthly ||
+    includeQuarterly ||
+    (includeCustom && customRange && customRange.length === 2);
+
+  if (!priceSeries && needsPriceSeries) {
+    const fetchStart = resolvePriceSeriesStart(endDate, annualFromYear, {
+      includeDynamic,
+      includePredefined,
+      includeAnnual,
+      includeMonthly,
+      includeQuarterly,
+      customRange
+    });
+    priceSeries = await fetchCloseSeries(t, fetchStart, endDate);
+  }
+  if (!priceSeries) priceSeries = [];
+
+  const minDt = priceSeries.length
+    ? priceSeries[0].Date
+    : await getMinDateForTicker(t);
   const startYear = Math.max(minDt.getFullYear(), annualFromYear);
 
-  const dynamic = includeDynamic ? await calculateDynamicPeriods(t, endDate) : [];
-  const predefined = includePredefined ? await calculatePredefinedPeriods(t, endDate) : [];
-  const annual = includeAnnual ? await calculateAnnualReturns(t, endDate, minDt.getFullYear()) : [];
-  const monthly = includeMonthly ? await calculateMonthlyReturns(t, endDate, startYear) : [];
-  const quarterly = includeQuarterly ? await calculateQuarterlyReturns(t, endDate, startYear) : [];
+  const dynamic = includeDynamic ? await calculateDynamicPeriods(t, endDate, priceSeries) : [];
+  const predefined = includePredefined ? await calculatePredefinedPeriods(t, endDate, priceSeries) : [];
+  const annual = includeAnnual ? await calculateAnnualReturns(t, endDate, minDt.getFullYear(), priceSeries) : [];
+  const monthly = includeMonthly ? await calculateMonthlyReturns(t, endDate, startYear, priceSeries) : [];
+  const quarterly = includeQuarterly ? await calculateQuarterlyReturns(t, endDate, startYear, priceSeries) : [];
 
   let custom = null;
   if (includeCustom && customRange && customRange.length === 2) {
-    custom = await calculateCustomRange(t, new Date(customRange[0]), new Date(customRange[1]));
+    custom = await calculateCustomRange(t, new Date(customRange[0]), new Date(customRange[1]), priceSeries);
   }
 
   return {
@@ -2157,10 +2240,13 @@ function marketMoversSessionCopy(period) {
 /**
  * Scatter payload: period % change + relative volume (10d, latest session) per constituent.
  */
-async function calculateIndexMarketMovers(indexValue, periodValue = 'last-date') {
+async function calculateIndexMarketMovers(indexValue, periodValue = 'last-date', preloadedRows = null) {
   const period = normalizeMarketMoversPeriod(periodValue);
   const endDate = await getMaxDate();
-  const rows = await getTickerDetailsByIndex(indexValue, period);
+  const rows =
+    Array.isArray(preloadedRows) && preloadedRows.length
+      ? preloadedRows
+      : await getTickerDetailsByIndex(indexValue, period);
   if (!rows.length) {
     return {
       success: true,
@@ -2393,7 +2479,7 @@ async function buildMarketSnapshots() {
     for (const period of SNAPSHOT_SUPPORTED_PERIODS) {
       const details = await getTickerDetailsByIndex(indexName, period);
       await writeTickerDetailsSnapshot(indexName, period, details, asOfDate, snapshotTs);
-      const movers = await calculateIndexMarketMovers(indexName, period);
+      const movers = await calculateIndexMarketMovers(indexName, period, details);
       await writeIndexMoversSnapshot(indexName, period, movers.points || [], asOfDate, snapshotTs);
     }
   }

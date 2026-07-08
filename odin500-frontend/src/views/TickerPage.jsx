@@ -688,7 +688,9 @@ export default function TickerPage({ initialData = null }) {
     ohlcMisses: 0
   });
 
-  const [ohlcRows, setOhlcRows] = useState([]);
+  const [ohlcRows, setOhlcRows] = useState(() =>
+    ssrSeed?.ohlcSignalRows?.length ? sortRowsAsc(ssrSeed.ohlcSignalRows) : []
+  );
   const [returnsSym, setReturnsSym] = useState(() => ssrSeed?.returnsSym ?? null);
   const [returnsSpy, setReturnsSpy] = useState(() => ssrSeed?.returnsSpy ?? null);
   const [detailRows, setDetailRows] = useState([]);
@@ -1245,17 +1247,35 @@ export default function TickerPage({ initialData = null }) {
       return;
     }
 
+    const { start, end } = chartApiRange;
+    const ssrChartSeeded =
+      ssrSeed?.ohlcSignalRows?.length &&
+      String(ssrSeed.symbol || '').toUpperCase() === String(sym).toUpperCase() &&
+      !appliedCustomRange &&
+      timeframe === '1Y' &&
+      ssrSeed.asOfDate;
+    if (ssrChartSeeded) {
+      const seedEnd = String(ssrSeed.asOfDate).slice(0, 10);
+      const seedStartD = new Date(`${seedEnd}T12:00:00`);
+      seedStartD.setFullYear(seedStartD.getFullYear() - 1);
+      const seedStart = seedStartD.toISOString().slice(0, 10);
+      if (start === seedStart && end === seedEnd) {
+        setChartLoading(false);
+        return () => {
+          cancelled = true;
+        };
+      }
+    }
+
     (async () => {
       const chartStartedAt = performance.now();
       setChartLoading(true);
-      setOhlcRows([]);
       try {
-        const { start, end } = chartApiRange;
         const ohlcRes = await fetchJsonCached({
           path: '/api/market/ohlc-signals-indicator',
           method: 'POST',
           body: { ticker: sym, start_date: start, end_date: end },
-          ttlMs: 2 * 60 * 1000
+          ttlMs: 60 * 60 * 1000
         });
         if (stale()) return;
         const rows = Array.isArray(ohlcRes.data?.data) ? ohlcRes.data.data : [];
@@ -1273,7 +1293,7 @@ export default function TickerPage({ initialData = null }) {
     return () => {
       cancelled = true;
     };
-  }, [sym, timeframe, asOfDate, authVersion, chartApiRange.start, chartApiRange.end, symbolRefreshToken]);
+  }, [sym, timeframe, asOfDate, authVersion, chartApiRange.start, chartApiRange.end, symbolRefreshToken, appliedCustomRange, ssrSeed]);
 
   useEffect(() => {
     setNewsPage(1);

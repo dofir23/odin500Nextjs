@@ -77,10 +77,13 @@ function ohlcRangeOffsetCap() {
     return Math.min(Math.floor(r), 2000000);
 }
 const OHLC_CACHE_TTL_SECS = Number(process.env.OHLC_CACHE_TTL_SECS || 120);
-const OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS = Number(process.env.OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS || 120);
+const OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS = Number(process.env.OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS || 3600);
+
+/** @type {Map<string, Promise<object>>} */
+const ohlcSignalsInflightByKey = new Map();
 const TICKER_DETAILS_CACHE_TTL_SECS = Number(process.env.TICKER_DETAILS_CACHE_TTL_SECS || 300);
 /** Redis TTL for POST /api/market/ticker-returns (seconds). Override via TICKER_RETURNS_CACHE_TTL_SECS. */
-const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 300);
+const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 3600);
 const MARKET_RAIL_SNAPSHOT_CACHE_TTL_SECS = Number(process.env.MARKET_RAIL_SNAPSHOT_CACHE_TTL_SECS || 120);
 /** Max inclusive calendar span for ohlc-signals-indicator (raise via OHLC_SIGNALS_MAX_RANGE_DAYS). */
 const OHLC_SIGNALS_MAX_RANGE_DAYS = Number(process.env.OHLC_SIGNALS_MAX_RANGE_DAYS || 40000);
@@ -294,6 +297,14 @@ const getOhlcSignalsIndicator = async (req, res) => {
             return res.status(200).json({ ...cached, cache_hit: true });
         }
 
+        if (ohlcSignalsInflightByKey.has(cacheKey)) {
+            const payload = await ohlcSignalsInflightByKey.get(cacheKey);
+            res.set('X-Cache-Hit', '0');
+            res.set('X-Cache-Inflight', '1');
+            return res.status(200).json({ ...payload, cache_hit: false, inflight_deduped: true });
+        }
+
+        const fetchPromise = (async () => {
         const ohlcQuery = `
             SELECT *
             FROM \`${TABLE_FQN}\`
@@ -371,8 +382,17 @@ const getOhlcSignalsIndicator = async (req, res) => {
         };
 
         await setCache(cacheKey, payload, OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS);
-        res.set('X-Cache-Hit', '0');
-        res.status(200).json(payload);
+        return payload;
+        })();
+
+        ohlcSignalsInflightByKey.set(cacheKey, fetchPromise);
+        try {
+            const payload = await fetchPromise;
+            res.set('X-Cache-Hit', '0');
+            res.status(200).json(payload);
+        } finally {
+            ohlcSignalsInflightByKey.delete(cacheKey);
+        }
     } catch (error) {
         console.error('OHLC signals indicator error:', error);
         res.status(500).json({ success: false, error: 'Failed to fetch OHLC and signals', message: error.message });

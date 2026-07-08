@@ -561,13 +561,15 @@ export default function StatisticDataPage({ initialData = null }) {
       setLoading(true);
       setError('');
       try {
-        const startDate = '1980-01-01';
         const endDate = todayIso();
+        const startD = new Date(`${endDate}T12:00:00`);
+        startD.setFullYear(startD.getFullYear() - 35);
+        const startDate = startD.toISOString().slice(0, 10);
         const ohlcRes = await fetchJsonCached({
           path: '/api/market/ohlc-signals-indicator',
           method: 'POST',
           body: { ticker: clean, start_date: startDate, end_date: endDate },
-          ttlMs: 10 * 60 * 1000
+          ttlMs: 60 * 60 * 1000
         });
         if (cancelled) return;
         const payload = ohlcRes?.data;

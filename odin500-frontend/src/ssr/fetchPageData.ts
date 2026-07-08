@@ -165,6 +165,13 @@ function sanitizeSymbol(symbol: string, fallback = 'AAPL') {
   return sym || fallback;
 }
 
+function statisticHistoryStartDate(endDate) {
+  const end = endDate || new Date().toISOString().slice(0, 10);
+  const d = new Date(`${end}T12:00:00`);
+  d.setFullYear(d.getFullYear() - 35);
+  return d.toISOString().slice(0, 10);
+}
+
 function ohlcRowsFromPayload(payload: Record<string, unknown> | null) {
   if (!payload) return [];
   if (Array.isArray(payload.data)) return payload.data;
@@ -315,7 +322,6 @@ export async function fetchMarketDashboardData(
       series: RAIL_SNAPSHOT_SERIES
     }),
     postMarketJson('/api/market/ticker-details', { index: 'Dow Jones', period: 'last-date' }),
-    postMarketJson('/api/market/ticker-details', { index: 'Dow Jones', period: 'last-date' }),
     summaryTickers.length ? fetchTickerReturnsBatch(summaryTickers) : Promise.resolve(null)
   ]);
 
@@ -428,15 +434,12 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
   oneYearStart.setFullYear(oneYearStart.getFullYear() - 1);
   const ohlcStart = oneYearStart.toISOString().slice(0, 10);
 
-  const [coreRes, spyRes, annualRes, quarterlyRes, monthlyRes, ohlcRes, signalRes] = await Promise.all([
+  const [coreRes, spyRes, annualRes, quarterlyRes, monthlyRes, signalRes] = await Promise.all([
     postMarketJson('/api/market/ticker-core-returns', body),
     postMarketJson('/api/market/ticker-core-returns', { ...body, ticker: BENCHMARK }),
     postMarketJson('/api/market/ticker-annual-returns', body),
     postMarketJson('/api/market/ticker-quarterly-returns', body),
     postMarketJson('/api/market/ticker-monthly-returns', body),
-    getMarketJson(
-      `/api/market/ohlc?symbol=${encodeURIComponent(sym)}&start_date=${encodeURIComponent(ohlcStart)}&end_date=${encodeURIComponent(end)}&limit=400`
-    ),
     postMarketJson('/api/market/ohlc-signals-indicator', {
       ticker: sym,
       start_date: ohlcStart,
@@ -451,13 +454,15 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
     returnsSym = mergeTickerReturnsPayload(returnsSym, patch);
   }
 
+  const signalRows = ohlcRowsFromPayload(signalRes);
+
   return {
     symbol: sym,
     returnsSym,
     returnsSpy: spyRes,
     asOfDate: String(returnsSym?.asOfDate || coreRes?.asOfDate || end).slice(0, 10),
-    ohlcRows: ohlcRowsFromPayload(ohlcRes),
-    ohlcSignalRows: ohlcRowsFromPayload(signalRes)
+    ohlcRows: signalRows,
+    ohlcSignalRows: signalRows
   };
 }
 
@@ -498,7 +503,7 @@ export async function fetchStatisticDataPageData(
   const endDate = new Date().toISOString().slice(0, 10);
   const payload = await postMarketJson('/api/market/ohlc-signals-indicator', {
     ticker: sym,
-    start_date: '1980-01-01',
+    start_date: statisticHistoryStartDate(endDate),
     end_date: endDate
   });
   const rows = ohlcRowsFromPayload(payload);

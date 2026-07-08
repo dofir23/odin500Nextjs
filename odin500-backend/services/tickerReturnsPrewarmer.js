@@ -1,11 +1,11 @@
 const analyticsData = require('../analyticsData');
 const { makeCacheKey, setCache } = require('../utils/cache');
 
-const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 300);
-const ENABLE_PREWARM = process.env.ENABLE_TICKER_RETURNS_PREWARM !== '0';
-const PREWARM_INTERVAL_MS = Number(process.env.TICKER_RETURNS_PREWARM_INTERVAL_MS || 300000);
+const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 3600);
+const ENABLE_PREWARM = process.env.ENABLE_TICKER_RETURNS_PREWARM === '1';
+const PREWARM_INTERVAL_MS = Number(process.env.TICKER_RETURNS_PREWARM_INTERVAL_MS || 3600000);
 const PREWARM_TICKERS_RAW = process.env.TICKER_RETURNS_PREWARM_TICKERS || 'AAPL,MSFT,NVDA';
-const ENABLE_ON_DEMAND_PREWARM = process.env.ENABLE_TICKER_RETURNS_ON_DEMAND_PREWARM !== '0';
+const ENABLE_ON_DEMAND_PREWARM = process.env.ENABLE_TICKER_RETURNS_ON_DEMAND_PREWARM === '1';
 const INCLUDE_REQUESTED_IN_ON_DEMAND = process.env.INCLUDE_REQUESTED_TICKERS_IN_PREWARM !== '0';
 const ENABLE_STARTUP_BLOCK = process.env.ENABLE_TICKER_RETURNS_STARTUP_BLOCK !== '0';
 const STARTUP_BLOCK_TIMEOUT_MS = Number(process.env.TICKER_RETURNS_STARTUP_BLOCK_TIMEOUT_MS || 30000);
@@ -122,7 +122,7 @@ function startTickerReturnsPrewarmer() {
     console.log('[ticker-returns-prewarm] skipped (no tickers configured)');
     return;
   }
-  const intervalMs = Number.isFinite(PREWARM_INTERVAL_MS) && PREWARM_INTERVAL_MS > 0 ? PREWARM_INTERVAL_MS : 300000;
+  const intervalMs = Number.isFinite(PREWARM_INTERVAL_MS) && PREWARM_INTERVAL_MS > 0 ? PREWARM_INTERVAL_MS : 3600000;
   void runOnce();
   timer = setInterval(() => {
     void runOnce();

@@ -1,7 +1,7 @@
 const analyticsData = require('../analyticsData');
 
 const ENABLE = process.env.ENABLE_MARKET_SNAPSHOT_REFRESH === '1';
-const INTERVAL_MS = Number(process.env.MARKET_SNAPSHOT_REFRESH_MS || 300000);
+const INTERVAL_MS = Number(process.env.MARKET_SNAPSHOT_REFRESH_MS || 3600000);
 
 let timer = null;
 let running = false;
@@ -28,7 +28,7 @@ function startSnapshotRefresher() {
     console.log('[snapshot-refresher] disabled (ENABLE_MARKET_SNAPSHOT_REFRESH != 1)');
     return;
   }
-  const ms = Number.isFinite(INTERVAL_MS) && INTERVAL_MS > 0 ? INTERVAL_MS : 300000;
+  const ms = Number.isFinite(INTERVAL_MS) && INTERVAL_MS > 0 ? INTERVAL_MS : 3600000;
   void runOnce();
   timer = setInterval(() => {
     void runOnce();
