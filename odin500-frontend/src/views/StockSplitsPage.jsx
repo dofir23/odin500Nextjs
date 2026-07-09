@@ -106,10 +106,18 @@ export default function StockSplitsPage({ initialData = null }) {
       const res = await fetchJsonCached({
         path: '/api/splits/sync',
         method: 'POST',
+        body: { catchUpDays: 180 },
         ttlMs: 0,
         force: true
       });
-      if (res?.data?.ok === false) throw new Error(res?.data?.error || 'Sync failed');
+      if (res?.data?.ok === false || res?.data?.success === false) {
+        throw new Error(res?.data?.reason || res?.data?.error || 'Sync failed');
+      }
+      const inserted = res?.data?.inserted;
+      const fetched = res?.data?.fetched;
+      if (Number.isFinite(inserted) && Number.isFinite(fetched)) {
+        console.info(`[stock-splits] sync ok fetched=${fetched} inserted=${inserted}`);
+      }
       await load();
     } catch (e) {
       setError(e?.message || 'Sync failed');

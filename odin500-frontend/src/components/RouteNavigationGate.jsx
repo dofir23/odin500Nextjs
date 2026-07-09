@@ -1,23 +1,16 @@
 'use client';
-import { Suspense, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from '@/navigation/appRouterCompat.jsx';
 import {
   installHistoryNavigationAbort,
   installInternalLinkNavigationAbort,
   resetRouteNavigationAbort
 } from '../navigation/routeNavigationAbort.js';
-import { PageRouteFallback } from './PageRouteFallback.jsx';
-
-function RouteNavigationFallback() {
-  return (
-    <div className="route-nav-gate__pending" role="status" aria-live="polite" aria-label="Loading page">
-      <PageRouteFallback />
-    </div>
-  );
-}
 
 /**
- * Resets stale route fetches on navigation and shows loading UI while lazy route chunks load.
+ * Resets stale route fetches on navigation.
+ * Do not wrap children in Suspense — async app pages + Suspense hide SSR HTML in
+ * `hidden` streaming slots until JS runs (blank page with JS disabled).
  */
 export function RouteNavigationGate({ children }) {
   const location = useLocation();
@@ -38,11 +31,5 @@ export function RouteNavigationGate({ children }) {
     };
   }, []);
 
-  return (
-    <div className="route-nav-gate">
-      <Suspense key={location.key} fallback={<RouteNavigationFallback />}>
-        {children}
-      </Suspense>
-    </div>
-  );
+  return <div className="route-nav-gate">{children}</div>;
 }

@@ -1965,6 +1965,12 @@ export default function TickerPage({ initialData = null }) {
             <ChartInfoTip tip={CHART_INFO_TIPS.tickerHeaderPrice} align="start" />
           </div>
           <div className="ticker-page__header-actions">
+            <Link
+              href={`/ticker-report/${encodeURIComponent(sym.toLowerCase())}`}
+              className="ticker-outline-btn"
+            >
+              Monthly Report
+            </Link>
             <button type="button" className="ticker-outline-btn" onClick={onAddTickerToWatchlist}>
               <IconPlus className="ticker-outline-btn__ico" /> In My Watchlists
             </button>

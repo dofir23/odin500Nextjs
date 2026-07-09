@@ -9,7 +9,7 @@ import {
  */
 export function PaperTradingPageServer() {
   return (
-    <article className="ssr-page-content mx-auto max-w-3xl px-4 py-10">
+    <article className="ssr-page-content mx-auto px-4 py-10">
       <header className="mb-8">
         <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-500">
           Paper trading

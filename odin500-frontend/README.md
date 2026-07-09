@@ -34,7 +34,7 @@ Create `odin500-frontend/.env`:
 
 - **App Router** — `src/app/` with `(auth)` and `(protected)` route groups
 - **Views** — `src/views/` (screen components; renamed from `pages/` to avoid Next.js Pages Router conflict)
-- **Auth** — httpOnly cookies via `/api/auth/*` + `middleware.ts`
+- **Auth** — httpOnly cookies via `/api/auth/*` + `src/middleware.ts`
 - **API** — Client calls `/api/proxy/*` BFF; public routes rewrite to `API_ORIGIN`
 - **SEO** — `generateMetadata` via `src/seo/metadata.ts`, `app/sitemap.ts`, `app/robots.ts`
 

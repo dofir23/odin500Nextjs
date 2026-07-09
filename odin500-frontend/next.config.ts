@@ -28,10 +28,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/tickers', destination: '/odin-signals', permanent: true },
-      { source: '/ticker', destination: '/ticker/AAPL', permanent: false },
+      { source: '/ticker', destination: '/ticker/aapl', permanent: true },
       { source: '/indices', destination: '/indices/sp500', permanent: false },
       { source: '/sector-data', destination: '/sector-data/xlk', permanent: false },
-      { source: '/ticker-annual', destination: '/statistic/ticker-annual/AAPL', permanent: false },
+      { source: '/ticker-annual', destination: '/statistic/ticker-annual/aapl', permanent: true },
       {
         source: '/ticker-annual/:symbol',
         destination: '/statistic/ticker-annual/:symbol',
@@ -39,8 +39,8 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/ticker-quarterly',
-        destination: '/statistic/ticker-quarterly/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-quarterly/aapl',
+        permanent: true
       },
       {
         source: '/ticker-quarterly/:symbol',
@@ -49,8 +49,8 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/ticker-monthly',
-        destination: '/statistic/ticker-monthly/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-monthly/aapl',
+        permanent: true
       },
       {
         source: '/ticker-monthly/:symbol',
@@ -59,8 +59,8 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/ticker-weekly',
-        destination: '/statistic/ticker-weekly/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-weekly/aapl',
+        permanent: true
       },
       {
         source: '/ticker-weekly/:symbol',
@@ -69,8 +69,8 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/ticker-daily',
-        destination: '/statistic/ticker-daily/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-daily/aapl',
+        permanent: true
       },
       {
         source: '/ticker-daily/:symbol',
@@ -79,32 +79,32 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/statistic/ticker-annual',
-        destination: '/statistic/ticker-annual/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-annual/aapl',
+        permanent: true
       },
       {
         source: '/statistic/ticker-quarterly',
-        destination: '/statistic/ticker-quarterly/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-quarterly/aapl',
+        permanent: true
       },
       {
         source: '/statistic/ticker-monthly',
-        destination: '/statistic/ticker-monthly/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-monthly/aapl',
+        permanent: true
       },
       {
         source: '/statistic/ticker-weekly',
-        destination: '/statistic/ticker-weekly/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-weekly/aapl',
+        permanent: true
       },
       {
         source: '/statistic/ticker-daily',
-        destination: '/statistic/ticker-daily/AAPL',
-        permanent: false
+        destination: '/statistic/ticker-daily/aapl',
+        permanent: true
       },
       {
         source: '/relative-strength/ticker',
-        destination: '/relative-performance/ticker/AAPL',
+        destination: '/relative-performance/ticker/aapl',
         permanent: true
       },
       {
@@ -115,12 +115,12 @@ const nextConfig: NextConfig = {
       {
         source: '/historical-data',
         destination: '/historical-data/aapl',
-        permanent: false
+        permanent: true
       },
       {
         source: '/ticker-report',
         destination: '/ticker-report/aapl',
-        permanent: false
+        permanent: true
       },
       { source: '/pricing', destination: '/premium', permanent: true }
     ];

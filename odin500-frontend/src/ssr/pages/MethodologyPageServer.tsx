@@ -9,7 +9,7 @@ import {
  */
 export function MethodologyPageServer() {
   return (
-    <article className="ssr-page-content mx-auto max-w-3xl px-4 py-10">
+    <article className="ssr-page-content mx-auto px-4 py-10">
       <header className="mb-8">
         <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-500">Trust</p>
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white md:text-3xl">
