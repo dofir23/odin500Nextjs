@@ -40,7 +40,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               html[data-theme='light'] .home-header__logo--light { display: inline-block; }
               noscript .full-ssr-page__client { display: none !important; }
               noscript .full-ssr-page__server { display: block !important; }
-              noscript .ssr-app-chrome { display: block !important; }
             `
           }}
         />

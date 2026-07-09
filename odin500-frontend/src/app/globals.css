@@ -105,16 +105,9 @@ html[data-app-hydrated='true'] .full-ssr-page__client {
   display: block;
 }
 
-/* Server app chrome — sidebar nav in HTML before client shell hydrates. */
+/* Server app chrome — in HTML for crawlers; hidden on screen (client sidebar replaces it). */
 .ssr-app-chrome {
-  display: block;
-  width: 220px;
-  flex-shrink: 0;
-  padding: 1rem 0.75rem;
-  background: #0b1220;
-  border-right: 1px solid rgba(148, 163, 184, 0.2);
-  color: #e2e8f0;
-  font-size: 0.875rem;
+  display: none;
 }
 
 .ssr-app-chrome__brand {
@@ -146,10 +139,6 @@ html[data-app-hydrated='true'] .full-ssr-page__client {
 .ssr-app-chrome__link:hover {
   background: rgba(89, 169, 255, 0.12);
   color: #59a9ff;
-}
-
-html[data-app-hydrated='true'] .ssr-app-chrome {
-  display: none;
 }
 
 .app-shell--ssr-chrome {
