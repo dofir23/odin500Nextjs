@@ -202,7 +202,10 @@ export function resolveRouteSkeletonKind(pathname) {
   return 'generic';
 }
 
-export function RoutePageSkeleton({ pathname: pathnameProp }) {
+/**
+ * @param {{ pathname?: string }} [props]
+ */
+export function RoutePageSkeleton({ pathname: pathnameProp } = {}) {
   const { pathname: pathnameFromHook } = useLocation();
   const pathname = pathnameProp ?? pathnameFromHook ?? '/';
   const kind = resolveRouteSkeletonKind(pathname);
