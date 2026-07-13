@@ -48,10 +48,22 @@ async function waitForChartPaint(page, selector) {
       (sel) => {
         const root = document.querySelector(sel);
         if (!root) return false;
+        if (
+          root.classList.contains('ticker-annual-figma__chart-card--skeleton') ||
+          root.classList.contains('ticker-annual-figma__chart-card--empty') ||
+          root.classList.contains('market-movers-page__bar-frame--skeleton')
+        ) {
+          return false;
+        }
         const rect = root.getBoundingClientRect();
         if (rect.width < 80 || rect.height < 80) return false;
         const canvas = root.querySelector('canvas');
         if (canvas) return canvas.width > 0 && canvas.height > 0;
+        const svg = root.querySelector('svg');
+        if (svg) {
+          const box = svg.getBoundingClientRect();
+          return box.width > 40 && box.height > 40;
+        }
         return true;
       },
       { timeout: 60000 },
@@ -60,6 +72,36 @@ async function waitForChartPaint(page, selector) {
     .catch(() => {
       log.warn('snapshot', 'Chart paint wait timed out — using settle delay');
     });
+}
+
+async function pickCaptureTarget(page, selector, fallbackSelector) {
+  const handle = await page.evaluateHandle(
+    (primary, fallback) => {
+      const isUsable = (el) => {
+        if (!el) return false;
+        if (
+          el.classList.contains('ticker-annual-figma__chart-card--skeleton') ||
+          el.classList.contains('ticker-annual-figma__chart-card--empty') ||
+          el.classList.contains('market-movers-page__bar-frame--skeleton')
+        ) {
+          return false;
+        }
+        const rect = el.getBoundingClientRect();
+        return rect.width >= 80 && rect.height >= 80;
+      };
+
+      const trySel = (sel) => {
+        if (!sel) return null;
+        const nodes = Array.from(document.querySelectorAll(sel));
+        return nodes.find(isUsable) || null;
+      };
+
+      return trySel(primary) || trySel(fallback) || document.body;
+    },
+    selector,
+    fallbackSelector
+  );
+  return handle.asElement();
 }
 
 /**
@@ -105,6 +147,9 @@ async function capturePageSnapshot({ pagePath, selector, outBasename, fallbackSe
     });
 
     await waitForChartPaint(page, waitSelector);
+    if (fallbackSelector && fallbackSelector !== waitSelector) {
+      await waitForChartPaint(page, fallbackSelector);
+    }
 
     await page.evaluate((sel) => {
       const el = document.querySelector(sel);
@@ -113,12 +158,7 @@ async function capturePageSnapshot({ pagePath, selector, outBasename, fallbackSe
 
     await new Promise((r) => setTimeout(r, config.snapshotSettleMs));
 
-    let target = await page.$(selector);
-    if (!target && fallbackSelector) {
-      log.warn('snapshot', `Primary selector missed, trying fallback: ${fallbackSelector}`);
-      target = await page.$(fallbackSelector);
-      if (target) await waitForChartPaint(page, fallbackSelector);
-    }
+    let target = await pickCaptureTarget(page, selector, fallbackSelector);
     if (!target) {
       log.warn('snapshot', 'Falling back to full-page screenshot');
       target = await page.$('body');

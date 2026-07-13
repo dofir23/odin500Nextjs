@@ -584,11 +584,10 @@ export default function StatisticDataPage({ initialData = null }) {
           maxDate: rowDateToTimeKey(nextRows[0]) || payload?.end_date || ''
         });
       } catch (e) {
-        if (!cancelled) {
-          setError(e.message || 'Failed to load statistic tables');
-          setOhlcRows([]);
-          setDataCoverage({ minDate: '', maxDate: '' });
-        }
+        if (cancelled || e?.name === 'AbortError') return;
+        setError(e.message || 'Failed to load statistic tables');
+        setOhlcRows([]);
+        setDataCoverage({ minDate: '', maxDate: '' });
       } finally {
         if (!cancelled) setLoading(false);
       }

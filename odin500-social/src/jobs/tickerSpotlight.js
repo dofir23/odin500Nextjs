@@ -45,8 +45,8 @@ async function runTickerSpotlight(symbol) {
     links: { default: link, twitter: link, linkedin: link },
     snapshot: {
       pagePath,
-      selector: '.ticker-chart-body--main',
-      fallbackSelector: '.ticker-chart-plot-host'
+      selector: '.ticker-chart-plot-host',
+      fallbackSelector: '.ticker-chart-body--main'
     },
     chartFallback: {
       chart: {

@@ -1,6 +1,8 @@
 import { apiUrl } from '../utils/apiOrigin.js';
 import { isAuthDisabled as envAuthDisabled } from '../lib/env.js';
 import {
+  composeAbortSignals,
+  getRouteNavigationAbortSignal,
   getRouteNavigationEpoch,
   isAbortError,
   isRouteNavigationStale
@@ -351,12 +353,16 @@ export function clearApiCache() {
 
 /**
  * Fetch with Bearer auth; on 401, refresh once and retry.
+ * By default composes the route navigation AbortSignal so rapid page changes
+ * cancel in-flight requests. Pass `routeAbort: false` for auth/session work.
  */
 export async function fetchWithAuth(url, init = {}) {
   ensureCacheLoaded();
-  const { auth = true, signal: callerSignal, ...rest } = init;
+  const { auth = true, signal: callerSignal, routeAbort = true, ...rest } = init;
   const epochAtStart = getRouteNavigationEpoch();
-  const signal = callerSignal || undefined;
+  const signal = routeAbort
+    ? composeAbortSignals(getRouteNavigationAbortSignal(), callerSignal)
+    : callerSignal || undefined;
   const exec = async () => {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     const headers = new Headers(rest.headers || {});
@@ -371,11 +377,14 @@ export async function fetchWithAuth(url, init = {}) {
   };
 
   let response = await exec();
-  if (isRouteNavigationStale(false, epochAtStart)) {
-    return response;
+  if (isRouteNavigationStale(false, epochAtStart) || signal?.aborted) {
+    throw new DOMException('Route navigation changed', 'AbortError');
   }
   if (response.status === 401 && auth) {
     const refreshed = await refreshSessionOnce();
+    if (signal?.aborted || isRouteNavigationStale(false, epochAtStart)) {
+      throw new DOMException('Route navigation changed', 'AbortError');
+    }
     if (refreshed) response = await exec();
   }
   return response;
@@ -506,6 +515,29 @@ export function peekJsonCached({
   return undefined;
 }
 
+function racePromiseWithSignal(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function fetchJsonCached({
   path,
   method = 'GET',
@@ -513,12 +545,15 @@ export async function fetchJsonCached({
   ttlMs = 5 * 60 * 1000,
   auth = true,
   force = false,
-  signal: callerSignal
+  signal: callerSignal,
+  routeAbort = true
 }) {
   ensureCacheLoaded();
   const reqKey = makeRequestKey(method, path, body);
   const now = Date.now();
-  const signal = callerSignal || undefined;
+  const signal = routeAbort
+    ? composeAbortSignals(getRouteNavigationAbortSignal(), callerSignal)
+    : callerSignal || undefined;
 
   const skipAppCache =
     method === 'GET' && typeof path === 'string' && path.includes('/api/tickers/search');
@@ -535,8 +570,7 @@ export async function fetchJsonCached({
   }
 
   if (memoryStore.inFlight.has(reqKey)) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    return memoryStore.inFlight.get(reqKey);
+    return racePromiseWithSignal(memoryStore.inFlight.get(reqKey), signal);
   }
 
   const promise = (async () => {
@@ -550,7 +584,7 @@ export async function fetchJsonCached({
       body: body == null ? undefined : JSON.stringify(body),
       cache: 'no-store',
       signal,
-      credentials: auth ? 'same-origin' : 'same-origin'
+      credentials: 'same-origin'
     };
 
     let response = await fetch(apiUrl(path), fetchInit);
@@ -610,7 +644,7 @@ export async function fetchJsonCached({
   }
 
   try {
-    return await promise;
+    return await racePromiseWithSignal(promise, signal);
   } finally {
     if (signal) signal.removeEventListener('abort', dropInFlight);
     dropInFlight();

@@ -1,50 +1,36 @@
 import HistoricalDataPage from '@/views/HistoricalDataPage.jsx';
 import { fetchHistoricalDataPreview } from '@/ssr/fetchHistoricalDataPreview.js';
-import {
-  enrichHistoricalDataMetadata,
-  metadataFromResolved,
-  resolveRequestMetadata,
-  toNextMetadata
-} from '@/seo/metadata';
+import { generateHistoricalPageMetadata } from '@/seo/routeMetadataHelpers';
 import { PageServerShell } from '@/seo/PageServerShell';
+import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
 
 export const revalidate = 300;
 
 export async function generateMetadata({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
-  const pathname = `/historical-data/${symbol}`;
-  const baseMeta = resolveRequestMetadata(pathname);
-  try {
-    const preview = await fetchHistoricalDataPreview(symbol.toUpperCase());
-    if (preview) {
-      const enriched = enrichHistoricalDataMetadata(
-        {
-          title: baseMeta.title,
-          description: baseMeta.description,
-          canonical: baseMeta.canonical || ''
-        },
-        preview
-      );
-      return metadataFromResolved(enriched, pathname);
-    }
-  } catch {
-    /* ignore */
-  }
-  return toNextMetadata(pathname);
+  return generateHistoricalPageMetadata(symbol);
 }
 
-export default async function Page({ params }: { params: Promise<{ symbol: string }> }) {
-  const { symbol } = await params;
+async function RouteContent({ symbol, pathname }: { symbol: string; pathname: string }) {
   let initialPreview = null;
   try {
     initialPreview = await fetchHistoricalDataPreview(symbol.toUpperCase());
   } catch {
     /* ignore */
   }
-  const pathname = `/historical-data/${symbol}`;
   return (
     <PageServerShell pathname={pathname} seoData={initialPreview}>
       <HistoricalDataPage initialPreview={initialPreview} />
     </PageServerShell>
+  );
+}
+
+export default async function Page({ params }: { params: Promise<{ symbol: string }> }) {
+  const { symbol } = await params;
+  const pathname = `/historical-data/${symbol}`;
+  return (
+    <DeferredRoutePage pathname={pathname}>
+      <RouteContent symbol={symbol} pathname={pathname} />
+    </DeferredRoutePage>
   );
 }

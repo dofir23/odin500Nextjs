@@ -2,15 +2,16 @@
 
 Standalone social post generator for Odin500. Runs as its own Node service on Railway (separate from `odin500-frontend` and `odin500-backend`).
 
-Fetches market data and newsletter metadata from the Odin500 API, renders branded chart images, writes post drafts to disk, and optionally notifies Slack/Discord for manual approval before publishing.
+Fetches market data and newsletter metadata from the Odin500 API, captures live page chart screenshots (or QuickChart fallbacks), writes post drafts to disk, and optionally notifies Slack/Discord for manual approval before publishing.
 
 ## What it does
 
 | Job | Schedule (ET) | Output |
 |-----|---------------|--------|
-| `daily-pulse` | Mon–Fri 4:20pm | Index recap + SPY chart |
+| `daily-pulse` | Mon–Fri 4:20pm | Index recap + market dashboard snapshot |
 | `ticker-spotlight` | Tue/Thu 12:30pm | Rotating ticker chart + copy |
 | `weekly-newsletter` | Sun 10:00am | Latest newsletter promo |
+| `chart-post` | Manual (Admin) | Admin-picked chart snapshot + AI captions |
 
 ## Quick start (local)
 
@@ -32,25 +33,51 @@ npm run job:ticker
 npm run job:newsletter
 # Or with symbol override:
 node scripts/run-job.js ticker-spotlight AAPL
+# Chart picker job:
+node scripts/run-job.js chart-post ticker-ohlc AAPL
+node scripts/run-job.js chart-post heatmap
 ```
 
 Drafts are saved under `output/posts/*.json` and chart PNGs under `output/assets/`.
+
+## Chart catalog (`chart-post`)
+
+Curated charts for Admin **Generate from chart** (`GET /charts`). Groups in the dropdown: Ticker, Stats, Relative strength, Market.
+
+| Group | Examples |
+|-------|----------|
+| **Ticker** | OHLC, benchmark vs ticker bars |
+| **Stats** | Annual / quarterly / monthly / weekly / daily **bars**, pos/neg + min/max, **magnitude donuts**, quarterly dual bars, monthly waterfall |
+| **Relative strength** | Main RS line, annual/excess/periodic vs benchmark, benchmark bars |
+| **Market** | Performance chart, heatmap, gainers / gainers+losers bars |
+
+Legacy ids `ticker-annual` and `ticker-rs` remain for compatibility.
+
+Admin UI: `/admin/social` → Chart dropdown + optional Symbol → **Generate post**.
 
 ## API
 
 | Method | Path | Auth |
 |--------|------|------|
 | `GET` | `/health` | — |
+| `GET` | `/charts` | — |
 | `GET` | `/posts?limit=20&status=draft` | — |
 | `GET` | `/posts/:id` | — |
 | `GET` | `/assets/:filename` | — |
 | `POST` | `/jobs/:name` | Header `x-social-secret` |
+| `POST` | `/posts/:id/discard` | Header `x-social-secret` |
+| `DELETE` | `/posts/:id` | Header `x-social-secret` |
 
-Trigger example:
+Trigger examples:
 
 ```bash
 curl -X POST http://localhost:8080/jobs/daily-pulse \
   -H "x-social-secret: YOUR_SECRET"
+
+curl -X POST http://localhost:8080/jobs/chart-post \
+  -H "x-social-secret: YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"chartId":"ticker-ohlc","symbol":"AAPL"}'
 ```
 
 ## Railway deploy
@@ -82,6 +109,7 @@ Post drafts and PNGs are written to `output/` on the container filesystem. On Ra
 - `config/utm.json` — campaign → landing paths
 - `config/hashtags.json` — default tags per post type
 - `config/watchlist.json` — indices for daily pulse, rotation list for spotlight
+- `src/charts/chartCatalog.js` — Admin chart picker entries (selectors + pages)
 
 ## Publishing
 
@@ -100,13 +128,14 @@ If the key is missing or the request fails, copy falls back to templates and `me
 
 ## Page snapshots (Puppeteer)
 
-Charts are captured from **live site pages** (`ODIN_SITE_ORIGIN`):
+Charts are captured from **live site pages** (`ODIN_SITE_ORIGIN`) with `?socialCapture=1`:
 
-| Campaign | Page | Selector |
-|----------|------|----------|
-| daily-pulse | `/market` | `main.mkt-center` |
+| Campaign / chart | Page | Selector |
+|------------------|------|----------|
+| daily-pulse | `/market` | `.np-card` (Performance chart) |
 | ticker-spotlight | `/ticker/{sym}` | `.ticker-chart-plot-host` |
 | newsletter | `/newsletter/{slug}` | `.newsletter-page` |
+| chart-post | catalog | plot-host / chart-card / heatmap / movers (see catalog) |
 
 Console:
 
@@ -116,5 +145,5 @@ Console:
 ```
 
 - Local dev: run **frontend** (`npm run dev`) and set `ODIN_SITE_ORIGIN=http://localhost:3000`
-- If snapshot fails, falls back to QuickChart PNG
+- If snapshot fails, falls back to QuickChart PNG when OHLC context exists
 - Railway: may need `PUPPETEER_EXECUTABLE_PATH` or a Dockerfile with Chromium deps

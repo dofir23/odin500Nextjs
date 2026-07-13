@@ -1,11 +1,13 @@
 const { runDailyPulse } = require('./dailyPulse');
 const { runTickerSpotlight } = require('./tickerSpotlight');
 const { runWeeklyNewsletter } = require('./weeklyNewsletter');
+const { runChartPost } = require('./chartPost');
 
 const JOBS = {
   'daily-pulse': runDailyPulse,
   'ticker-spotlight': runTickerSpotlight,
-  'weekly-newsletter': runWeeklyNewsletter
+  'weekly-newsletter': runWeeklyNewsletter,
+  'chart-post': runChartPost
 };
 
 async function runJob(name, opts = {}) {
@@ -15,8 +17,11 @@ async function runJob(name, opts = {}) {
     err.status = 404;
     throw err;
   }
-  if (name === 'ticker-spotlight' && opts.symbol) {
+  if (name === 'ticker-spotlight') {
     return runTickerSpotlight(opts.symbol);
+  }
+  if (name === 'chart-post') {
+    return runChartPost(opts);
   }
   return fn();
 }

@@ -1,5 +1,5 @@
 import { startTransition } from 'react';
-import { isAbortError } from '../navigation/routeNavigationAbort.js';
+import { isAbortError, isRouteNavigationAbortError } from '../navigation/routeNavigationAbort.js';
 
 /** True when the route loader should stop (unmounted). */
 export function shouldApplyRouteLoad(cancelled = false) {
@@ -20,5 +20,5 @@ export function applyRouteLoadUpdate(cancelled, fn) {
 }
 
 export function isRouteLoadAbortError(err) {
-  return isAbortError(err);
+  return isAbortError(err) || isRouteNavigationAbortError(err);
 }

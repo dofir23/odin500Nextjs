@@ -6,7 +6,22 @@ function closeFromRow(r: Record<string, unknown>) {
 }
 
 function dateFromRow(r: Record<string, unknown>) {
-  return String(r.date ?? r.trade_date ?? r.time ?? '').slice(0, 10);
+  const raw = r.iso ?? r.Date ?? r.date ?? r.TradeDate ?? r.trade_date ?? r.time;
+  if (raw == null || raw === '') {
+    const t = Number(r.t);
+    if (Number.isFinite(t) && t > 0) {
+      try {
+        return new Date(t).toISOString().slice(0, 10);
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  }
+  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    return String((raw as { value: unknown }).value ?? '').slice(0, 10);
+  }
+  return String(raw).slice(0, 10);
 }
 
 type SvgSparklineProps = {

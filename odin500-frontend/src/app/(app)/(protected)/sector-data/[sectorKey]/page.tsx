@@ -1,5 +1,6 @@
 import { PageServerShell } from '@/seo/PageServerShell';
 import { generateSectorPageMetadata } from '@/seo/routeMetadataHelpers';
+import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
 import { fetchIndexPageData } from '@/ssr/fetchPageData';
 import IndexPage from '@/views/IndexPage.jsx';
 
@@ -10,8 +11,13 @@ export async function generateMetadata({ params }: { params: Promise<{ sectorKey
 
 export const revalidate = 300;
 
-export default async function Page({ params }: { params: Promise<{ sectorKey: string }> }) {
-  const { sectorKey } = await params;
+async function RouteContent({
+  sectorKey,
+  pathname
+}: {
+  sectorKey: string;
+  pathname: string;
+}) {
   let seoData: unknown = null;
   try {
     seoData = await fetchIndexPageData(sectorKey, true);
@@ -19,10 +25,19 @@ export default async function Page({ params }: { params: Promise<{ sectorKey: st
     /* SSR prefetch is best-effort */
   }
 
-  const pathname = `/sector-data/${sectorKey}`;
   return (
     <PageServerShell pathname={pathname} seoData={seoData}>
       <IndexPage initialData={seoData as never} />
     </PageServerShell>
+  );
+}
+
+export default async function Page({ params }: { params: Promise<{ sectorKey: string }> }) {
+  const { sectorKey } = await params;
+  const pathname = `/sector-data/${sectorKey}`;
+  return (
+    <DeferredRoutePage pathname={pathname}>
+      <RouteContent sectorKey={sectorKey} pathname={pathname} />
+    </DeferredRoutePage>
   );
 }

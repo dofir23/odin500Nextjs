@@ -5,13 +5,22 @@ const { runJob } = require('../src/jobs');
 
 async function main() {
   const name = process.argv[2];
-  const symbol = process.argv[3];
+  const arg2 = process.argv[3];
+  const arg3 = process.argv[4];
   if (!name) {
-    console.error('Usage: node scripts/run-job.js <daily-pulse|ticker-spotlight|weekly-newsletter> [SYMBOL]');
+    console.error(
+      'Usage: node scripts/run-job.js <daily-pulse|ticker-spotlight|weekly-newsletter|chart-post> [SYMBOL|CHART_ID] [SYMBOL]'
+    );
     process.exit(1);
   }
   ensureDirs();
-  const post = await runJob(name, symbol ? { symbol } : {});
+  let opts = {};
+  if (name === 'chart-post') {
+    opts = { chartId: arg2, symbol: arg3 };
+  } else if (arg2) {
+    opts = { symbol: arg2 };
+  }
+  const post = await runJob(name, opts);
   console.log(JSON.stringify(post, null, 2));
 }
 

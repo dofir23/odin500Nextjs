@@ -632,6 +632,19 @@
   flex-wrap: wrap;
 }
 
+.admin-social-chart-toolbar {
+  margin-top: 0.35rem;
+}
+
+.admin-social-chart-dd {
+  min-width: 14rem;
+  width: min(100%, 22rem);
+}
+
+.admin-social-chart-dd .app-dropdown__btn {
+  width: 100%;
+}
+
 .admin-social-symbol {
   display: inline-flex;
   align-items: center;

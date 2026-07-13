@@ -13,6 +13,7 @@ async function parseJson(res) {
 
 export function useAdminSocial() {
   const [posts, setPosts] = useState([]);
+  const [charts, setCharts] = useState([]);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState('');
@@ -22,18 +23,26 @@ export function useAdminSocial() {
     setLoading(true);
     setError('');
     try {
-      const [healthRes, postsRes] = await Promise.all([
+      const [healthRes, postsRes, chartsRes] = await Promise.all([
         fetchWithAuth('/api/social/health', { method: 'GET' }),
-        fetchWithAuth('/api/social/posts?limit=50', { method: 'GET' })
+        fetchWithAuth('/api/social/posts?limit=50', { method: 'GET' }),
+        fetchWithAuth('/api/social/charts', { method: 'GET' })
       ]);
       const healthData = await parseJson(healthRes);
       const postsData = await parseJson(postsRes);
       setHealth(healthData);
       setPosts(postsData.posts || []);
+      try {
+        const chartsData = await parseJson(chartsRes);
+        setCharts(chartsData.charts || []);
+      } catch {
+        setCharts([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load social drafts');
       setHealth(null);
       setPosts([]);
+      setCharts([]);
     } finally {
       setLoading(false);
     }
@@ -82,5 +91,15 @@ export function useAdminSocial() {
     void load();
   }, [load]);
 
-  return { posts, health, loading, generating, error, refetch: load, runJob, discardPost };
+  return {
+    posts,
+    charts,
+    health,
+    loading,
+    generating,
+    error,
+    refetch: load,
+    runJob,
+    discardPost
+  };
 }

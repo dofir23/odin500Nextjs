@@ -596,21 +596,13 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
             
 
             <nav className="app-sidebar__nav" aria-label="Statistics">
-              <button
-                type="button"
-                className={'app-sidebar__row app-sidebar__row--btn app-sidebar__row--stats' + (isStatsRoute ? ' app-sidebar__row--active' : '')}
-                aria-expanded={statsOpen}
-                aria-controls="app-sidebar-stats-options"
-                onClick={() => {
-                  setStatsOpen((wasOpen) => {
-                    const nextOpen = !wasOpen;
-                    if (nextOpen) {
-                      navigate(annualTo);
-                      closeMobileSidebar();
-                    }
-                    return nextOpen;
-                  });
-                }}
+              <div
+                className={
+                  'app-sidebar__row app-sidebar__row--indices app-sidebar__row--indices-split' +
+                  (isStatsRoute ? ' app-sidebar__row--active' : '')
+                }
+                role="group"
+                aria-label="Statistics"
                 onMouseEnter={() => {
                   warmRoute(annualTo);
                   warmRoute(quarterlyTo);
@@ -618,22 +610,44 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                   warmRoute(weeklyTo);
                   warmRoute(dailyTo);
                 }}
-                onFocus={() => {
-                  warmRoute(annualTo);
-                  warmRoute(quarterlyTo);
-                  warmRoute(monthlyTo);
-                  warmRoute(weeklyTo);
-                  warmRoute(dailyTo);
-                }}
               >
-                <span className="app-sidebar__row-icon">
-                  <IconBarChart />
-                </span>
-                <span className="app-sidebar__row-label">Statistics</span>
-                <span className={'app-sidebar__indices-chevron' + (statsOpen ? ' app-sidebar__indices-chevron--open' : '')} aria-hidden>
-                  <IconChevronRight />
-                </span>
-              </button>
+                <NavLink
+                  to={annualTo}
+                  className="app-sidebar__indices-main"
+                  onClick={() => {
+                    setStatsOpen(true);
+                    closeMobileSidebar();
+                  }}
+                  onFocus={() => {
+                    warmRoute(annualTo);
+                    warmRoute(quarterlyTo);
+                    warmRoute(monthlyTo);
+                    warmRoute(weeklyTo);
+                    warmRoute(dailyTo);
+                  }}
+                  title="Open Statistics (annual returns)"
+                >
+                  <span className="app-sidebar__row-icon">
+                    <IconBarChart />
+                  </span>
+                  <span className="app-sidebar__row-label">Statistics</span>
+                </NavLink>
+                <button
+                  type="button"
+                  className="app-sidebar__indices-chevron-btn"
+                  aria-expanded={statsOpen}
+                  aria-controls="app-sidebar-stats-options"
+                  aria-label={statsOpen ? 'Collapse statistics submenu' : 'Expand statistics submenu'}
+                  onClick={() => setStatsOpen((v) => !v)}
+                >
+                  <span
+                    className={'app-sidebar__indices-chevron' + (statsOpen ? ' app-sidebar__indices-chevron--open' : '')}
+                    aria-hidden
+                  >
+                    <IconChevronRight />
+                  </span>
+                </button>
+              </div>
               {statsOpen ? (
                 <div id="app-sidebar-stats-options" className="app-sidebar__subnav" role="group" aria-label="Statistics options">
                   <NavRow to={annualTo} icon={IconBarChart} label="Annual" active={annualPageActive} />

@@ -1,13 +1,13 @@
 import { toNextMetadata } from '@/seo/metadata';
+import { PageServerShell } from '@/seo/PageServerShell';
+import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
+import { fetchOdinSignalsPageData } from '@/ssr/fetchPageData';
+import OdinSignalsPage from '@/views/OdinSignalsPage.jsx';
 
 export const metadata = toNextMetadata('/odin-signals');
 export const revalidate = 300;
 
-import { PageServerShell } from '@/seo/PageServerShell';
-import { fetchOdinSignalsPageData } from '@/ssr/fetchPageData';
-import OdinSignalsPage from '@/views/OdinSignalsPage.jsx';
-
-export default async function Page() {
+async function RouteContent() {
   let seoData: unknown = null;
   try {
     seoData = await fetchOdinSignalsPageData();
@@ -20,5 +20,13 @@ export default async function Page() {
     <PageServerShell pathname={pathname} seoData={seoData}>
       <OdinSignalsPage initialData={seoData as never} />
     </PageServerShell>
+  );
+}
+
+export default function Page() {
+  return (
+    <DeferredRoutePage pathname="/odin-signals">
+      <RouteContent />
+    </DeferredRoutePage>
   );
 }

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AdminGate } from '../../components/admin/AdminGate.jsx';
 import { AdminShell } from '../../components/admin/AdminShell.jsx';
 import { AdminTableSkeleton } from '../../components/admin/AdminSkeletons.jsx';
+import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
 import { useAdminSocial } from '../../hooks/useAdminSocial.js';
 import {
   buildLinkedInShareUrl,
@@ -23,12 +24,32 @@ export default function AdminSocialPage() {
 }
 
 function AdminSocialContent() {
-  const { posts, health, loading, generating, error, refetch, runJob, discardPost } = useAdminSocial();
+  const { posts, charts, health, loading, generating, error, refetch, runJob, discardPost } =
+    useAdminSocial();
   const [symbol, setSymbol] = useState('AAPL');
+  const [chartId, setChartId] = useState('ticker-ohlc');
   const [copied, setCopied] = useState('');
   const [discarding, setDiscarding] = useState('');
   const [shareHint, setShareHint] = useState('');
   const [xGuide, setXGuide] = useState(null);
+
+  const selectedChart = charts.find((c) => c.id === chartId) || charts[0];
+  const chartNeedsSymbol = Boolean(selectedChart?.requiresSymbol);
+  const chartOptions = useMemo(
+    () =>
+      charts.map((c) => ({
+        id: c.id,
+        label: c.group ? `${c.group}: ${c.label}` : c.label
+      })),
+    [charts]
+  );
+
+  useEffect(() => {
+    if (!charts.length) return;
+    if (!charts.some((c) => c.id === chartId)) {
+      setChartId(charts[0].id);
+    }
+  }, [charts, chartId]);
 
   const copyText = async (text, key) => {
     try {
@@ -142,7 +163,7 @@ function AdminSocialContent() {
           >
             {generating === 'ticker-spotlight' ? 'Generating…' : 'Generate Ticker spotlight'}
           </button>
-          <label className="admin-social-symbol" title="Symbol for ticker spotlight only">
+          <label className="admin-social-symbol" title="Symbol for ticker spotlight and chart posts">
             <span className="admin-social-symbol__label">Symbol</span>
             <input
               className="admin-input admin-social-symbol__input"
@@ -161,6 +182,53 @@ function AdminSocialContent() {
         >
           {generating === 'weekly-newsletter' ? 'Generating…' : 'Generate Weekly newsletter'}
         </button>
+      </div>
+
+      <div className="admin-toolbar admin-social-chart-toolbar">
+        <div className="admin-social-job-group">
+          <div className="admin-social-symbol" title="Chart to snapshot for a social draft">
+            <span className="admin-social-symbol__label">Chart</span>
+            <ThemedDropdown
+              className="admin-social-chart-dd"
+              value={selectedChart?.id || chartId}
+              options={chartOptions}
+              onChange={setChartId}
+              title="Chart for social draft"
+              ariaLabelPrefix="Chart"
+              labelFallback="No charts loaded"
+              wideLabel
+              menuMaxHeight="320px"
+              disabled={!charts.length || Boolean(generating)}
+            />
+          </div>
+          {chartNeedsSymbol ? (
+            <label className="admin-social-symbol" title="Required for this chart">
+              <span className="admin-social-symbol__label">Symbol</span>
+              <input
+                className="admin-input admin-social-symbol__input"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                placeholder="AAPL"
+                maxLength={12}
+              />
+            </label>
+          ) : null}
+          <button
+            type="button"
+            className="paper-btn paper-btn--primary"
+            disabled={Boolean(generating) || !selectedChart}
+            onClick={() =>
+              runJob('chart-post', {
+                chartId: selectedChart.id,
+                ...(selectedChart.requiresSymbol
+                  ? { symbol: symbol.trim().toUpperCase() }
+                  : {})
+              })
+            }
+          >
+            {generating === 'chart-post' ? 'Generating…' : 'Generate post'}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -239,9 +307,14 @@ function SocialPostCard({ post, copied, discarding, onCopy, onDiscard, onShareHi
     <article className="admin-card admin-social-card">
       <div className="admin-card__head">
         <div>
-          <h2 className="admin-card__title">{post.campaign || post.pillar}</h2>
+          <h2 className="admin-card__title">
+            {post.meta?.chartLabel || post.data?.chartLabel || post.campaign || post.pillar}
+          </h2>
           <p className="admin-social-card__meta">
             <span className="admin-badge">{post.status}</span>
+            {post.meta?.chartId || post.data?.chartId ? (
+              <span className="admin-badge">{post.meta?.chartId || post.data?.chartId}</span>
+            ) : null}
             {post.meta?.copySource ? (
               <span className="admin-badge admin-badge--ai">
                 Copy: {post.meta.copySource}

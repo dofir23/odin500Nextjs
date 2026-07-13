@@ -67,8 +67,8 @@ async function runDailyPulse() {
     links: { default: link, twitter: link, linkedin: link },
     snapshot: {
       pagePath: '/market',
-      selector: 'main.mkt-center',
-      fallbackSelector: '.mkt-fig-shell'
+      selector: '.mkt-center > .np-card',
+      fallbackSelector: '.np-card'
     },
     chartFallback: {
       chart: {

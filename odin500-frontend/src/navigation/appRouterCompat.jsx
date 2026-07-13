@@ -7,15 +7,19 @@ import {
   useSearchParams as useNextSearchParams,
   useParams as useNextParams
 } from 'next/navigation';
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, startTransition, useCallback } from 'react';
+import { resetRouteNavigationAbort } from './routeNavigationAbort.js';
 
 export function useNavigate() {
   const router = useRouter();
   return (to, options = {}) => {
     const target = typeof to === 'string' ? to : to?.pathname || '/';
     const navOpts = options.scroll === false ? { scroll: false } : undefined;
-    if (options.replace) router.replace(target, navOpts);
-    else router.push(target, navOpts);
+    resetRouteNavigationAbort({ force: true });
+    startTransition(() => {
+      if (options.replace) router.replace(target, navOpts);
+      else router.push(target, navOpts);
+    });
   };
 }
 
@@ -59,8 +63,11 @@ export function useSearchParams() {
       }
       const qs = params.toString();
       const url = qs ? `${pathname}?${qs}` : pathname;
-      if (options.replace) router.replace(url);
-      else router.push(url);
+      resetRouteNavigationAbort({ force: true });
+      startTransition(() => {
+        if (options.replace) router.replace(url);
+        else router.push(url);
+      });
     },
     [router, pathname, searchParams]
   );
@@ -68,23 +75,88 @@ export function useSearchParams() {
   return [searchParams, setSearchParams];
 }
 
-export const Link = forwardRef(function Link({ to, href, children, prefetch = true, ...rest }, ref) {
+function shouldHandleSoftNav(event) {
+  if (event.defaultPrevented) return false;
+  if (event.button !== 0) return false;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  return true;
+}
+
+function navigateSoft(router, dest, replace = false) {
+  resetRouteNavigationAbort({ force: true });
+  startTransition(() => {
+    if (replace) router.replace(dest);
+    else router.push(dest);
+  });
+}
+
+export const Link = forwardRef(function Link(
+  { to, href, children, prefetch = true, onClick, replace = false, ...rest },
+  ref
+) {
+  const router = useRouter();
+  const pathname = usePathname() || '/';
   const dest = href ?? to ?? '/';
+
   return (
-    <NextLink href={dest} prefetch={prefetch} ref={ref} {...rest}>
+    <NextLink
+      href={dest}
+      prefetch={prefetch}
+      ref={ref}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!shouldHandleSoftNav(event)) return;
+        let nextPath = dest;
+        let nextSearch = '';
+        try {
+          const url = new URL(String(dest), window.location.origin);
+          if (url.origin !== window.location.origin) return;
+          nextPath = url.pathname;
+          nextSearch = url.search;
+        } catch {
+          return;
+        }
+        if (nextPath === pathname && nextSearch === (typeof window !== 'undefined' ? window.location.search : '')) {
+          return;
+        }
+        event.preventDefault();
+        navigateSoft(router, dest, replace);
+      }}
+      {...rest}
+    >
       {children}
     </NextLink>
   );
 });
 
-export function NavLink({ to, className, children, end, prefetch = true, ...rest }) {
+export function NavLink({ to, className, children, end, prefetch = true, onClick, replace = false, ...rest }) {
   const pathname = usePathname() || '/';
+  const router = useRouter();
   const dest = to || '/';
   const active = end ? pathname === dest : pathname === dest || pathname.startsWith(`${dest}/`);
   const resolvedClass =
     typeof className === 'function' ? className({ isActive: active }) : className;
   return (
-    <NextLink href={dest} prefetch={prefetch} className={resolvedClass} {...rest}>
+    <NextLink
+      href={dest}
+      prefetch={prefetch}
+      className={resolvedClass}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!shouldHandleSoftNav(event)) return;
+        let nextPath = dest;
+        try {
+          const url = new URL(String(dest), window.location.origin);
+          nextPath = url.pathname;
+        } catch {
+          /* keep dest */
+        }
+        if (nextPath === pathname) return;
+        event.preventDefault();
+        navigateSoft(router, dest, replace);
+      }}
+      {...rest}
+    >
       {typeof children === 'function' ? children({ isActive: active }) : children}
     </NextLink>
   );

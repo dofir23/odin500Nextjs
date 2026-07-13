@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { fetchJsonCached, canFetchMarketData } from '../store/apiStore.js';
+import { isAbortError } from '../navigation/routeNavigationAbort.js';
 import { fmtNumber } from '../utils/formatDisplayNumber.js';
 
 const DAY_OPTIONS = [
@@ -88,6 +89,7 @@ export default function StockSplitsPage({ initialData = null }) {
       setSplits(list);
       setSyncStatus(statusRes?.data || null);
     } catch (e) {
+      if (isAbortError(e)) return;
       setError(e?.message || 'Failed to load splits');
       setSplits([]);
     } finally {

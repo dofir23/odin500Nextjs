@@ -202,11 +202,33 @@ html[data-social-capture='1'] .app-watchlist-dock-backdrop,
 html[data-social-capture='1'] .product-tour-overlay,
 html[data-social-capture='1'] .login-gate-backdrop,
 html[data-social-capture='1'] .cookie-banner,
-html[data-social-capture='1'] .engagement-toast-stack {
+html[data-social-capture='1'] .engagement-toast-stack,
+html[data-social-capture='1'] .app-sidebar,
+html[data-social-capture='1'] .ssr-app-chrome,
+html[data-social-capture='1'] .seo-site-footer,
+html[data-social-capture='1'] footer.seo-footer {
   display: none !important;
 }
 
 html[data-social-capture='1'] .ticker-page__header-actions,
-html[data-social-capture='1'] .ticker-outline-btn {
+html[data-social-capture='1'] .ticker-outline-btn,
+html[data-social-capture='1'] .chart-section-icon-btn,
+html[data-social-capture='1'] .ticker-chart-toolbar,
+html[data-social-capture='1'] .ticker-chart-resize-handle,
+html[data-social-capture='1'] .stats-cmp-chart__section-icons,
+html[data-social-capture='1'] .stats-cmp-chart__returns-toolbar,
+html[data-social-capture='1'] .market-movers-page__bar-panel-actions,
+html[data-social-capture='1'] .market-movers-page__bar-interact-hint,
+html[data-social-capture='1'] .heatmap-main__tools,
+html[data-social-capture='1'] .ticker-annual-figma__toolbar,
+html[data-social-capture='1'] .relative-strength-page__cmp-resize-scope .ticker-chart-resize-handle,
+html[data-social-capture='1'] .np-card__iconbtn,
+html[data-social-capture='1'] .np-card__chip-x {
   visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Market dashboard: keep Performance chart visible; hide bottom tiles during capture */
+html[data-social-capture='1'] .mkt-center-bottom {
+  display: none !important;
 }

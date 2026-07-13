@@ -26,9 +26,9 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/market`
   },
   '/odin-signals': {
-    title: 'Stock Trading Signals Screener – Bullish & Bearish Stock Picks',
+    title: 'Stock Trading Signals Screener – Bullish & Bearish',
     description:
-      'Screen U.S. stocks with live trading signals, bullish and bearish setups, treemap view, and filters by index, sector, and performance.',
+      'Screen U.S. stocks by Odin bullish (L1–L3) and bearish (S1–S3) signals, then filter by index and sector.',
     canonical: `${SITE_ORIGIN}/odin-signals`
   },
   '/news': {
@@ -38,15 +38,15 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/news`
   },
   '/heatmap': {
-    title: 'Stock Market Heatmap – Sector & Industry Performance Today',
+    title: 'Stock Market Heatmap – Sector Performance Today',
     description:
-      'Interactive stock heatmap showing sector and industry performance, price change, market cap, and top movers in the U.S. equity market.',
+      'See U.S. sector and industry performance in one heatmap: price change, market cap sizing, and today’s movers.',
     canonical: `${SITE_ORIGIN}/heatmap`
   },
   '/market-movers': {
-    title: 'Top Stock Gainers and Losers Today – Market Movers',
+    title: 'Top Stock Gainers and Losers Today',
     description:
-      'Today’s biggest stock gainers and losers with sortable tables, performance charts, and volume data for U.S. equities by index.',
+      'Rank today’s biggest U.S. stock gainers and losers by index, with returns and volume context.',
     canonical: `${SITE_ORIGIN}/market-movers`
   },
   '/statistic-data': {
@@ -56,15 +56,15 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/statistic-data`
   },
   '/return-table': {
-    title: 'Stock & Index Returns Table – S&P 500, Sector & ETF Performance',
+    title: 'Stock & Index Returns Table – 1D to Multi-Year',
     description:
-      'Compare stock, index, and sector ETF returns across 1 day to multi-year horizons with sortable performance tables for U.S. markets.',
+      'Compare S&P 500, sector ETFs, and key tickers across horizons from 1 day to multi-year.',
     canonical: `${SITE_ORIGIN}/return-table`
   },
   '/stock-splits': {
-    title: 'Stock Split Calendar – Upcoming & Historical Split History',
+    title: 'Stock Split Calendar – Upcoming & Historical',
     description:
-      'Stock split calendar with upcoming and historical split dates, ratios, and affected tickers for U.S. equities.',
+      'Track upcoming and historical U.S. stock splits with dates, ratios, and tickers.',
     canonical: `${SITE_ORIGIN}/stock-splits`
   },
   '/about': {
@@ -86,9 +86,9 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/premium`
   },
   '/newsletter': {
-    title: 'Odin500 Weekly Newsletter – U.S. Market Recap & Signal Highlights',
+    title: 'Weekly Stock Market Newsletter – U.S. Recap',
     description:
-      'Weekly U.S. stock market newsletter with index performance, sector rotation, Odin signal spotlights, and ticker report highlights from Odin500 data.',
+      'Sunday recaps of index moves, sector rotation, and Odin signal highlights from Odin500 data.',
     canonical: `${SITE_ORIGIN}/newsletter`
   },
   '/methodology': {
@@ -194,7 +194,7 @@ const STAT_KIND_SEARCH: Record<
   'ticker-annual': {
     title: 'Annual Stock Returns',
     description: (sym) =>
-      `${sym} annual stock returns with year-by-year performance, historical return tables, and OHLC-based statistics for long-term analysis.`
+      `View ${sym} year-by-year total returns and OHLC-based annual performance statistics.`
   },
   'ticker-quarterly': {
     title: 'Quarterly Stock Returns',
@@ -237,8 +237,8 @@ export function resolveDynamicRouteMetadata(pathname: string) {
   if (historicalDataMatch) {
     const symbol = decodeURIComponent(historicalDataMatch[1]).toUpperCase();
     return {
-      title: `${symbol} Historical Stock Prices – OHLC Data Download & CSV`,
-      description: `Download ${symbol} historical stock prices with daily OHLC open, high, low, close, and volume. Export CSV, view charts, and analyze long-term price history.`,
+      title: `${symbol} Historical Stock Prices – OHLC & CSV Download`,
+      description: `Download ${symbol} daily OHLC history, export CSV, and review long-term price data.`,
       canonical: `${SITE_ORIGIN}/historical-data/${encodeURIComponent(symbol.toLowerCase())}`
     };
   }
@@ -247,8 +247,8 @@ export function resolveDynamicRouteMetadata(pathname: string) {
   if (tickerReportMatch) {
     const symbol = decodeURIComponent(tickerReportMatch[1]).toUpperCase();
     return {
-      title: `${symbol} Stock Analysis Report – Monthly Returns, Drawdown & Strength`,
-      description: `${symbol} stock analysis report with monthly returns, drawdown, relative strength vs the market, seasonality, and key performance statistics.`,
+      title: `${symbol} Monthly Stock Report – Returns & Drawdown`,
+      description: `Monthly ${symbol} research: returns, drawdown, relative strength, seasonality, and key stats.`,
       canonical: `${SITE_ORIGIN}/ticker-report/${encodeURIComponent(symbol.toLowerCase())}`
     };
   }
@@ -292,6 +292,13 @@ export function resolveDynamicRouteMetadata(pathname: string) {
     const symbol = decodeURIComponent(statMatch[2]).toUpperCase();
     const spec = STAT_KIND_SEARCH[kind];
     const horizon = spec?.title || 'Stock Returns';
+    if (kind === 'ticker-annual') {
+      return {
+        title: `${symbol} Annual Stock Returns – Year-by-Year`,
+        description: `View ${symbol} year-by-year total returns and OHLC-based annual performance statistics.`,
+        canonical: `${SITE_ORIGIN}/statistic/${kind}/${encodeURIComponent(symbol.toLowerCase())}`
+      };
+    }
     return {
       title: `${symbol} ${horizon} – Historical Performance Data`,
       description: spec
@@ -305,8 +312,8 @@ export function resolveDynamicRouteMetadata(pathname: string) {
   if (relMatch) {
     const symbol = decodeURIComponent(relMatch[1]).toUpperCase();
     return {
-      title: `${symbol} vs S&P 500 – Relative Strength & Performance Comparison`,
-      description: `Compare ${symbol} stock performance vs S&P 500, Nasdaq, and sector indices with relative strength charts, excess returns, and historical comparison tables.`,
+      title: `${symbol} vs S&P 500 – Relative Strength`,
+      description: `Compare ${symbol} cumulative performance vs the S&P 500 and see when it led or lagged the market.`,
       canonical: `${SITE_ORIGIN}/relative-performance/ticker/${encodeURIComponent(symbol.toLowerCase())}`
     };
   }

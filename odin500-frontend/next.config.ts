@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['lucide-react'],
   outputFileTracingRoot: path.join(__dirname),
+  /**
+   * Force metadata into the initial `<head>` for all user agents (not only known bots).
+   * Next.js 15.2+ otherwise streams late `generateMetadata` into `<body>`, which SEO
+   * auditors that only parse the first HTML chunk report as “missing title”.
+   * Catalog metadata is sync/fast after our routeMetadataHelpers change, so the TTFB
+   * cost of blocking is small.
+   */
+  htmlLimitedBots: /.*/,
   experimental: {
     staleTimes: {
       dynamic: 30,

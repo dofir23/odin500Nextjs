@@ -115,49 +115,115 @@ function ReturnsValsTable({ vals }: { vals: Record<string, Record<string, number
 function TickerDetailsTable({ rows, caption }: { rows: unknown[]; caption: string }) {
   const list = asRows(rows);
   if (!list.length) return null;
+  // Match /api/market/ticker-details + movers payloads (security, totalReturnPercentage, price).
   const columns = [
     { key: 'symbol', label: 'Symbol' },
     { key: 'name', label: 'Name' },
     { key: 'sector', label: 'Sector' },
     { key: 'signal', label: 'Signal' },
     { key: 'return_pct', label: 'Return %' },
-    { key: 'market_cap', label: 'Market cap' }
+    { key: 'price', label: 'Last price' }
   ];
   const normalized = list.map((r) => ({
     symbol: r.symbol ?? r.ticker ?? r.Symbol,
-    name: r.name ?? r.company_name ?? r.companyName,
+    name: r.name ?? r.security ?? r.company_name ?? r.companyName,
     sector: r.sector ?? r.industry,
     signal: r.signal ?? r.odin_signal ?? r.odinsignal ?? r.signal_bucket,
-    return_pct: r.return_pct ?? r.returnPct ?? r.change_pct ?? r.changePercent,
-    market_cap: r.market_cap ?? r.marketCap
+    return_pct:
+      r.totalReturnPercentage ??
+      r.dayReturnPct ??
+      r.return_pct ??
+      r.returnPct ??
+      r.change_pct ??
+      r.changePercent,
+    price: r.price ?? r.lastPrice ?? r.last_price ?? r.market_cap ?? r.marketCap
   }));
   return <SimpleTable caption={caption} columns={columns} rows={normalized} />;
+}
+
+function ohlcDateFromRow(r: Record<string, unknown>) {
+  const raw = r.iso ?? r.Date ?? r.date ?? r.TradeDate ?? r.trade_date ?? r.time;
+  if (raw == null || raw === '') {
+    const t = Number(r.t);
+    if (Number.isFinite(t) && t > 0) {
+      try {
+        return new Date(t).toISOString().slice(0, 10);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    return String((raw as { value: unknown }).value ?? '').slice(0, 10) || null;
+  }
+  const s = String(raw).slice(0, 10);
+  return s || null;
+}
+
+function ohlcVolumeFromRow(r: Record<string, unknown>) {
+  const raw = r.Volume ?? r.volume ?? r.VOLUME ?? r.v;
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    const n = Number((raw as { value: unknown }).value);
+    return Number.isFinite(n) ? n : null;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function isCloseOnlySeries(list: Record<string, unknown>[]) {
+  const sample = list[0];
+  if (!sample) return false;
+  const hasOhlc =
+    sample.Open != null ||
+    sample.open != null ||
+    sample.High != null ||
+    sample.high != null ||
+    sample.Low != null ||
+    sample.low != null;
+  return !hasOhlc && (sample.close != null || sample.Close != null);
 }
 
 function OhlcTable({ rows, caption }: { rows: unknown[]; caption: string }) {
   const list = asRows(rows);
   if (!list.length) return null;
+  const closeOnly = isCloseOnlySeries(list);
   return (
     <>
       <SvgSparkline rows={list} caption={`${caption} — price trend`} />
       <SimpleTable
         caption={caption}
-        columns={[
-          { key: 'date', label: 'Date' },
-          { key: 'open', label: 'Open' },
-          { key: 'high', label: 'High' },
-          { key: 'low', label: 'Low' },
-          { key: 'close', label: 'Close' },
-          { key: 'volume', label: 'Volume' }
-        ]}
-        rows={list.map((r) => ({
-          date: r.date ?? r.trade_date ?? r.time,
-          open: r.open ?? r.o ?? r.Open,
-          high: r.high ?? r.h ?? r.High,
-          low: r.low ?? r.l ?? r.Low,
-          close: r.close ?? r.c ?? r.Close ?? r.adj_close,
-          volume: r.volume ?? r.v ?? r.Volume
-        }))}
+        columns={
+          closeOnly
+            ? [
+                { key: 'date', label: 'Date' },
+                { key: 'close', label: 'Close' }
+              ]
+            : [
+                { key: 'date', label: 'Date' },
+                { key: 'open', label: 'Open' },
+                { key: 'high', label: 'High' },
+                { key: 'low', label: 'Low' },
+                { key: 'close', label: 'Close' },
+                { key: 'volume', label: 'Volume' }
+              ]
+        }
+        rows={list.map((r) =>
+          closeOnly
+            ? {
+                date: ohlcDateFromRow(r),
+                close: r.close ?? r.Close ?? r.c ?? r.adj_close ?? r.AdjClose
+              }
+            : {
+                date: ohlcDateFromRow(r),
+                open: r.open ?? r.o ?? r.Open,
+                high: r.high ?? r.h ?? r.High,
+                low: r.low ?? r.l ?? r.Low,
+                close: r.close ?? r.c ?? r.Close ?? r.adj_close ?? r.AdjClose,
+                volume: ohlcVolumeFromRow(r)
+              }
+        )}
       />
     </>
   );

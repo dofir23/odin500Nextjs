@@ -4,6 +4,7 @@ const { config, ensureDirs } = require('./src/config');
 const { log } = require('./src/utils/log');
 const { startScheduler } = require('./src/scheduler');
 const { runJob, JOBS } = require('./src/jobs');
+const { listCharts, chartCount } = require('./src/charts/chartCatalog');
 const { listPosts, getPost, deletePost } = require('./src/queue/store');
 
 ensureDirs();
@@ -27,8 +28,13 @@ app.get('/health', (req, res) => {
       enabled: config.snapshotEnabled,
       puppeteerPath: config.puppeteerExecutablePath || 'bundled'
     },
-    jobs: Object.keys(JOBS)
+    jobs: Object.keys(JOBS),
+    charts: chartCount()
   });
+});
+
+app.get('/charts', (req, res) => {
+  res.json({ charts: listCharts() });
 });
 
 function requireSecret(req, res, next) {

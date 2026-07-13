@@ -1,17 +1,18 @@
 /**
- * Route-scoped fetch cancellation via navigation epoch (not AbortController.abort).
- * Aborting in-flight fetches caused Next.js dev "Runtime AbortError" overlays; epoch bumps
- * let loaders/effects re-run and ignore stale responses via isRouteNavigationStale().
+ * Route-scoped fetch cancellation: bump epoch + abort an AbortController on navigation
+ * so in-flight fetch()/fetchJsonCached calls stop. Epoch checks remain as defense in depth.
+ *
+ * AbortErrors with message "Route navigation changed" are filtered from Next.js
+ * unhandledrejection overlays via installRouteNavigationAbortErrorFilter().
  */
 
 let routeNavigationEpoch = 0;
+/** @type {AbortController} */
+let routeNavController = new AbortController();
 /** Last location key we already reset for (skips duplicate popstate + route-gate resets). */
 let lastAbortLocationKey = null;
 /** >0 while coalescing multiple reset calls in the same synchronous turn. */
 let resetsThisSync = 0;
-
-/** Inert signal kept for API compatibility — route navigation never aborts this. */
-const ROUTE_NAV_SIGNAL = new AbortController().signal;
 
 function scheduleSyncCoalesceRelease() {
   if (typeof queueMicrotask === 'function') {
@@ -42,12 +43,23 @@ function currentLocationKey() {
   return search ? `${pathname}${search}` : pathname;
 }
 
+function abortPreviousRouteController() {
+  const prev = routeNavController;
+  routeNavController = new AbortController();
+  try {
+    prev.abort(new DOMException('Route navigation changed', 'AbortError'));
+  } catch {
+    /* ignore */
+  }
+}
+
 function performRouteNavigationReset() {
   routeNavigationEpoch += 1;
+  abortPreviousRouteController();
 }
 
 /**
- * Mark in-flight route work as stale and trigger loaders that depend on navEpoch.
+ * Abort in-flight route fetches and bump epoch so loaders re-run / ignore stale work.
  * @param {{ force?: boolean, locationKey?: string | null }} [opts]
  */
 export function resetRouteNavigationAbort(opts = {}) {
@@ -63,6 +75,7 @@ export function resetRouteNavigationAbort(opts = {}) {
 
   if (resetsThisSync > 0) {
     routeNavigationEpoch += 1;
+    abortPreviousRouteController();
     return;
   }
 
@@ -71,9 +84,9 @@ export function resetRouteNavigationAbort(opts = {}) {
   performRouteNavigationReset();
 }
 
-/** @deprecated Route navigation no longer aborts; returns an inert signal. */
+/** Live AbortSignal aborted on each in-app route change. */
 export function getRouteNavigationAbortSignal() {
-  return ROUTE_NAV_SIGNAL;
+  return routeNavController.signal;
 }
 
 export function getRouteNavigationEpoch() {
@@ -86,7 +99,7 @@ export function isAbortError(err) {
   return err instanceof DOMException && err.name === 'AbortError';
 }
 
-/** AbortError from intentional route navigation (legacy or caller). */
+/** AbortError from intentional route navigation (or composed signals). */
 export function isRouteNavigationAbortError(err) {
   if (!isAbortError(err)) return false;
   const msg = String(err?.message || '');
@@ -107,7 +120,7 @@ export function isRouteNavigationStale(cancelled, epochAtStart) {
 }
 
 /**
- * @param {AbortSignal | null | undefined} extra
+ * @param {...(AbortSignal | null | undefined)} extras
  * @returns {AbortSignal | undefined}
  */
 export function composeAbortSignals(...extras) {
@@ -118,7 +131,7 @@ export function composeAbortSignals(...extras) {
   const controller = new AbortController();
   const onAbort = (event) => {
     if (controller.signal.aborted) return;
-    const source = event?.target;
+    const source = /** @type {AbortSignal | undefined} */ (event?.target);
     const reason =
       source?.reason !== undefined
         ? source.reason
@@ -178,7 +191,7 @@ function isInternalAppHref(href) {
 }
 
 /**
- * Reset route epoch as soon as the user clicks an in-app link (capture phase).
+ * Abort previous route work as soon as the user clicks an in-app link (capture phase).
  * @returns {() => void} cleanup
  */
 export function installInternalLinkNavigationAbort() {
@@ -222,7 +235,7 @@ function historyUrlChanged(nextUrl) {
   }
 }
 
-/** Reset route epoch when history changes without a link click. */
+/** Abort when history changes without a link click. */
 export function installHistoryNavigationAbort() {
   if (typeof window === 'undefined') return () => {};
 

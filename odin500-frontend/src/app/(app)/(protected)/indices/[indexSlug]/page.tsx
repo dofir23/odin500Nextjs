@@ -1,5 +1,6 @@
 import { PageServerShell } from '@/seo/PageServerShell';
 import { generateIndexPageMetadata } from '@/seo/routeMetadataHelpers';
+import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
 import { fetchIndexPageData } from '@/ssr/fetchPageData';
 import IndexPage from '@/views/IndexPage.jsx';
 
@@ -10,8 +11,13 @@ export async function generateMetadata({ params }: { params: Promise<{ indexSlug
 
 export const revalidate = 300;
 
-export default async function Page({ params }: { params: Promise<{ indexSlug: string }> }) {
-  const { indexSlug } = await params;
+async function IndexRouteContent({
+  indexSlug,
+  pathname
+}: {
+  indexSlug: string;
+  pathname: string;
+}) {
   let seoData: unknown = null;
   try {
     seoData = await fetchIndexPageData(indexSlug, false);
@@ -19,10 +25,19 @@ export default async function Page({ params }: { params: Promise<{ indexSlug: st
     /* SSR prefetch is best-effort */
   }
 
-  const pathname = `/indices/${indexSlug}`;
   return (
     <PageServerShell pathname={pathname} seoData={seoData}>
       <IndexPage initialData={seoData as never} />
     </PageServerShell>
+  );
+}
+
+export default async function Page({ params }: { params: Promise<{ indexSlug: string }> }) {
+  const { indexSlug } = await params;
+  const pathname = `/indices/${indexSlug}`;
+  return (
+    <DeferredRoutePage pathname={pathname}>
+      <IndexRouteContent indexSlug={indexSlug} pathname={pathname} />
+    </DeferredRoutePage>
   );
 }

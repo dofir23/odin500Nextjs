@@ -10,7 +10,8 @@
     "postinstall": "node scripts/install-chrome.js",
     "job:daily": "node scripts/run-job.js daily-pulse",
     "job:ticker": "node scripts/run-job.js ticker-spotlight",
-    "job:newsletter": "node scripts/run-job.js weekly-newsletter"
+    "job:newsletter": "node scripts/run-job.js weekly-newsletter",
+    "job:chart": "node scripts/run-job.js chart-post"
   },
   "engines": {
     "node": ">=20"

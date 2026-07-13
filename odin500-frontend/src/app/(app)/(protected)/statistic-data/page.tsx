@@ -1,13 +1,13 @@
 import { toNextMetadata } from '@/seo/metadata';
+import { PageServerShell } from '@/seo/PageServerShell';
+import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
+import { fetchStatisticDataPageData } from '@/ssr/fetchPageData';
+import StatisticDataPage from '@/views/StatisticDataPage.jsx';
 
 export const metadata = toNextMetadata('/statistic-data');
 export const revalidate = 300;
 
-import { PageServerShell } from '@/seo/PageServerShell';
-import { fetchStatisticDataPageData } from '@/ssr/fetchPageData';
-import StatisticDataPage from '@/views/StatisticDataPage.jsx';
-
-export default async function Page() {
+async function RouteContent() {
   let seoData: unknown = null;
   try {
     seoData = await fetchStatisticDataPageData('AAPL');
@@ -20,5 +20,13 @@ export default async function Page() {
     <PageServerShell pathname={pathname} seoData={seoData}>
       <StatisticDataPage initialData={seoData as never} />
     </PageServerShell>
+  );
+}
+
+export default function Page() {
+  return (
+    <DeferredRoutePage pathname="/statistic-data">
+      <RouteContent />
+    </DeferredRoutePage>
   );
 }
