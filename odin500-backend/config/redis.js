@@ -28,6 +28,7 @@ function createNativeRedisAdapter(redisUrl) {
   });
 
   return {
+    mode: 'tcp',
     ping: () => client.ping(),
     disconnect: () => {
       try {
@@ -65,6 +66,13 @@ function createUpstashAdapter() {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   const up = new UpstashRedis({ url, token });
   return {
+    mode: 'upstash-rest',
+    async ping() {
+      const key = '__odin500_redis_ping__';
+      await up.set(key, '1', { ex: 30 });
+      const v = await up.get(key);
+      return v != null ? 'PONG' : 'FAIL';
+    },
     get: (key) => up.get(key),
     set: (key, value, opts) => up.set(key, value, opts),
     incr: (key) => up.incr(key)
@@ -102,7 +110,19 @@ function getResolvedClient() {
   } else if (url && upstashOk) {
     clientPromise = connectNativeOrFallbackUpstash(url);
   } else if (url) {
-    clientPromise = Promise.resolve(createNativeRedisAdapter(url));
+    clientPromise = (async () => {
+      const native = createNativeRedisAdapter(url);
+      const timeoutMs = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 5000);
+      try {
+        await withTimeout(native.ping(), timeoutMs, 'redis ping');
+        console.log('[redis] using TCP (REDIS_URL)');
+        return native;
+      } catch (err) {
+        console.warn('[redis] REDIS_URL configured but ping failed:', err.message);
+        native.disconnect();
+        return null;
+      }
+    })();
   } else {
     clientPromise = Promise.resolve(createUpstashAdapter());
   }
@@ -126,9 +146,15 @@ const redisFacade = {
     const c = await getResolvedClient();
     if (!c) return;
     return c.incr(key);
+  },
+  async ping() {
+    const c = await getResolvedClient();
+    if (!c || typeof c.ping !== 'function') return null;
+    return c.ping();
   }
 };
 
 const hasRedisUrl = !!process.env.REDIS_URL;
 const hasUpstash = hasUpstashEnv();
+/** null when unset — callers treat falsy as “cache disabled”. */
 module.exports = !hasRedisUrl && !hasUpstash ? null : redisFacade;

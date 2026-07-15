@@ -79,15 +79,15 @@ function ohlcRangeOffsetCap() {
     if (!Number.isFinite(r) || r < 0) return 500000;
     return Math.min(Math.floor(r), 2000000);
 }
-const OHLC_CACHE_TTL_SECS = Number(process.env.OHLC_CACHE_TTL_SECS || 120);
-const OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS = Number(process.env.OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS || 3600);
+const OHLC_CACHE_TTL_SECS = Number(process.env.OHLC_CACHE_TTL_SECS || 43200);
+const OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS = Number(process.env.OHLC_SIGNALS_INDICATOR_CACHE_TTL_SECS || 43200);
 
 /** @type {Map<string, Promise<object>>} */
 const ohlcSignalsInflightByKey = new Map();
-const TICKER_DETAILS_CACHE_TTL_SECS = Number(process.env.TICKER_DETAILS_CACHE_TTL_SECS || 300);
+const TICKER_DETAILS_CACHE_TTL_SECS = Number(process.env.TICKER_DETAILS_CACHE_TTL_SECS || 3600);
 /** Redis TTL for POST /api/market/ticker-returns (seconds). Override via TICKER_RETURNS_CACHE_TTL_SECS. */
-const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 3600);
-const MARKET_RAIL_SNAPSHOT_CACHE_TTL_SECS = Number(process.env.MARKET_RAIL_SNAPSHOT_CACHE_TTL_SECS || 120);
+const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 43200);
+const MARKET_RAIL_SNAPSHOT_CACHE_TTL_SECS = Number(process.env.MARKET_RAIL_SNAPSHOT_CACHE_TTL_SECS || 43200);
 /** Max inclusive calendar span for ohlc-signals-indicator (raise via OHLC_SIGNALS_MAX_RANGE_DAYS). */
 const OHLC_SIGNALS_MAX_RANGE_DAYS = Number(process.env.OHLC_SIGNALS_MAX_RANGE_DAYS || 40000);
 const WEIGHTS_JSON_PATH = path.resolve(__dirname, '..', 'data', 'index-weights.json');
@@ -944,6 +944,13 @@ const getTickerReturns = async (req, res) => {
 
     const customRange = parseTickerReturnsCustomRange(data);
 
+    const singleTickerCacheKey = (ticker) =>
+        makeCacheKey('market:ticker-returns:v1', {
+            tickers: String(ticker).toUpperCase(),
+            customStartDate: customRange ? customRange[0] : '',
+            customEndDate: customRange ? customRange[1] : ''
+        });
+
     const cacheKey = makeCacheKey('market:ticker-returns:v1', {
         tickers: [...tickers].map((t) => String(t).toUpperCase()).sort().join(','),
         customStartDate: customRange ? customRange[0] : '',
@@ -964,51 +971,74 @@ const getTickerReturns = async (req, res) => {
             warmTickerReturnsInBackground(tickers);
         }
 
-        if (tickers.length === 1) {
-            const returns = await analyticsData.calculateAllReturns(tickers[0], true, true, customRange, 2000);
-            await setCache(cacheKey, returns, TICKER_RETURNS_CACHE_TTL_SECS);
-            res.set('X-Cache-Hit', '0');
-            res.set('X-Ticker-Returns-Source', 'live-single');
-            res.set('X-Compute-Ms', String(Date.now() - startedAt));
-            res.set('X-Cache-Key', cacheKey);
-            return res.status(200).json({ ...returns, cache_hit: false });
+        /** Prefer per-ticker Redis entries so batch + single requests share work. */
+        async function getOrComputeOne(t) {
+            const key = singleTickerCacheKey(t);
+            const hit = await getCache(key);
+            if (hit && hit.success !== false) {
+                return { ticker: t, returns: hit, fromCache: true };
+            }
+            try {
+                const returns = await analyticsData.calculateAllReturns(t, true, true, customRange, 2000);
+                if (returns && returns.success !== false) {
+                    await setCache(key, returns, TICKER_RETURNS_CACHE_TTL_SECS);
+                }
+                return { ticker: t, returns, fromCache: false };
+            } catch (err) {
+                console.error(`Error calculating ticker returns for ${t}:`, err);
+                return {
+                    ticker: t,
+                    returns: {
+                        success: false,
+                        ticker: t,
+                        error: err?.message || 'Failed to calculate returns'
+                    },
+                    fromCache: false
+                };
+            }
         }
 
-        const pairs = await Promise.all(
-            tickers.map(async (t) => {
-                try {
-                    const returns = await analyticsData.calculateAllReturns(t, true, true, customRange, 2000);
-                    return [t, returns];
-                } catch (err) {
-                    console.error(`Error calculating ticker returns for ${t}:`, err);
-                    return [
-                        t,
-                        {
-                            success: false,
-                            ticker: t,
-                            error: err?.message || 'Failed to calculate returns'
-                        }
-                    ];
-                }
-            })
-        );
-        const byTicker = Object.fromEntries(pairs);
+        if (tickers.length === 1) {
+            const { returns, fromCache } = await getOrComputeOne(tickers[0]);
+            await setCache(cacheKey, returns, TICKER_RETURNS_CACHE_TTL_SECS);
+            res.set('X-Cache-Hit', fromCache ? '1' : '0');
+            res.set('X-Ticker-Returns-Source', fromCache ? 'cache-single' : 'live-single');
+            res.set('X-Compute-Ms', String(Date.now() - startedAt));
+            res.set('X-Cache-Key', cacheKey);
+            return res.status(200).json({ ...returns, cache_hit: fromCache });
+        }
+
+        const results = await Promise.all(tickers.map((t) => getOrComputeOne(t)));
+        const byTicker = Object.fromEntries(results.map((r) => [r.ticker, r.returns]));
+        const cacheHits = results.filter((r) => r.fromCache).length;
         const payload = {
             success: true,
             batch: true,
             customStartDate: customRange ? customRange[0] : null,
             customEndDate: customRange ? customRange[1] : null,
-            byTicker
+            byTicker,
+            cache_hits: cacheHits,
+            cache_misses: tickers.length - cacheHits
         };
         await setCache(cacheKey, payload, TICKER_RETURNS_CACHE_TTL_SECS);
-        res.set('X-Cache-Hit', '0');
-        res.set('X-Ticker-Returns-Source', 'live-batch');
+        res.set('X-Cache-Hit', cacheHits === tickers.length ? '1' : '0');
+        res.set(
+            'X-Ticker-Returns-Source',
+            cacheHits === tickers.length
+                ? 'cache-batch-all'
+                : cacheHits > 0
+                  ? 'partial-cache-batch'
+                  : 'live-batch'
+        );
         res.set('X-Compute-Ms', String(Date.now() - startedAt));
         res.set('X-Cache-Key', cacheKey);
-        res.status(200).json({ ...payload, cache_hit: false });
+        return res.status(200).json({
+            ...payload,
+            cache_hit: cacheHits === tickers.length
+        });
     } catch (error) {
         console.error('Error calculating ticker returns:', error);
-        res.status(500).json({ success: false, error: 'Failed to calculate returns' });
+        return res.status(500).json({ success: false, error: 'Failed to calculate returns' });
     }
 };
 

@@ -1,7 +1,7 @@
 const analyticsData = require('../analyticsData');
 const { makeCacheKey, setCache } = require('../utils/cache');
 
-const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 3600);
+const TICKER_RETURNS_CACHE_TTL_SECS = Number(process.env.TICKER_RETURNS_CACHE_TTL_SECS || 43200);
 const ENABLE_PREWARM = process.env.ENABLE_TICKER_RETURNS_PREWARM === '1';
 const PREWARM_INTERVAL_MS = Number(process.env.TICKER_RETURNS_PREWARM_INTERVAL_MS || 3600000);
 const PREWARM_TICKERS_RAW = process.env.TICKER_RETURNS_PREWARM_TICKERS || 'AAPL,MSFT,NVDA';
@@ -33,7 +33,7 @@ function singleTickerCacheKey(ticker) {
 
 async function warmOneTicker(ticker) {
   const startedAt = Date.now();
-  const payload = await analyticsData.calculateAllReturns(ticker, true, true, null, 1980);
+  const payload = await analyticsData.calculateAllReturns(ticker, true, true, null, 2000);
   const cacheKey = singleTickerCacheKey(ticker);
   await setCache(cacheKey, payload, TICKER_RETURNS_CACHE_TTL_SECS);
   return Date.now() - startedAt;

@@ -55,7 +55,7 @@ const SNAPSHOT_SUPPORTED_PERIODS = [
 const SNAPSHOT_SUPPORTED_INDICES = ['SP500', 'Dow Jones', 'Nasdaq 100'];
 
 const DAYS_IN_YEAR = 365.25;
-const MAX_DATE_CACHE_TTL_MS = Number(process.env.MAX_DATE_CACHE_TTL_MS || 60000);
+const MAX_DATE_CACHE_TTL_MS = Number(process.env.MAX_DATE_CACHE_TTL_MS || 3600000);
 let maxDateCache = { value: null, ts: 0 };
 let indexWeightsCache = null;
 let indexWeightsCacheMtime = 0;

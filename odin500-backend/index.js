@@ -52,6 +52,7 @@ const { startSplitSyncRunner } = require('./services/splitSyncRunner');
 const { startNewsletterJobRunner } = require('./services/newsletterJobRunner');
 const { prewarmNewsletterCache } = require('./services/newsletter/newsletterCache');
 const { getPublicOhlcPreview } = require('./controllers/marketController');
+const { checkRedisHealth } = require('./config/redisHealth');
 
 const app = express();
 
@@ -68,6 +69,21 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static('public'));
 app.use('/vendor', express.static('node_modules/@supabase/supabase-js/dist/umd'));
+
+app.get('/api/health', async (req, res) => {
+    const redis = await checkRedisHealth();
+    const status = redis.ok ? 200 : 503;
+    res.status(status).json({
+        ok: redis.ok,
+        service: 'odin500-backend',
+        redis
+    });
+});
+
+app.get('/api/health/redis', async (req, res) => {
+    const redis = await checkRedisHealth();
+    res.status(redis.ok ? 200 : 503).json(redis);
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -114,6 +130,13 @@ async function bootstrap() {
     }
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
+        void checkRedisHealth().then((h) => {
+            if (h.ok) {
+                console.log(`[redis] health ok mode=${h.mode} latencyMs=${h.latencyMs}`);
+            } else {
+                console.warn(`[redis] health FAIL: ${h.error || 'unknown'} (BigQuery cache disabled or broken)`);
+            }
+        });
         startSnapshotRefresher();
         startTickerReturnsPrewarmer();
         startPaperJobs();

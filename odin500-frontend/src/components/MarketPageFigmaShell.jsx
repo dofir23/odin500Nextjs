@@ -67,7 +67,15 @@ function MktAsideTitleText({ text }) {
   if (last < str.length) parts.push(str.slice(last));
   return <>{parts}</>;
 }
-const REFRESH_MAP = { manual: 0, '15s': 15000, '30s': 30000, '60s': 60000 };
+/** Temporary: treat legacy `60s` (and other auto intervals) as 12h to cut BigQuery load. */
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+const REFRESH_MAP = {
+  manual: 0,
+  '15s': TWELVE_HOURS_MS,
+  '30s': TWELVE_HOURS_MS,
+  '60s': TWELVE_HOURS_MS,
+  '12h': TWELVE_HOURS_MS
+};
 
 /** Dev logging for market API responses — open browser console on /market */
 function logMarketApi(label, detail) {
@@ -993,9 +1001,8 @@ export function MarketPageFigmaShell({ initialMarketData = null }) {
               value={refreshMode}
               options={[
                 { id: 'manual', label: 'Manual' },
-                { id: '15s', label: '15s' },
-                { id: '30s', label: '30s' },
-                { id: '60s', label: '60s' }
+                { id: '12h', label: '12h' },
+                { id: '60s', label: '12h (legacy)' }
               ]}
               onChange={setRefreshMode}
               title="Refresh interval"
