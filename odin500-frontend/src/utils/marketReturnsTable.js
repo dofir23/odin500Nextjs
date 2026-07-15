@@ -1,4 +1,5 @@
 import { fetchJsonCached, canFetchMarketData } from '../store/apiStore.js';
+import { fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import { MARKET_SERIES, META_BY_KEY, OTHER_MARKET_SUBSECTIONS } from '../components/marketSeriesRegistry.js';
 
 /** Summary column → `performance.dynamicPeriods[].period` (POST /api/market/ticker-returns). */
@@ -174,13 +175,7 @@ export async function fetchMarketTickerReturnsBatch(tickers, refreshMs = 0) {
 /** Constituent symbols for an index (POST /api/market/ticker-details). */
 export async function fetchIndexConstituentRowDefs(apiIndex) {
   if (!canFetchMarketData()) return [];
-  const { data } = await fetchJsonCached({
-    path: '/api/market/ticker-details',
-    method: 'POST',
-    body: { index: apiIndex, period: 'last-date' },
-    auth: true,
-    ttlMs: 5 * 60 * 1000
-  });
+  const data = await fetchTickerDetailsQuery({ index: apiIndex, period: 'last-date' });
   const rows = Array.isArray(data?.data) ? data.data : [];
   const seen = new Set();
   const defs = [];

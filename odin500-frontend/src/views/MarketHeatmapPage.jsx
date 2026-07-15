@@ -12,6 +12,7 @@ import { SectorTreemap } from '../components/SectorTreemap.jsx';
 import { resolveTreemapRows } from '../components/SectorTreemap.jsx';
 import TradingChartLoader from '../components/TradingChartLoader.jsx';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import { CHART_INFO_TIPS } from '../components/chartInfoTips.js';
 import { returnToHeatColor } from '../utils/heatmapColors.js';
 import { useChartSnapshotExport } from '../hooks/useChartSnapshotExport.js';
@@ -277,12 +278,10 @@ export default function MarketHeatmapPage({ initialData = null }) {
       setLoading(true);
       setError('');
       try {
-        const { data: payload } = await fetchJsonCached({
-          path: '/api/market/ticker-details',
-          method: 'POST',
-          body: { index: fetchIndex, period: periodValue },
-          ttlMs: 3 * 60 * 1000
-        });
+        const payload = await fetchTickerDetailsQuery(
+          { index: fetchIndex, period: periodValue },
+          { staleTime: 3 * 60 * 1000 }
+        );
         if (cancelled) return;
         const list = dedupeTickerDetailRows(Array.isArray(payload?.data) ? payload.data : []);
         setRows(list);

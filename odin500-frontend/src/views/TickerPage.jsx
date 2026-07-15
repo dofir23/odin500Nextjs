@@ -24,6 +24,13 @@ import {
   TickerLightweightChart
 } from '../components/TickerLightweightChart.jsx';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { useAuthStore } from '../store/authStore.js';
+import { usePrefsStore } from '../store/prefsStore.js';
+import {
+  fetchTickerCoreReturnsQuery,
+  fetchTickerDetailsQuery,
+  fetchOhlcSignalsQuery
+} from '../query/marketQueries.js';
 import {
   getRouteNavigationEpoch,
   isAbortError,
@@ -669,8 +676,9 @@ export default function TickerPage({ initialData = null }) {
     }
   }, []);
 
-  const [authVersion, setAuthVersion] = useState(0);
-  const [timeframe, setTimeframe] = useState('1Y');
+  const authVersion = useAuthStore((s) => s.authVersion);
+  const timeframe = usePrefsStore((s) => s.tickerChartTimeframe) || '1Y';
+  const setTimeframe = usePrefsStore((s) => s.setTickerChartTimeframe);
   const [chartLoading, setChartLoading] = useState(false);
   const [metaBusy, setMetaBusy] = useState(() => {
     if (!ssrSeed?.returnsSym) return true;
@@ -767,12 +775,6 @@ export default function TickerPage({ initialData = null }) {
     setDraftChartStart(r.start);
     setDraftChartEnd(r.end);
   }, [timeframe, asOfDate, appliedCustomRange, ohlcTickerBounds]);
-
-  useEffect(() => {
-    const onAuth = () => setAuthVersion((v) => v + 1);
-    window.addEventListener('odin-auth-updated', onAuth);
-    return () => window.removeEventListener('odin-auth-updated', onAuth);
-  }, []);
 
   const onSymbolChange = useCallback((next) => {
     const s = sanitizeTickerPageInput(next);
@@ -901,26 +903,20 @@ export default function TickerPage({ initialData = null }) {
 
       if (!hasCoreSym) {
         tasks.push(
-          fetchJsonCached({
-            path: '/api/market/ticker-core-returns',
-            method: 'POST',
-            body: { ticker: symU, ...defaultRangeBody },
-            ttlMs: 5 * 60 * 1000
-          })
-            .then(async (resCore) => {
+          fetchTickerCoreReturnsQuery({ ticker: symU, ...defaultRangeBody })
+            .then(async (coreData) => {
               if (stale()) return;
-              const h = resCore?.headers || null;
               setTickerReturnsDebug({
-                source: h?.['x-ticker-returns-source'] || (resCore?.fromCache ? 'frontend-cache' : 'unknown'),
-                cacheHit: h?.['x-cache-hit'] || (resCore?.fromCache ? '1' : '0'),
-                computeMs: h?.['x-compute-ms'] || '',
-                cacheKey: h?.['x-cache-key'] || '',
+                source: 'tanstack-query',
+                cacheHit: '',
+                computeMs: '',
+                cacheKey: '',
                 mode: 'core-sym',
                 symbol: symU
               });
-              patchSymReturns(resCore.data);
+              patchSymReturns(coreData);
 
-              const endFromReturns = String(resCore.data?.asOfDate || seedEnd).slice(0, 10);
+              const endFromReturns = String(coreData?.asOfDate || seedEnd).slice(0, 10);
               if (endFromReturns !== seedEnd) {
                 const asOfD = new Date(endFromReturns + 'T12:00:00');
                 const start365 = new Date(asOfD);
@@ -962,15 +958,10 @@ export default function TickerPage({ initialData = null }) {
 
       if (!hasCoreSpy) {
         tasks.push(
-          fetchJsonCached({
-            path: '/api/market/ticker-core-returns',
-            method: 'POST',
-            body: { ticker: BENCHMARK, ...defaultRangeBody },
-            ttlMs: 5 * 60 * 1000
-          })
-            .then((res) => {
+          fetchTickerCoreReturnsQuery({ ticker: BENCHMARK, ...defaultRangeBody })
+            .then((data) => {
               if (stale()) return;
-              patchSpyReturns(res.data);
+              patchSpyReturns(data);
               clearBusyWhenVisible();
             })
             .catch(() => {
@@ -1086,14 +1077,11 @@ export default function TickerPage({ initialData = null }) {
       void (async () => {
         const metaStartedAt = performance.now();
         try {
-          const detailsRes = await fetchJsonCached({
-            path: '/api/market/ticker-details',
-            method: 'POST',
-            body: { index: 'sp500', period: 'last-1-year' },
-            ttlMs: 30 * 60 * 1000
-          });
+          const d = await fetchTickerDetailsQuery(
+            { index: 'sp500', period: 'last-1-year' },
+            { staleTime: 30 * 60 * 1000 }
+          );
           if (stale()) return;
-          const d = detailsRes.data;
           setDetailRows(Array.isArray(d?.data) ? d.data : []);
           setApiTimings((prev) => ({ ...prev, metaMs: Math.round(performance.now() - metaStartedAt) }));
         } catch {
@@ -1136,35 +1124,24 @@ export default function TickerPage({ initialData = null }) {
           customStartDate: TABLE_LONG_START_DATE,
           customEndDate: longEnd
         };
-        const [symRes, benchRes] = await Promise.all([
-          fetchJsonCached({
-            path: '/api/market/ticker-core-returns',
-            method: 'POST',
-            body: { ticker: symU, ...longBody },
-            ttlMs: 5 * 60 * 1000
-          }),
-          fetchJsonCached({
-            path: '/api/market/ticker-core-returns',
-            method: 'POST',
-            body: { ticker: benchU, ...longBody },
-            ttlMs: 5 * 60 * 1000
-          })
+        const [symData, benchData] = await Promise.all([
+          fetchTickerCoreReturnsQuery({ ticker: symU, ...longBody }),
+          fetchTickerCoreReturnsQuery({ ticker: benchU, ...longBody })
         ]);
         if (stale()) return;
-        const h = symRes?.headers || null;
         setTickerReturnsDebug({
-          source: h?.['x-ticker-returns-source'] || (symRes?.fromCache ? 'frontend-cache' : 'unknown'),
-          cacheHit: h?.['x-cache-hit'] || (symRes?.fromCache ? '1' : '0'),
-          computeMs: h?.['x-compute-ms'] || '',
-          cacheKey: h?.['x-cache-key'] || '',
+          source: 'tanstack-query',
+          cacheHit: '',
+          computeMs: '',
+          cacheKey: '',
           mode: 'long-range-table',
           symbol: symU
         });
         setLongRangeTickerReturns(
-          pickTickerReturnsFromPayload(symRes.data, symU) || (symRes.data?.ticker ? symRes.data : null)
+          pickTickerReturnsFromPayload(symData, symU) || (symData?.ticker ? symData : null)
         );
         setLongRangeBenchReturns(
-          pickTickerReturnsFromPayload(benchRes.data, benchU) || (benchRes.data?.ticker ? benchRes.data : null)
+          pickTickerReturnsFromPayload(benchData, benchU) || (benchData?.ticker ? benchData : null)
         );
       } catch {
         if (!stale()) {
@@ -1271,14 +1248,12 @@ export default function TickerPage({ initialData = null }) {
       const chartStartedAt = performance.now();
       setChartLoading(true);
       try {
-        const ohlcRes = await fetchJsonCached({
-          path: '/api/market/ohlc-signals-indicator',
-          method: 'POST',
-          body: { ticker: sym, start_date: start, end_date: end },
-          ttlMs: 60 * 60 * 1000
-        });
+        const ohlcPayload = await fetchOhlcSignalsQuery(
+          { ticker: sym, startDate: start, endDate: end },
+          { staleTime: 60 * 60 * 1000 }
+        );
         if (stale()) return;
-        const rows = Array.isArray(ohlcRes.data?.data) ? ohlcRes.data.data : [];
+        const rows = Array.isArray(ohlcPayload?.data) ? ohlcPayload.data : [];
         setOhlcRows(sortRowsAsc(rows));
         setApiTimings((prev) => ({ ...prev, chartMs: Math.round(performance.now() - chartStartedAt) }));
       } catch (e) {
@@ -1739,13 +1714,11 @@ export default function TickerPage({ initialData = null }) {
         };
       }
       const returnsDefaultEnd = toDateInput(new Date());
-      const ret = await fetchJsonCached({
-        path: '/api/market/ticker-core-returns',
-        method: 'POST',
-        body: { ticker, customStartDate: RETURNS_DEFAULT_START, customEndDate: returnsDefaultEnd },
-        ttlMs: 15 * 60 * 1000
-      });
-      const asOf = String(ret?.data?.asOfDate || asOfDate || new Date().toISOString().slice(0, 10)).slice(0, 10);
+      const ret = await fetchTickerCoreReturnsQuery(
+        { ticker, customStartDate: RETURNS_DEFAULT_START, customEndDate: returnsDefaultEnd },
+        { staleTime: 15 * 60 * 1000 }
+      );
+      const asOf = String(ret?.asOfDate || asOfDate || new Date().toISOString().slice(0, 10)).slice(0, 10);
       const asOfD = new Date(asOf + 'T12:00:00');
       const start = new Date(asOfD);
       start.setFullYear(start.getFullYear() - 1);
@@ -1758,7 +1731,7 @@ export default function TickerPage({ initialData = null }) {
       });
       return {
         benchmarkTicker: ticker,
-        dynamicPeriods: ret?.data?.performance?.dynamicPeriods || [],
+        dynamicPeriods: ret?.performance?.dynamicPeriods || [],
         mtd: mtdFromRows(rows),
         qtd: qtdFromRows(rows)
       };

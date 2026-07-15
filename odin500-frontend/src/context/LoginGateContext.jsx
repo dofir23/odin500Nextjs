@@ -1,29 +1,35 @@
 'use client';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
-import { getAuthToken, initAuthSessionOnLoad, isAuthHydrated } from '../store/apiStore.js';
+import { initAuthSessionOnLoad, isAuthHydrated } from '../store/apiStore.js';
+import { useAuthStore } from '../store/authStore.js';
+import { useUiStore } from '../store/uiStore.js';
 import { LoginRequiredModal } from '../components/LoginRequiredModal.jsx';
-import { GUEST_AUTH_ENTRY_PATHS, buildAuthEntryUrl } from '../utils/authRedirect.js';
 
-const LoginGateContext = createContext(null);
-
+/**
+ * Thin shell: registers navigate + hydrate, renders login modal from uiStore.
+ * State lives in Zustand (authStore / uiStore).
+ */
 export function LoginGateProvider({ children }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [open, setOpen] = useState(false);
-  const [authEpoch, setAuthEpoch] = useState(0);
-  const [authReady, setAuthReady] = useState(() => isAuthHydrated());
-  const dismissRef = useRef(null);
-  const returnToRef = useRef(null);
+  const loginModalOpen = useUiStore((s) => s.loginModalOpen);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   useEffect(() => {
-    const onAuth = () => setAuthEpoch((e) => e + 1);
-    window.addEventListener('odin-auth-updated', onAuth);
-    return () => window.removeEventListener('odin-auth-updated', onAuth);
-  }, []);
+    useUiStore.getState().setAuthNavigate(navigate);
+    return () => useUiStore.getState().setAuthNavigate(null);
+  }, [navigate]);
 
   useEffect(() => {
-    const finish = () => setAuthReady(true);
+    useUiStore.getState().setRequireLoginFn((action) =>
+      useUiStore.getState().requireLogin(action, pathname)
+    );
+    return () => useUiStore.getState().setRequireLoginFn(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    const finish = () => useAuthStore.getState().markHydrated();
     if (isAuthHydrated()) {
       finish();
       return undefined;
@@ -33,97 +39,61 @@ export function LoginGateProvider({ children }) {
     return () => window.removeEventListener('odin-auth-hydrated', finish);
   }, []);
 
-  const isLoggedIn = Boolean(getAuthToken());
-  void authEpoch;
-
   useEffect(() => {
-    if (GUEST_AUTH_ENTRY_PATHS.has(pathname)) {
-      dismissRef.current = null;
-      returnToRef.current = null;
-      setOpen(false);
-    }
+    useUiStore.getState().clearLoginGateOnAuthPath(pathname);
   }, [pathname]);
 
   useEffect(() => {
-    if (isLoggedIn && open) {
-      dismissRef.current = null;
-      returnToRef.current = null;
-      setOpen(false);
-    }
-  }, [isLoggedIn, open]);
-
-  const resolveReturnTo = useCallback(() => {
-    const explicit = returnToRef.current;
-    if (explicit && explicit.startsWith('/')) return explicit;
-    if (typeof window === 'undefined') return '/market';
-    const current = window.location.pathname + window.location.search;
-    if (current.startsWith('/') && !GUEST_AUTH_ENTRY_PATHS.has(current.split('?')[0])) {
-      return current;
-    }
-    return '/market';
-  }, []);
-
-  /** @param {{ onDismiss?: () => void, returnTo?: string }} [opts] */
-  const showLoginRequired = useCallback((opts) => {
-    if (Boolean(getAuthToken())) return;
-    if (GUEST_AUTH_ENTRY_PATHS.has(pathname)) return;
-    dismissRef.current = typeof opts?.onDismiss === 'function' ? opts.onDismiss : null;
-    returnToRef.current =
-      typeof opts?.returnTo === 'string' && opts.returnTo.startsWith('/') ? opts.returnTo : null;
-    setOpen(true);
-  }, [pathname]);
+    useUiStore.getState().closeLoginIfLoggedIn();
+  }, [isLoggedIn, loginModalOpen]);
 
   const closeLoginRequired = useCallback(() => {
-    setOpen(false);
-    const onDismiss = dismissRef.current;
-    dismissRef.current = null;
-    if (typeof onDismiss === 'function') onDismiss();
-  }, []);
-
-  const requireLogin = useCallback((onAllowed) => {
-    if (Boolean(getAuthToken())) {
-      if (typeof onAllowed === 'function') onAllowed();
-      return true;
-    }
-    setOpen(true);
-    return false;
+    useUiStore.getState().closeLoginRequired();
   }, []);
 
   const goLogin = useCallback(() => {
-    const dest = buildAuthEntryUrl('/login', resolveReturnTo());
-    dismissRef.current = null;
-    returnToRef.current = null;
-    setOpen(false);
-    navigate(dest);
-  }, [navigate, resolveReturnTo]);
+    useUiStore.getState().goLogin();
+  }, []);
 
   const goSignup = useCallback(() => {
-    const dest = buildAuthEntryUrl('/signup', resolveReturnTo());
-    dismissRef.current = null;
-    returnToRef.current = null;
-    setOpen(false);
-    navigate(dest);
-  }, [navigate, resolveReturnTo]);
-
-  const value = useMemo(
-    () => ({ isLoggedIn, authReady, requireLogin, showLoginRequired, loginModalOpen: open }),
-    [isLoggedIn, authReady, requireLogin, showLoginRequired, open]
-  );
+    useUiStore.getState().goSignup();
+  }, []);
 
   return (
-    <LoginGateContext.Provider value={value}>
+    <>
       {children}
-      <LoginRequiredModal open={open} onClose={closeLoginRequired} onLogin={goLogin} onSignup={goSignup} />
-    </LoginGateContext.Provider>
+      <LoginRequiredModal
+        open={loginModalOpen}
+        onClose={closeLoginRequired}
+        onLogin={goLogin}
+        onSignup={goSignup}
+      />
+    </>
   );
 }
 
+/** @returns {{ isLoggedIn: boolean, authReady: boolean, requireLogin: Function, showLoginRequired: Function, loginModalOpen: boolean }} */
 export function useLoginGate() {
-  const ctx = useContext(LoginGateContext);
-  if (!ctx) throw new Error('useLoginGate must be used within LoginGateProvider');
-  return ctx;
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const authReady = useAuthStore((s) => s.hydrated);
+  const loginModalOpen = useUiStore((s) => s.loginModalOpen);
+  const { pathname } = useLocation();
+
+  const requireLogin = useCallback(
+    (onAllowed) => useUiStore.getState().requireLogin(onAllowed, pathname),
+    [pathname]
+  );
+  const showLoginRequired = useCallback(
+    (opts) => useUiStore.getState().showLoginRequired(opts, pathname),
+    [pathname]
+  );
+
+  return useMemo(
+    () => ({ isLoggedIn, authReady, requireLogin, showLoginRequired, loginModalOpen }),
+    [isLoggedIn, authReady, requireLogin, showLoginRequired, loginModalOpen]
+  );
 }
 
 export function useLoginGateOptional() {
-  return useContext(LoginGateContext);
+  return useLoginGate();
 }

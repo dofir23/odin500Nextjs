@@ -30,6 +30,11 @@ import { notifyChartFullscreenLayout } from '../utils/chartFullscreenLayout.js';
 import { MarketReturnsSummaryTable } from './MarketReturnsSummaryTable.jsx';
 import { buildValsFromBatch, fetchMarketTickerReturnsBatch, uniqueMarketSummaryTickers } from '../utils/marketReturnsTable.js';
 import { dedupeTickerDetailRows, tickerRowSymbol } from '../utils/dedupeTickerRows.js';
+import {
+  fetchMarketRailSnapshotQuery,
+  fetchTickerDetailsQuery
+} from '../query/marketQueries.js';
+import { MARKET_STALE } from '../query/queryClient.js';
 
 const LEFT_GROUPS = [
   { id: 'us', title: 'Key US Indices ' },
@@ -312,12 +317,13 @@ function LeftSnapshotStack({
       }
 
       try {
-        const { data: payload } = await logFetchJsonCached('market-rail-snapshot', {
-          path: '/api/market/market-rail-snapshot',
-          method: 'POST',
-          body: { timeframe: tf, series: RAIL_SNAPSHOT_SERIES },
-          auth: true,
-          ttlMs: refreshMs > 0 ? Math.max(refreshMs, 30_000) : 2 * 60 * 1000
+        const payload = await fetchMarketRailSnapshotQuery(
+          { timeframe: tf, series: RAIL_SNAPSHOT_SERIES },
+          { staleTime: refreshMs > 0 ? Math.max(refreshMs, 30_000) : MARKET_STALE.railSnapshot }
+        );
+        logMarketApi('market-rail-snapshot ← response', {
+          success: payload?.success,
+          keys: payload?.byKey ? Object.keys(payload.byKey).length : 0
         });
         if (cancel) return;
         if (!payload?.success) {
@@ -509,12 +515,12 @@ function MarketHeatmapThumbnail({ refreshMs = 0, initialRows = null }) {
       setLoading(true);
       setError('');
       try {
-        const { data: payload } = await logFetchJsonCached('heatmap-ticker-details', {
-          path: '/api/market/ticker-details',
-          method: 'POST',
-          body: { index: HEATMAP_THUMB_INDEX, period: 'last-date' },
-          auth: true,
-          ttlMs: 3 * 60 * 1000
+        const payload = await fetchTickerDetailsQuery(
+          { index: HEATMAP_THUMB_INDEX, period: 'last-date' },
+          { staleTime: 3 * 60 * 1000 }
+        );
+        logMarketApi('heatmap-ticker-details ← response', {
+          rows: Array.isArray(payload?.data) ? payload.data.length : 0
         });
         if (cancel) return;
         const list = dedupeTickerDetailRows(Array.isArray(payload?.data) ? payload.data : []);
@@ -627,12 +633,13 @@ function RightWatchlistCard({ refreshMs = 0, initialRows = null }) {
       setLoading(true);
       setError('');
       try {
-        const { data: payload } = await logFetchJsonCached('watchlist-ticker-details', {
-          path: '/api/market/ticker-details',
-          method: 'POST',
-          body: { index: selectedIndex.apiIndex, period: 'last-date' },
-          auth: true,
-          ttlMs: 2 * 60 * 1000
+        const payload = await fetchTickerDetailsQuery(
+          { index: selectedIndex.apiIndex, period: 'last-date' },
+          { staleTime: 2 * 60 * 1000 }
+        );
+        logMarketApi('watchlist-ticker-details ← response', {
+          index: selectedIndex.apiIndex,
+          rows: Array.isArray(payload?.data) ? payload.data.length : 0
         });
         if (cancel) return;
         const list = dedupeTickerDetailRows(Array.isArray(payload?.data) ? payload.data : []);

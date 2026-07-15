@@ -12,6 +12,7 @@ import { AnnualReturnBarChart } from '../components/AnnualReturnBarChart.jsx';
 import { ExcessReturnLineChart } from '../components/ExcessReturnLineChart.jsx';
 import { PeriodicReturnBarChart } from '../components/PeriodicReturnBarChart.jsx';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { fetchTickerCoreReturnsQuery, fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import { rowDateToTimeKey } from '../utils/chartData.js';
 import { pickRelatedByCategory, RELATED_INDEX_LINKS } from '../utils/relatedTickers.js';
 import { sanitizeTickerPageInput } from '../utils/tickerUrlSync.js';
@@ -419,18 +420,8 @@ export default function TickerAnnualPage({ initialData = null }) {
             body: { ...body, ticker: benchmarkIndex },
             ttlMs: 5 * 60 * 1000
           }),
-          fetchJsonCached({
-            path: '/api/market/ticker-core-returns',
-            method: 'POST',
-            body,
-            ttlMs: 5 * 60 * 1000
-          }),
-          fetchJsonCached({
-            path: '/api/market/ticker-core-returns',
-            method: 'POST',
-            body: { ...body, ticker: benchmarkIndex },
-            ttlMs: 5 * 60 * 1000
-          }),
+          fetchTickerCoreReturnsQuery(body).then((data) => ({ data })),
+          fetchTickerCoreReturnsQuery({ ...body, ticker: benchmarkIndex }).then((data) => ({ data })),
           fetchJsonCached({
             path:
               '/api/market/ohlc?symbol=' +
@@ -484,15 +475,13 @@ export default function TickerAnnualPage({ initialData = null }) {
           ).slice(0, 10)
         );
         setLoading(false);
-        fetchJsonCached({
-          path: '/api/market/ticker-details',
-          method: 'POST',
-          body: { index: 'sp500', period: 'last-1-year' },
-          ttlMs: 30 * 60 * 1000
-        })
-          .then((detailsRes) => {
+        fetchTickerDetailsQuery(
+          { index: 'sp500', period: 'last-1-year' },
+          { staleTime: 30 * 60 * 1000 }
+        )
+          .then((details) => {
             if (cancelled) return;
-            setDetailRows(Array.isArray(detailsRes?.data?.data) ? detailsRes.data.data : []);
+            setDetailRows(Array.isArray(details?.data) ? details.data : []);
           })
           .catch(() => {
             if (!cancelled) setDetailRows([]);

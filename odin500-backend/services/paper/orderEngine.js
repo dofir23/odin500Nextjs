@@ -3,7 +3,7 @@
 
 const supabaseService = require('../../config/supabaseService');
 const { simulateFill } = require('./executionSimulator');
-const { validateOrder } = require('./riskGuard');
+const { validateOrder, round6 } = require('./riskGuard');
 const { applyFill, getClosableQty } = require('./positionManager');
 const { getCurrentPrice } = require('./pnlCalculator');
 const { priceForRiskCheck } = require('./pendingOrderRules');
@@ -159,7 +159,7 @@ async function placeOrder(userId, orderInput) {
   const ticker = String(orderInput.ticker || '').trim().toUpperCase();
   const action = normalizeAction(orderInput.action, orderInput.side);
   const side = actionToLegacySide(action);
-  const qty = Number(orderInput.qty);
+  let qty = round6(orderInput.qty);
   const orderType = String(orderInput.orderType || orderInput.order_type || 'market').toLowerCase();
   const limitPrice =
     orderInput.limitPrice != null
@@ -190,6 +190,13 @@ async function placeOrder(userId, orderInput) {
     marketPrice
   );
   const closable = await getClosableQty(account.id, ticker);
+  // Snap "close all" requests onto exact lot totals when float noise overshoots.
+  if (action === 'STC' && qty > closable.closableLongQty && qty <= closable.closableLongQty + 1e-6) {
+    qty = closable.closableLongQty;
+  }
+  if (action === 'BTC' && qty > closable.closableShortQty && qty <= closable.closableShortQty + 1e-6) {
+    qty = closable.closableShortQty;
+  }
   validateOrder(
     { ticker, action, qty, orderType, limitPrice, stopPrice },
     account,
@@ -321,7 +328,7 @@ async function modifyOrderForUser(userId, orderId, patch = {}, explicitAccountId
     throw new Error('Stop-limit orders cannot be modified after the stop has triggered');
   }
 
-  const qty = patch.qty != null ? Number(patch.qty) : Number(order.qty);
+  const qty = round6(patch.qty != null ? Number(patch.qty) : Number(order.qty));
   const limitPrice =
     patch.limitPrice != null
       ? Number(patch.limitPrice)
@@ -351,12 +358,24 @@ async function modifyOrderForUser(userId, orderId, patch = {}, explicitAccountId
     marketPrice
   );
   const closable = await getClosableQty(account.id, order.ticker);
-  validateOrder({ ticker: order.ticker, action, qty, orderType, limitPrice, stopPrice }, account, priceForRisk, closable);
+  let qtyForOrder = qty;
+  if (action === 'STC' && qtyForOrder > closable.closableLongQty && qtyForOrder <= closable.closableLongQty + 1e-6) {
+    qtyForOrder = closable.closableLongQty;
+  }
+  if (action === 'BTC' && qtyForOrder > closable.closableShortQty && qtyForOrder <= closable.closableShortQty + 1e-6) {
+    qtyForOrder = closable.closableShortQty;
+  }
+  validateOrder(
+    { ticker: order.ticker, action, qty: qtyForOrder, orderType, limitPrice, stopPrice },
+    account,
+    priceForRisk,
+    closable
+  );
 
   const { data: updated, error: updErr } = await supabaseService
     .from('paper_orders')
     .update({
-      qty,
+      qty: qtyForOrder,
       limit_price: limitPrice,
       stop_price: stopPrice
     })

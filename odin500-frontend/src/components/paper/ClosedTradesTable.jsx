@@ -1,4 +1,5 @@
 'use client';
+import { fmtQty } from '../../utils/formatDisplayNumber.js';
 import { paperActionLabel } from './paperActionLabels.js';
 
 function money(v) {
@@ -43,7 +44,7 @@ export function ClosedTradesTable({ trades, totals, loading }) {
             <tr key={t.id}>
               <td>{paperActionLabel(t.action)}</td>
               <td className="paper-table__sym">{t.ticker}</td>
-              <td>{t.qty_closed}</td>
+              <td>{fmtQty(t.qty_closed)}</td>
               <td>{money(t.avg_entry_price)}</td>
               <td>{money(t.avg_exit_price)}</td>
               <td>{money(t.total_fees)}</td>

@@ -5,6 +5,10 @@ const bigquery = require('../../config/bigquery');
 
 const OHLC_TABLE = '`extended-byway-454621-s6.sp500data1.DailyOHLC200MAData`';
 
+function round6(v) {
+  return Math.round(Number(v || 0) * 1000000) / 1000000;
+}
+
 function bqArray(arr) {
   return arr.map((s) => `'${String(s).replace(/'/g, "\\'")}'`).join(',');
 }
@@ -144,6 +148,9 @@ function aggregateLotsToPositions(enrichedLots) {
   }
   return [...byTicker.values()].map((r) => ({
     ...r,
+    long_qty: round6(r.long_qty),
+    short_qty: round6(r.short_qty),
+    net_qty: round6(r.net_qty),
     avg_long_cost: r.long_qty > 0 ? Math.round((r.avg_long_cost / r.long_qty) * 10000) / 10000 : null,
     avg_short_cost: r.short_qty > 0 ? Math.round((r.avg_short_cost / r.short_qty) * 10000) / 10000 : null,
     long_market_value: Math.round(r.long_market_value * 100) / 100,

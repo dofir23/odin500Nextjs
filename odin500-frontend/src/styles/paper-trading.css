@@ -1412,15 +1412,22 @@
   border-color: rgba(34, 197, 94, 0.65);
 }
 
+.paper-pos-action-btn--sell,
 .paper-pos-action-btn--close {
   border-color: rgba(248, 113, 113, 0.45);
   background: rgba(248, 113, 113, 0.12);
   color: #f87171;
 }
 
+.paper-pos-action-btn--sell:hover,
 .paper-pos-action-btn--close:hover {
   background: rgba(248, 113, 113, 0.22);
   border-color: rgba(248, 113, 113, 0.65);
+}
+
+.paper-pos-action-btn--close {
+  border-color: rgba(248, 113, 113, 0.65);
+  background: rgba(248, 113, 113, 0.2);
 }
 
 .paper-pos-order-modal.wl-manage-modal,
@@ -1571,6 +1578,7 @@
   background: rgba(34, 197, 94, 0.12);
 }
 
+[data-theme='light'] .paper-pos-action-btn--sell,
 [data-theme='light'] .paper-pos-action-btn--close {
   color: #b91c1c;
   background: #fef2f2;
@@ -5271,6 +5279,178 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 0.85rem;
   margin-top: 1rem;
+}
+
+.paper-public-table-wrap {
+  margin-top: 1rem;
+  border: 1px solid var(--paper-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  overflow: auto;
+}
+
+.paper-public-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.paper-public-table thead th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+  border-bottom: 1px solid var(--paper-border);
+  white-space: nowrap;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.paper-public-table tbody td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  vertical-align: middle;
+  font-size: 0.92rem;
+  color: var(--paper-text);
+}
+
+.paper-public-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.paper-public-table__row:hover td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.paper-public-table__portfolio {
+  min-width: 16rem;
+  max-width: 22rem;
+}
+
+.paper-public-table__identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.paper-public-table__identity:hover .paper-public-table__name {
+  color: #93c5fd;
+}
+
+.paper-public-table__identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.paper-public-table__name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.paper-public-table__name {
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-public-table__owner {
+  font-size: 0.78rem;
+  color: var(--paper-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-public-table__num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.paper-public-table__return {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  align-items: flex-start;
+}
+
+.paper-public-table__return-pct {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.paper-public-table__date {
+  color: var(--paper-muted);
+  white-space: nowrap;
+  font-size: 0.86rem;
+}
+
+.paper-public-table__action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.paper-public-table__cta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+.paper-public-table__cta:hover {
+  text-decoration: underline;
+}
+
+.paper-public-table__skel-row td {
+  padding: 0.65rem 1rem;
+}
+
+.paper-public-table__skel {
+  height: 2.4rem;
+  border-radius: 8px;
+}
+
+[data-theme='light'] .paper-public-table-wrap {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .paper-public-table thead th {
+  background: #f8fafc;
+}
+
+[data-theme='light'] .paper-public-table__row:hover td {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+[data-theme='light'] .paper-public-table__cta {
+  color: #1d4ed8;
+}
+
+[data-theme='light'] .paper-public-table__identity:hover .paper-public-table__name {
+  color: #1d4ed8;
+}
+
+@media (max-width: 720px) {
+  .paper-public-table-wrap {
+    border-radius: 12px;
+  }
 }
 
 .paper-public-card {

@@ -146,10 +146,15 @@ export async function applyAuthSession(session, options = {}) {
   if (typeof window === 'undefined') return true;
 
   try {
+    const body = { session };
+    // Only send remember when explicitly provided — omitting it preserves the cookie on refresh.
+    if (Object.prototype.hasOwnProperty.call(options, 'remember')) {
+      body.remember = Boolean(options.remember);
+    }
     const res = await fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session, remember: Boolean(options.remember) }),
+      body: JSON.stringify(body),
       credentials: 'same-origin'
     });
     if (!res.ok) {
@@ -179,6 +184,35 @@ export async function hasAuthSessionCookies() {
   }
 }
 
+const REFRESH_LOCK_KEY = 'odin_auth_refresh_lock';
+const REFRESH_LOCK_MS = 20_000;
+
+function tryAcquireRefreshLock() {
+  if (typeof window === 'undefined') return true;
+  try {
+    const now = Date.now();
+    const prev = safeParse(localStorage.getItem(REFRESH_LOCK_KEY), null);
+    if (prev && typeof prev.ts === 'number' && now - prev.ts < REFRESH_LOCK_MS) {
+      return false;
+    }
+    const token = `${now}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(REFRESH_LOCK_KEY, JSON.stringify({ ts: now, token }));
+    const check = safeParse(localStorage.getItem(REFRESH_LOCK_KEY), null);
+    return check?.token === token;
+  } catch {
+    return true;
+  }
+}
+
+function releaseRefreshLock() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(REFRESH_LOCK_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function scheduleProactiveRefresh() {
   clearProactiveTimer();
   if (typeof window === 'undefined') return;
@@ -187,12 +221,24 @@ export function scheduleProactiveRefresh() {
   proactiveTimerId = window.setTimeout(async () => {
     proactiveTimerId = null;
     const ok = await refreshSessionOnce();
-    if (ok) scheduleProactiveRefresh();
+    if (ok || getAuthToken()) scheduleProactiveRefresh();
   }, 50 * 60 * 1000);
 }
 
+let visibilityRefreshInstalled = false;
+function installVisibilityRefresh() {
+  if (typeof document === 'undefined' || visibilityRefreshInstalled) return;
+  visibilityRefreshInstalled = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!getAuthToken()) return;
+    void refreshSessionOnce();
+  });
+}
+
 /**
- * On app load: if session is near or past proactive window, refresh once; else schedule timer.
+ * On app load: restore session from cookies. Renew access in the background without
+ * clearing Remember me. Avoid aggressive multi-tab refresh races.
  */
 export async function initAuthSessionOnLoad() {
   if (typeof window === 'undefined') return;
@@ -200,6 +246,7 @@ export async function initAuthSessionOnLoad() {
 
   authHydrationPromise = (async () => {
     ensureCacheLoaded();
+    installVisibilityRefresh();
 
     try {
       const res = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
@@ -207,7 +254,8 @@ export async function initAuthSessionOnLoad() {
       if (payload?.authenticated) {
         memoryStore.token = 'cookie';
         dispatchAuthUpdated();
-        await refreshSessionOnce();
+        // Background renew — skip if another tab holds the refresh lock.
+        void refreshSessionOnce();
         scheduleProactiveRefresh();
         return;
       }
@@ -228,47 +276,63 @@ export async function initAuthSessionOnLoad() {
 
 /**
  * Single-flight refresh via backend POST /api/auth/refresh.
+ * Cookies are written by the refresh route (preserves Remember me). Do not re-POST
+ * /api/auth/session with remember:false — that was clearing sessions early.
  * @returns {Promise<boolean>}
  */
 export async function refreshSessionOnce() {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
-    let sawTransientFailure = false;
-
-    for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt += 1) {
-      const delayMs = REFRESH_RETRY_DELAYS_MS[attempt];
-      if (delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (!tryAcquireRefreshLock()) {
+      // Another tab is refreshing; keep local session marked as cookie-authenticated.
+      if (!getAuthToken()) {
+        memoryStore.token = 'cookie';
+        dispatchAuthUpdated();
       }
-
-      try {
-        const response = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          credentials: 'same-origin'
-        });
-        const payload = await response.json().catch(() => ({}));
-
-        if (response.ok && payload.session) {
-          applyAuthSession(payload.session);
-          return true;
-        }
-
-        // Invalid/expired/revoked refresh token responses should force logout.
-        if (response.status === 400 || response.status === 401) {
-          clearAuthToken();
-          clearApiCache();
-          return false;
-        }
-
-        // Other failures are treated as transient (5xx/proxy/runtime issues).
-        sawTransientFailure = true;
-      } catch {
-        sawTransientFailure = true;
-      }
+      return true;
     }
 
-    // Do not clear auth on transient refresh failures; allow recovery on later attempts.
+    let sawTransientFailure = false;
+
+    try {
+      for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt += 1) {
+        const delayMs = REFRESH_RETRY_DELAYS_MS[attempt];
+        if (delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+
+        try {
+          const response = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'same-origin'
+          });
+          const payload = await response.json().catch(() => ({}));
+
+          if (response.ok && payload.session?.access_token) {
+            // Refresh route already set httpOnly cookies (and kept Remember me).
+            memoryStore.token = 'cookie';
+            dispatchAuthUpdated();
+            return true;
+          }
+
+          // Invalid/expired/revoked refresh token — only then force logout.
+          if (response.status === 400 || response.status === 401) {
+            await clearAuthToken();
+            clearApiCache();
+            return false;
+          }
+
+          sawTransientFailure = true;
+        } catch {
+          sawTransientFailure = true;
+        }
+      }
+    } finally {
+      releaseRefreshLock();
+    }
+
+    // Transient failures: keep the user signed in; retry later via proactive timer.
     if (sawTransientFailure) return false;
     return false;
   })().finally(() => {

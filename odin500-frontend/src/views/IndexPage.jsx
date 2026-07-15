@@ -31,6 +31,7 @@ import {
 import { useWatchlistDock } from '../context/WatchlistDockContext.jsx';
 import { useGeneralNewsFeed } from '../hooks/useGeneralNewsFeed.js';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import {
   getRouteNavigationEpoch,
   isAbortError,
@@ -1728,11 +1729,9 @@ export default function IndexPage({ initialData = null }) {
     (async () => {
       setIndexTickersBusy(true);
       try {
-        const { data } = await fetchJsonCached({
-          path: '/api/market/ticker-details',
-          method: 'POST',
-          body: { index: activeMeta.apiIndex, period: 'last-date' },
-          ttlMs: 5 * 60 * 1000
+        const data = await fetchTickerDetailsQuery({
+          index: activeMeta.apiIndex,
+          period: 'last-date'
         });
         if (stale()) return;
         const rows = dedupeTickerDetailRows(Array.isArray(data?.data) ? data.data : []);

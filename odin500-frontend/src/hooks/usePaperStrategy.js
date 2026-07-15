@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../utils/apiOrigin.js';
 import { fetchWithAuth, canFetchProtectedApi } from '../store/apiStore.js';
+import { usePaperSessionStore } from '../store/paperSessionStore.js';
 import { shouldIgnoreRouteLoadError, useRouteNavigationDeps } from './useRouteLoadGuard.js';
 
 async function parseJson(res) {
@@ -32,6 +33,10 @@ export function usePaperStrategy(accountId) {
   const strategyActive = useMemo(() => {
     return !!(binding?.is_active && strategy && strategy.is_active !== false);
   }, [binding, strategy]);
+
+  useEffect(() => {
+    usePaperSessionStore.getState().setStrategyActive(strategyActive);
+  }, [strategyActive]);
 
   const loadAutomatedAccounts = useCallback(async () => {
     if (!canFetchProtectedApi()) return new Set();

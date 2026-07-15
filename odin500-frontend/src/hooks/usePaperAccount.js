@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../utils/apiOrigin.js';
 import { fetchWithAuth, canFetchProtectedApi } from '../store/apiStore.js';
+import { usePaperSessionStore } from '../store/paperSessionStore.js';
 import { shouldIgnoreRouteLoadError, useRouteNavigationDeps } from './useRouteLoadGuard.js';
 
 async function parseJson(res) {
@@ -16,19 +17,19 @@ async function parseJson(res) {
 }
 
 export function usePaperAccount() {
+  const activeAccountId = usePaperSessionStore((s) => s.activeAccountId);
+  const setActiveAccountId = usePaperSessionStore((s) => s.setActiveAccountId);
+  const setAccountsInStore = usePaperSessionStore((s) => s.setAccounts);
   const [accounts, setAccounts] = useState([]);
-  const [activeAccountId, setActiveAccountId] = useState(() => {
-    try {
-      return window.localStorage.getItem('paper.activeAccountId') || '';
-    } catch {
-      return '';
-    }
-  });
   const [account, setAccount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const accountFetchGenRef = useRef(0);
   const { pathname, navEpoch } = useRouteNavigationDeps();
+
+  useEffect(() => {
+    usePaperSessionStore.getState().ensureActiveAccountId();
+  }, []);
 
   const loadAccounts = useCallback(async (opts = {}) => {
     if (!canFetchProtectedApi()) return [];
@@ -37,10 +38,12 @@ export function usePaperAccount() {
       const payload = await parseJson(res);
       const rows = payload.accounts || [];
       setAccounts(rows);
+      setAccountsInStore(rows.map((a) => ({ id: a.id, name: a.name })));
+      const currentId = usePaperSessionStore.getState().activeAccountId;
       if (opts.pickFirstIfMissing) {
         if (!rows.length) setActiveAccountId('');
-        else if (!rows.some((a) => a.id === activeAccountId)) setActiveAccountId(rows[0].id);
-      } else if (!activeAccountId && rows.length) {
+        else if (!rows.some((a) => a.id === currentId)) setActiveAccountId(rows[0].id);
+      } else if (!currentId && rows.length) {
         setActiveAccountId(rows[0].id);
       }
       return rows;
@@ -48,7 +51,7 @@ export function usePaperAccount() {
       if (shouldIgnoreRouteLoadError(err)) return [];
       throw err;
     }
-  }, [activeAccountId]);
+  }, [setActiveAccountId, setAccountsInStore]);
 
   const refetch = useCallback(async (accountIdOverride) => {
     if (!canFetchProtectedApi()) {
@@ -59,7 +62,7 @@ export function usePaperAccount() {
     const accountId =
       accountIdOverride !== undefined && accountIdOverride !== null
         ? accountIdOverride
-        : activeAccountId;
+        : usePaperSessionStore.getState().activeAccountId;
     const fetchGen = ++accountFetchGenRef.current;
     setLoading(true);
     setError('');
@@ -75,7 +78,9 @@ export function usePaperAccount() {
       const data = await parseJson(res);
       if (fetchGen !== accountFetchGenRef.current) return;
       setAccount(data);
-      if (data?.id && data.id !== activeAccountId) setActiveAccountId(data.id);
+      if (data?.id && data.id !== usePaperSessionStore.getState().activeAccountId) {
+        setActiveAccountId(data.id);
+      }
     } catch (err) {
       if (fetchGen !== accountFetchGenRef.current) return;
       if (shouldIgnoreRouteLoadError(err)) return;
@@ -86,7 +91,7 @@ export function usePaperAccount() {
         setLoading(false);
       }
     }
-  }, [activeAccountId]);
+  }, [setActiveAccountId]);
 
   useEffect(() => {
     void loadAccounts();
@@ -94,25 +99,17 @@ export function usePaperAccount() {
 
   useEffect(() => {
     void refetch();
-  }, [refetch, pathname, navEpoch]);
-
-  useEffect(() => {
-    try {
-      if (activeAccountId) window.localStorage.setItem('paper.activeAccountId', activeAccountId);
-      else window.localStorage.removeItem('paper.activeAccountId');
-    } catch {
-      // ignore storage errors
-    }
-  }, [activeAccountId]);
+  }, [refetch, pathname, navEpoch, activeAccountId]);
 
   const resetPortfolio = useCallback(async () => {
+    const id = usePaperSessionStore.getState().activeAccountId;
     const res = await fetchWithAuth(
-      apiUrl(`/api/paper/account/reset${activeAccountId ? `?account_id=${encodeURIComponent(activeAccountId)}` : ''}`),
+      apiUrl(`/api/paper/account/reset${id ? `?account_id=${encodeURIComponent(id)}` : ''}`),
       { method: 'POST' }
     );
     await parseJson(res);
     await refetch();
-  }, [refetch, activeAccountId]);
+  }, [refetch]);
 
   const createAccount = useCallback(
     async ({ name, starting_capital, activate = true }) => {
@@ -129,7 +126,7 @@ export function usePaperAccount() {
       }
       return created;
     },
-    [loadAccounts, refetch]
+    [loadAccounts, refetch, setActiveAccountId]
   );
 
   const deleteAccount = useCallback(
@@ -153,12 +150,12 @@ export function usePaperAccount() {
       await refetch(nextId);
       return { deletedId: id, nextAccountId: nextId };
     },
-    [loadAccounts, refetch]
+    [loadAccounts, refetch, setActiveAccountId]
   );
 
   const setPublished = useCallback(
     async (accountId, published, meta = {}) => {
-      const id = String(accountId || activeAccountId || '').trim();
+      const id = String(accountId || usePaperSessionStore.getState().activeAccountId || '').trim();
       if (!id) throw new Error('No account selected');
       const path = published
         ? `/api/paper/accounts/${encodeURIComponent(id)}/publish`
@@ -175,12 +172,12 @@ export function usePaperAccount() {
       });
       const updated = await parseJson(res);
       await loadAccounts();
-      if (id === activeAccountId) {
+      if (id === usePaperSessionStore.getState().activeAccountId) {
         setAccount((prev) => (prev ? { ...prev, ...updated } : updated));
       }
       return updated;
     },
-    [activeAccountId, loadAccounts]
+    [loadAccounts]
   );
 
   return {

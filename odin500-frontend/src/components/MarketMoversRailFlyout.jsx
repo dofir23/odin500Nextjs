@@ -1,8 +1,9 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { ThemedDropdown } from './ThemedDropdown.jsx';
-import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { canFetchMarketData } from '../store/apiStore.js';
+import { useIndexMarketMoversQuery } from '../query/marketQueries.js';
 import { DEFAULT_TICKER_ROUTE_SYMBOL, sanitizeTickerPageInput } from '../utils/tickerUrlSync.js';
 import { fmtPctSigned, fmtPrice } from '../utils/formatDisplayNumber.js';
 
@@ -70,44 +71,34 @@ function pctTone(fraction) {
 export function MarketMoversRailFlyout({ open, onClose, docked = false }) {
   const [indexId, setIndexId] = useState('sp500');
   const [rangeId, setRangeId] = useState('1d');
-  const [points, setPoints] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const activeIndex = INDEX_OPTIONS.find((o) => o.id === indexId) || INDEX_OPTIONS[0];
   const activeRange = RANGE_OPTIONS.find((o) => o.id === rangeId) || RANGE_OPTIONS[0];
 
-  const load = useCallback(async () => {
-    if (!open) return;
-    if (!canFetchMarketData()) {
-      setError('Sign in to load market movers.');
-      setPoints([]);
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const { data: payload } = await fetchJsonCached({
-        path: '/api/market/index-market-movers',
-        method: 'POST',
-        body: { index: activeIndex.apiIndex, period: activeRange.apiPeriod },
-        ttlMs: 90 * 1000,
-        force: false
-      });
-      const list = Array.isArray(payload?.points) ? payload.points : [];
-      setPoints(list);
-      if (!list.length) setError('No data for this index.');
-    } catch (e) {
-      setError(e.message || 'Failed to load');
-      setPoints([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [open, activeIndex.apiIndex, activeRange.apiPeriod]);
+  const moversQuery = useIndexMarketMoversQuery({
+    index: activeIndex.apiIndex,
+    period: activeRange.apiPeriod,
+    enabled: open && canFetchMarketData()
+  });
+
+  const points = Array.isArray(moversQuery.data?.points) ? moversQuery.data.points : [];
+  const loading = moversQuery.isFetching;
+  const error = !canFetchMarketData()
+    ? 'Sign in to load market movers.'
+    : moversQuery.error
+      ? moversQuery.error.message || 'Failed to load'
+      : !loading && open && !points.length
+        ? 'No data for this index.'
+        : '';
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!open) return;
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   const { gainers, losers } = useMemo(() => {
     const g = [];
@@ -122,15 +113,6 @@ export function MarketMoversRailFlyout({ open, onClose, docked = false }) {
     l.sort((a, b) => (parsePct(a.dayReturnPct) || 0) - (parsePct(b.dayReturnPct) || 0));
     return { gainers: g.slice(0, TOP_N), losers: l.slice(0, TOP_N) };
   }, [points]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e) {
-      if (e.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
 
   if (!open) return null;
 

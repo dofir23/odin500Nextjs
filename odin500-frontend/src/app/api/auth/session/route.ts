@@ -14,6 +14,12 @@ export async function POST(request: Request) {
   if (!session?.access_token) {
     return NextResponse.json({ error: 'Invalid session' }, { status: 400 });
   }
-  await setSessionCookies(session, { remember: Boolean(body.remember) });
+  // Omit `remember` to preserve existing odin_remember_me + cookie lifetime on refresh.
+  // Only pass true/false when the client explicitly sets it (login / logout preference).
+  const opts =
+    Object.prototype.hasOwnProperty.call(body, 'remember')
+      ? { remember: Boolean(body.remember) }
+      : {};
+  await setSessionCookies(session, opts);
   return NextResponse.json({ ok: true });
 }

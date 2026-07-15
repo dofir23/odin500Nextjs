@@ -1,93 +1,51 @@
 'use client';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
-import { useLoginGateOptional } from './LoginGateContext.jsx';
+import { useUiStore } from '../store/uiStore.js';
 
 /** @typedef {'watchlist' | 'news' | 'market-movers' | 'notifications'} RightRailDockPanel */
 
 /**
- * @typedef {{
- *   activePanel: RightRailDockPanel | null;
- *   isDockOpen: boolean;
- *   openWatchlist: () => void;
- *   toggleWatchlist: () => void;
- *   toggleNews: () => void;
- *   toggleMarketMovers: () => void;
- *   toggleNotifications: () => void;
- *   close: () => void;
- * }} RightRailDockValue */
-
-const WatchlistDockContext = /** @type {import('react').Context<RightRailDockValue | null>} */ (createContext(null));
-
+ * Thin shell for router-driven dock open; panel state lives in uiStore.
+ */
 export function WatchlistDockProvider({ children }) {
-  const [activePanel, setActivePanel] = useState(/** @type {RightRailDockPanel | null} */ (null));
   const location = useLocation();
   const navigate = useNavigate();
-  const loginGate = useLoginGateOptional();
-
-  const gateWatchlist = useCallback(
-    (action) => {
-      if (loginGate) return loginGate.requireLogin(action);
-      if (typeof action === 'function') action();
-      return true;
-    },
-    [loginGate]
-  );
-
-  const close = useCallback(() => {
-    try {
-      sessionStorage.removeItem('ticker_open_watchlist');
-      sessionStorage.removeItem('watchlist_add_symbol');
-    } catch {
-      /* ignore */
-    }
-    setActivePanel(null);
-  }, []);
-
-  const openWatchlist = useCallback(() => {
-    gateWatchlist(() => setActivePanel('watchlist'));
-  }, [gateWatchlist]);
-
-  const toggleWatchlist = useCallback(() => {
-    gateWatchlist(() => setActivePanel((p) => (p === 'watchlist' ? null : 'watchlist')));
-  }, [gateWatchlist]);
-
-  const toggleNews = useCallback(() => {
-    setActivePanel((p) => (p === 'news' ? null : 'news'));
-  }, []);
-
-  const toggleMarketMovers = useCallback(() => {
-    setActivePanel((p) => (p === 'market-movers' ? null : 'market-movers'));
-  }, []);
-
-  const toggleNotifications = useCallback(() => {
-    gateWatchlist(() => setActivePanel((p) => (p === 'notifications' ? null : 'notifications')));
-  }, [gateWatchlist]);
 
   useEffect(() => {
-    const onOpen = () => gateWatchlist(() => setActivePanel('watchlist'));
+    const onOpen = () => useUiStore.getState().openWatchlist();
     window.addEventListener('ticker:open-watchlist', onOpen);
     return () => window.removeEventListener('ticker:open-watchlist', onOpen);
-  }, [gateWatchlist]);
+  }, []);
 
   useEffect(() => {
     const st = location.state && /** @type {{ openWatchlist?: boolean }} */ (location.state).openWatchlist;
     if (!st) return;
-    gateWatchlist(() => setActivePanel('watchlist'));
+    useUiStore.getState().openWatchlist();
     const rest = { ...(location.state || {}) };
     delete rest.openWatchlist;
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
       { replace: true, state: Object.keys(rest).length ? rest : undefined }
     );
-  }, [location.state, location.pathname, location.search, location.hash, navigate, gateWatchlist]);
+  }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
-  const isDockOpen = activePanel !== null;
+  return children;
+}
 
-  const value = useMemo(
+export function useRightRailDock() {
+  const activePanel = useUiStore((s) => s.activeDockPanel);
+  const openWatchlist = useUiStore((s) => s.openWatchlist);
+  const toggleWatchlist = useUiStore((s) => s.toggleWatchlist);
+  const toggleNews = useUiStore((s) => s.toggleNews);
+  const toggleMarketMovers = useUiStore((s) => s.toggleMarketMovers);
+  const toggleNotifications = useUiStore((s) => s.toggleNotifications);
+  const close = useUiStore((s) => s.closeDock);
+
+  return useMemo(
     () => ({
       activePanel,
-      isDockOpen,
+      isDockOpen: activePanel !== null,
       openWatchlist,
       toggleWatchlist,
       toggleNews,
@@ -95,18 +53,16 @@ export function WatchlistDockProvider({ children }) {
       toggleNotifications,
       close
     }),
-    [activePanel, openWatchlist, toggleWatchlist, toggleNews, toggleMarketMovers, toggleNotifications, close]
+    [
+      activePanel,
+      openWatchlist,
+      toggleWatchlist,
+      toggleNews,
+      toggleMarketMovers,
+      toggleNotifications,
+      close
+    ]
   );
-
-  return <WatchlistDockContext.Provider value={value}>{children}</WatchlistDockContext.Provider>;
-}
-
-export function useRightRailDock() {
-  const ctx = useContext(WatchlistDockContext);
-  if (!ctx) {
-    throw new Error('useRightRailDock must be used within WatchlistDockProvider');
-  }
-  return ctx;
 }
 
 /** @typedef {{ isOpen: boolean, open: () => void, close: () => void, toggle: () => void }} WatchlistDockCompat */

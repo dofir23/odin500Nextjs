@@ -1,14 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import {
-  applyDocumentTheme,
-  getDocumentTheme,
-  getServerDocumentTheme,
-  subscribeDocumentTheme
-} from '../utils/documentTheme.js';
+import { useCallback, useEffect } from 'react';
+import { usePrefsStore } from '../store/prefsStore.js';
+import { applyDocumentTheme, getDocumentTheme } from '../utils/documentTheme.js';
 
-function readPreferredTheme() {
+function readLegacyTheme() {
   try {
     const saved = localStorage.getItem('odin_theme');
     if (saved === 'light' || saved === 'dark') return saved;
@@ -22,22 +18,23 @@ function readPreferredTheme() {
 }
 
 export function useDocumentTheme() {
-  const theme = useSyncExternalStore(
-    subscribeDocumentTheme,
-    getDocumentTheme,
-    getServerDocumentTheme
-  );
+  const theme = usePrefsStore((s) => s.theme);
+  const setTheme = usePrefsStore((s) => s.setTheme);
+  const toggleThemeInStore = usePrefsStore((s) => s.toggleTheme);
 
   useEffect(() => {
-    const preferred = readPreferredTheme();
+    const preferred = usePrefsStore.getState().theme || readLegacyTheme();
     if (getDocumentTheme() !== preferred) {
       applyDocumentTheme(preferred);
+    }
+    if (usePrefsStore.getState().theme !== preferred) {
+      usePrefsStore.setState({ theme: preferred });
     }
   }, []);
 
   const toggleTheme = useCallback(() => {
-    applyDocumentTheme(getDocumentTheme() === 'dark' ? 'light' : 'dark');
-  }, []);
+    toggleThemeInStore();
+  }, [toggleThemeInStore]);
 
-  return { theme, toggleTheme };
+  return { theme, toggleTheme, setTheme };
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { qtyInputString } from '../../utils/formatDisplayNumber.js';
 import { PaperManageModal } from './PaperManageModal.jsx';
 import { paperOrderTypeLabel } from './paperOrderLabels.js';
 
@@ -24,7 +25,7 @@ export function PendingOrderEditModal({ open, order, onClose, onSave, busy = fal
 
   useEffect(() => {
     if (!open || !order) return;
-    setQty(String(order.qty ?? ''));
+    setQty(qtyInputString(order.qty));
     setLimitPrice(order.limit_price != null ? String(order.limit_price) : '');
     setStopPrice(order.stop_price != null ? String(order.stop_price) : '');
     setError('');

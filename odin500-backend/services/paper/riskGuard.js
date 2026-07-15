@@ -4,6 +4,10 @@ const { normalizeAction, isBuyAction } = require('./pendingOrderRules');
 
 const MAX_QTY = 10000;
 
+function round6(v) {
+  return Math.round(Number(v || 0) * 1000000) / 1000000;
+}
+
 /**
  * @param {{ action: string, ticker: string, qty: number, orderType?: string, limitPrice?: number, stopPrice?: number }} order
  * @param {{ cash_balance: number }} account
@@ -16,7 +20,7 @@ function validateOrder(order, account, currentPrice, context = {}) {
     throw new Error('Ticker symbol is required');
   }
 
-  const qty = Number(order.qty);
+  const qty = round6(order.qty);
   if (!Number.isFinite(qty) || qty <= 0) {
     throw new Error('Quantity must be greater than zero');
   }
@@ -82,15 +86,16 @@ function validateOrder(order, account, currentPrice, context = {}) {
     }
   }
 
-  const closableLong = Number(context.closableLongQty || 0);
-  const closableShort = Number(context.closableShortQty || 0);
+  const closableLong = round6(context.closableLongQty || 0);
+  const closableShort = round6(context.closableShortQty || 0);
 
-  if (action === 'STC' && qty > closableLong) {
+  // Allow tiny float noise so "close all" matches lot sums.
+  if (action === 'STC' && qty > closableLong + 1e-9) {
     throw new Error(`Insufficient long lots to close: open long qty is ${closableLong}`);
   }
-  if (action === 'BTC' && qty > closableShort) {
+  if (action === 'BTC' && qty > closableShort + 1e-9) {
     throw new Error(`Insufficient short lots to close: open short qty is ${closableShort}`);
   }
 }
 
-module.exports = { validateOrder, MAX_QTY, normalizeAction, isBuyAction };
+module.exports = { validateOrder, MAX_QTY, normalizeAction, isBuyAction, round6 };

@@ -9,6 +9,7 @@ import { ThemedDropdown } from '../components/ThemedDropdown.jsx';
 import { ChartInfoTip } from '../components/ChartInfoTip.jsx';
 import { CHART_INFO_TIPS } from '../components/chartInfoTips.js';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { fetchIndexMarketMoversQuery } from '../query/marketQueries.js';
 import { MarketMoversSplitBarsSkeleton } from '../components/ChartSkeletons.jsx';
 import { useGatedCsvDownload } from '../hooks/useGatedCsvDownload.js';
 import { buildTickerChartExportFilename } from '../utils/chartExportFilename.js';
@@ -1288,12 +1289,9 @@ export default function MarketMoversPage({ initialData = null }) {
       setLoading(true);
       setError('');
       try {
-        const { data: payload } = await fetchJsonCached({
-          path: '/api/market/index-market-movers',
-          method: 'POST',
-          body: { index: activeMenu.apiIndex, period: activeMoverInterval.apiPeriod },
-          ttlMs: 90 * 1000,
-          force: false
+        const payload = await fetchIndexMarketMoversQuery({
+          index: activeMenu.apiIndex,
+          period: activeMoverInterval.apiPeriod
         });
         if (cancelled) return;
         const list = Array.isArray(payload?.points) ? payload.points : [];

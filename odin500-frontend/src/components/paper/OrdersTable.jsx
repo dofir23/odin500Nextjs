@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
+import { fmtQty } from '../../utils/formatDisplayNumber.js';
 import { paperActionLabel } from './paperActionLabels.js';
 import { formatOrderPriceSummary, paperOrderTypeLabel } from './paperOrderLabels.js';
 import { PendingOrderEditModal } from './PendingOrderEditModal.jsx';
@@ -69,7 +70,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify, readOnly = fa
             {o.ticker}
           </Link>
         </td>
-        <td>{o.qty}</td>
+        <td>{fmtQty(o.qty)}</td>
         <td>{paperOrderTypeLabel(o.order_type)}</td>
         <td>{formatOrderPriceSummary(o)}</td>
         <td>

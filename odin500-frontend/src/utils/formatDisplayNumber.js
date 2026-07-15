@@ -98,3 +98,34 @@ export function fmtVolumeCompact(v, options = {}) {
 export function fmtChartPrice(v) {
   return fmtPrice(v);
 }
+
+/** Match backend paper qty precision (6 decimal places). */
+export function roundQty6(v) {
+  return Math.round(Number(v || 0) * 1e6) / 1e6;
+}
+
+/** Paper share quantity for tables/labels — always two decimals. */
+export function fmtQty(v, options = {}) {
+  return fmtNumber(v, { decimals: 2, empty: '0', ...options });
+}
+
+/** Two-decimal string for number inputs (no thousands separators). */
+export function qtyInputString(v) {
+  if (!isDisplayableNumber(v)) return '';
+  return roundQty6(v).toFixed(2);
+}
+
+/**
+ * Resolve a close qty: if the user typed the 2-decimal “all” amount, use full available.
+ * Always returns a 6-dp value not exceeding available.
+ * @returns {number|null}
+ */
+export function resolveCloseQty(entered, available) {
+  const q = Number(entered);
+  const max = roundQty6(available);
+  if (!Number.isFinite(q) || q <= 0) return null;
+  if (!Number.isFinite(max) || max <= 0) return null;
+  const roundedMax2 = Math.round(max * 100) / 100;
+  if (q >= max - 1e-9 || Math.abs(q - roundedMax2) < 1e-9) return max;
+  return roundQty6(Math.min(q, max));
+}

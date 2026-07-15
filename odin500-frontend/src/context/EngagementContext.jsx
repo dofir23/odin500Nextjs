@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
-import { getAuthToken } from '../store/apiStore.js';
-import { useLoginGateOptional } from './LoginGateContext.jsx';
+import { useAuthStore } from '../store/authStore.js';
+import { useUiStore } from '../store/uiStore.js';
 import { EngagementSignupModal } from '../components/engagement/EngagementSignupModal.jsx';
 import { useActiveSessionTime } from '../engagement/useActiveSessionTime.js';
 import { ENGAGEMENT_ACTIVE_MS_THRESHOLD, markEngagementFirstVisit } from '../engagement/engagementStorage.js';
@@ -34,9 +34,8 @@ function hasBlockingOverlay() {
 export function EngagementProvider({ children }) {
   const pathname = usePathname() || '/';
   const navigate = useNavigate();
-  const loginGate = useLoginGateOptional();
-  const loggedIn = Boolean(getAuthToken());
-  const loginModalOpen = Boolean(loginGate?.loginModalOpen);
+  const loggedIn = useAuthStore((s) => s.isLoggedIn);
+  const loginModalOpen = useUiStore((s) => s.loginModalOpen);
 
   const [open, setOpen] = useState(false);
   const [gateEarned, setGateEarned] = useState(false);

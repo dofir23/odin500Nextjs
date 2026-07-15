@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ThemedDropdown } from '../ThemedDropdown.jsx';
+import { fmtQty, qtyInputString, resolveCloseQty, roundQty6 } from '../../utils/formatDisplayNumber.js';
 import { PaperManageModal } from './PaperManageModal.jsx';
 import { paperActionLabel } from './paperActionLabels.js';
 
@@ -13,8 +14,8 @@ function money(v) {
 
 export function getClosableLegs(position) {
   if (!position) return [];
-  const long = Number(position.long_qty) || 0;
-  const short = Number(position.short_qty) || 0;
+  const long = roundQty6(position.long_qty);
+  const short = roundQty6(position.short_qty);
   const legs = [];
   if (long > 0) {
     legs.push({
@@ -76,18 +77,18 @@ const BUY_QTY_PRESETS = [1, 5, 10, 25, 50];
 function buildPositionSummary(position, leg, isBuy) {
   const sym = position?.ticker ? String(position.ticker).toUpperCase() : '';
   const last = money(position?.current_price);
-  const net = position?.net_qty ?? 0;
+  const net = fmtQty(position?.net_qty ?? 0);
   if (!leg) return `${sym} · Last ${last} · Net qty ${net}`;
 
   if (isBuy) {
     const openPart =
       leg.openQty > 0
-        ? `${leg.sideLabel} ${leg.openQty} @ ${money(leg.avgCost)}`
+        ? `${leg.sideLabel} ${fmtQty(leg.openQty)} @ ${money(leg.avgCost)}`
         : `No open ${leg.sideLabel.toLowerCase()}`;
     return `${sym} · ${openPart} · Last ${last} · Net qty ${net}`;
   }
 
-  return `${sym} · ${leg.sideLabel} ${leg.qty} @ ${money(leg.avgCost)} · Last ${last} · Net qty ${net}`;
+  return `${sym} · ${leg.sideLabel} ${fmtQty(leg.qty)} @ ${money(leg.avgCost)} · Last ${last} · Net qty ${net}`;
 }
 
 /**
@@ -105,10 +106,12 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
 
   const leg = legs.find((l) => l.key === legKey) || legs[0];
   const quantity = Number(qty);
+  const displayQty = Number.isFinite(quantity) && quantity > 0 ? fmtQty(quantity) : '';
   const sym = position?.ticker ? String(position.ticker).toUpperCase() : '';
   const longQty = Number(position?.long_qty) || 0;
   const shortQty = Number(position?.short_qty) || 0;
   const isShortOpen = isBuy && leg?.action === 'STO';
+  const maxCloseQtyLabel = leg?.qty != null ? fmtQty(leg.qty) : '—';
 
   const legOptions = useMemo(
     () =>
@@ -131,26 +134,35 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
     }
     if (!closeLegs.length) return;
     setLegKey(closeLegs[0].key);
-    setQty(String(closeLegs[0].qty));
+    setQty(qtyInputString(closeLegs[0].qty));
   }, [open, isBuy, position?.ticker, position?.long_qty, position?.short_qty, closeLegs, longQty, shortQty]);
 
   async function handleSubmit() {
     if (!position) return;
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError('Enter a valid quantity');
-      return;
-    }
     if (!leg) return;
-    if (!isBuy && quantity > leg.qty) {
-      setError(`Maximum ${leg.verb.toLowerCase()} qty: ${leg.qty}`);
-      return;
+    if (isBuy) {
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        setError('Enter a valid quantity');
+        return;
+      }
+    } else {
+      const resolved = resolveCloseQty(qty, leg.qty);
+      if (resolved == null) {
+        setError('Enter a valid quantity');
+        return;
+      }
+      if (resolved > leg.qty + 1e-9) {
+        setError(`Maximum ${leg.verb.toLowerCase()} qty: ${maxCloseQtyLabel}`);
+        return;
+      }
     }
+    const qtyToSend = isBuy ? quantity : resolveCloseQty(qty, leg.qty);
     setError('');
     try {
       await onConfirm({
         ticker: sym,
         action: leg.action,
-        qty: quantity,
+        qty: qtyToSend,
         orderType: 'market'
       });
       onClose();
@@ -173,7 +185,7 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
     'paper-rule-edit-modal paper-pos-order-modal' +
     (isBuy ? ' paper-pos-order-modal--buy' : ' paper-pos-order-modal--close');
 
-  const title = isBuy ? `Buy ${sym}` : `Close ${sym}`;
+  const title = isBuy ? `Buy ${sym}` : `Sell ${sym}`;
   const submitClass = isBuy
     ? isShortOpen
       ? ' paper-btn--submit-short'
@@ -181,15 +193,15 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
     : ' paper-btn--submit-exit';
   const submitLabel = busy
     ? 'Submitting…'
-    : `${leg?.verb ?? 'Submit'} ${quantity > 0 ? quantity : ''} ${sym}`.trim();
+    : `${leg?.verb ?? 'Submit'} ${displayQty} ${sym}`.trim();
 
   const hintText = isBuy && leg?.action === 'BTO'
     ? 'Adds to your long position with a market buy order. Quantity is filled at the latest available price.'
     : isBuy && leg?.action === 'STO'
       ? 'Adds to your short position with a market short order. Quantity is filled at the latest available price.'
       : leg?.action === 'STC'
-        ? 'Closes part or all of your long position with a market sell order.'
-        : 'Closes part or all of your short position with a market cover order.';
+        ? 'Sells part or all of your long position with a market order.'
+        : 'Covers part or all of your short position with a market order.';
 
   return (
     <PaperManageModal
@@ -234,7 +246,7 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
                   onChange={(id) => {
                     setLegKey(id);
                     const picked = legs.find((l) => l.key === id);
-                    if (!isBuy && picked) setQty(String(picked.qty));
+                    if (!isBuy && picked) setQty(qtyInputString(picked.qty));
                     setError('');
                   }}
                   ariaLabelPrefix="Action"
@@ -268,13 +280,13 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
                 ref={qtyInputRef}
                 type="number"
                 className="paper-input"
-                min="1"
+                min={isBuy ? '1' : '0.01'}
                 max={isBuy ? undefined : leg?.qty}
-                step="1"
+                step="0.01"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 disabled={busy}
-                placeholder={isBuy ? 'Enter quantity' : String(leg?.qty ?? '')}
+                placeholder={isBuy ? 'Enter quantity' : maxCloseQtyLabel}
               />
             </label>
             <label className="paper-field paper-strategy-rule-form__field--max">
@@ -283,7 +295,7 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
                 type="text"
                 className="paper-input"
                 readOnly
-                value={isBuy ? money(estPrice) : leg ? String(leg.qty) : '—'}
+                value={isBuy ? money(estPrice) : leg ? maxCloseQtyLabel : '—'}
               />
             </label>
           </div>
@@ -306,10 +318,10 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
                 <button
                   type="button"
                   className="paper-qty-presets__btn paper-qty-presets__btn--all"
-                  onClick={() => setQty(String(leg.qty))}
+                  onClick={() => setQty(qtyInputString(leg.qty))}
                   disabled={busy}
                 >
-                  ALL ({leg.qty})
+                  ALL ({maxCloseQtyLabel})
                 </button>
               ) : null}
         </div>
@@ -321,7 +333,7 @@ export function PositionOrderModal({ open, position, mode = 'close', onClose, on
             Est. order value: <strong>{money(estTotal)}</strong>
             <span className="paper-order__estimate-meta">
               {' '}
-              ({quantity} × {money(estPrice)}, mkt est.)
+              ({displayQty} × {money(estPrice)}, mkt est.)
             </span>
           </p>
         ) : null}

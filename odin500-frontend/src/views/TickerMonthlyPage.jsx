@@ -14,6 +14,7 @@ import { AnnualReturnBarChart } from '../components/AnnualReturnBarChart.jsx';
 import { ExcessReturnLineChart } from '../components/ExcessReturnLineChart.jsx';
 import { PeriodicReturnBarChart } from '../components/PeriodicReturnBarChart.jsx';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { fetchTickerCoreReturnsQuery, fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import { rowDateToTimeKey } from '../utils/chartData.js';
 import { isoYearWeekFromIsoDate } from '../utils/isoWeek.js';
 import { pickRelatedByCategory, RELATED_INDEX_LINKS } from '../utils/relatedTickers.js';
@@ -588,11 +589,14 @@ export default function TickerMonthlyPage({ periodMode = 'monthly', initialData 
         const [mRes, mBenchRes, coreSymRes, coreSpyRes, ohlcSymRes, ohlcSpyRes, detailsRes] = await Promise.all([
           primaryReq,
           benchmarkReq,
-          fetchJsonCached({ path: '/api/market/ticker-core-returns', method: 'POST', body, ttlMs: 5 * 60 * 1000 }),
-          fetchJsonCached({ path: '/api/market/ticker-core-returns', method: 'POST', body: { ...body, ticker: benchmarkIndex }, ttlMs: 5 * 60 * 1000 }),
+          fetchTickerCoreReturnsQuery(body).then((data) => ({ data })),
+          fetchTickerCoreReturnsQuery({ ...body, ticker: benchmarkIndex }).then((data) => ({ data })),
           fetchJsonCached({ path: `/api/market/ohlc?symbol=${encodeURIComponent(tickerU)}&start_date=${encodeURIComponent(oneYearStartIso)}&end_date=${encodeURIComponent(end)}&limit=400`, method: 'GET', ttlMs: 10 * 60 * 1000 }),
           fetchJsonCached({ path: `/api/market/ohlc?symbol=${encodeURIComponent(benchmarkIndex)}&start_date=${encodeURIComponent(oneYearStartIso)}&end_date=${encodeURIComponent(end)}&limit=400`, method: 'GET', ttlMs: 10 * 60 * 1000 }),
-          fetchJsonCached({ path: '/api/market/ticker-details', method: 'POST', body: { index: 'sp500', period: 'last-1-year' }, ttlMs: 30 * 60 * 1000 })
+          fetchTickerDetailsQuery(
+            { index: 'sp500', period: 'last-1-year' },
+            { staleTime: 30 * 60 * 1000 }
+          ).then((data) => ({ data }))
         ]);
         if (cancelled) return;
         const perf = mRes?.data?.performance || {};

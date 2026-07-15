@@ -7,6 +7,7 @@ import { ChartInfoTip } from './ChartInfoTip.jsx';
 import TradingChartLoader from './TradingChartLoader.jsx';
 import { CHART_INFO_TIPS } from './chartInfoTips.js';
 import {fetchJsonCached, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
+import { fetchTickerCoreReturnsQuery, fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import { useReturnsChartFiltersMenuMode } from '../context/WatchlistDockContext.jsx';
 import { ReturnsChartFiltersMenu } from './ReturnsChartFiltersMenu.jsx';
 import { ReturnsChartClickableTitle } from './ReturnsChartClickableTitle.jsx';
@@ -183,14 +184,10 @@ export function TickerSection23Section24({
             : null;
         const data = rowsFromProp
           ? { data: rowsFromProp }
-          : (
-              await fetchJsonCached({
-                path: '/api/market/ticker-details',
-                method: 'POST',
-                body: { index: activeGroup.apiIndex, period: 'last-1-year' },
-                ttlMs: 10 * 60 * 1000
-              })
-            ).data;
+          : await fetchTickerDetailsQuery(
+              { index: activeGroup.apiIndex, period: 'last-1-year' },
+              { staleTime: 10 * 60 * 1000 }
+            );
         if (cancelled) return;
         const list = Array.isArray(data?.data) ? data.data : [];
         const sorted = [...list].sort((a, b) =>
@@ -250,17 +247,12 @@ export function TickerSection23Section24({
       if (coreReturnsCacheRef.current.has(key)) {
         return coreReturnsCacheRef.current.get(key);
       }
-      const res = await fetchJsonCached({
-        path: '/api/market/ticker-core-returns',
-        method: 'POST',
-        body: {
-          ticker: u,
-          customStartDate: TABLE_ONLY_START_DATE,
-          customEndDate: yesterdayIso()
-        },
-        ttlMs: 5 * 60 * 1000
+      const resData = await fetchTickerCoreReturnsQuery({
+        ticker: u,
+        customStartDate: TABLE_ONLY_START_DATE,
+        customEndDate: yesterdayIso()
       });
-      const payload = pickTickerReturnsFromPayload(res.data, u) || (res.data?.ticker ? res.data : null);
+      const payload = pickTickerReturnsFromPayload(resData, u) || (resData?.ticker ? resData : null);
       coreReturnsCacheRef.current.set(key, payload);
       return payload;
     }

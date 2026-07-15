@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { HydrationMarker } from '@/components/HydrationMarker';
 import { SocialCaptureBootstrap } from '@/components/SocialCaptureBootstrap';
 import { LoginGateProvider } from '@/context/LoginGateContext.jsx';
@@ -10,8 +11,11 @@ import { ProductTourProvider } from '@/context/ProductTourContext.jsx';
 import { initAuthSessionOnLoad } from '@/store/apiStore.js';
 import { installRouteNavigationAbortErrorFilter } from '@/navigation/routeNavigationAbort.js';
 import { installChunkLoadRecovery } from '@/utils/installChunkLoadRecovery.js';
+import { createAppQueryClient } from '@/query/queryClient.js';
 
 export function Providers({ children }) {
+  const [queryClient] = useState(() => createAppQueryClient());
+
   useEffect(() => {
     initAuthSessionOnLoad();
     const offAbort = installRouteNavigationAbortErrorFilter();
@@ -23,16 +27,18 @@ export function Providers({ children }) {
   }, []);
 
   return (
-    <LoginGateProvider>
-      <EngagementProvider>
-        <WatchlistDockProvider>
-          <ProductTourProvider>
-            <HydrationMarker />
-            <SocialCaptureBootstrap />
-            {children}
-          </ProductTourProvider>
-        </WatchlistDockProvider>
-      </EngagementProvider>
-    </LoginGateProvider>
+    <QueryClientProvider client={queryClient}>
+      <LoginGateProvider>
+        <EngagementProvider>
+          <WatchlistDockProvider>
+            <ProductTourProvider>
+              <HydrationMarker />
+              <SocialCaptureBootstrap />
+              {children}
+            </ProductTourProvider>
+          </WatchlistDockProvider>
+        </EngagementProvider>
+      </LoginGateProvider>
+    </QueryClientProvider>
   );
 }

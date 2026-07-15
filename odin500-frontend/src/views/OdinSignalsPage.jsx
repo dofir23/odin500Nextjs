@@ -12,6 +12,7 @@ import { useTickerPlotResize } from '../hooks/useTickerPlotResize.js';
 import { useGatedCsvDownload } from '../hooks/useGatedCsvDownload.js';
 import { notifyChartFullscreenLayout } from '../utils/chartFullscreenLayout.js';
 import { canFetchMarketData, fetchJsonCached, fetchWithAuth } from '../store/apiStore.js';
+import { fetchTickerDetailsQuery } from '../query/marketQueries.js';
 import { apiUrl } from '../utils/apiOrigin.js';
 import { mapRowsToCandles } from '../utils/chartData.js';
 import { toDateInput } from '../utils/misc.js';
@@ -333,17 +334,12 @@ export default function OdinSignalsPage({ initialData = null }) {
           const marketIndices = ['SP500', 'Dow Jones', 'Nasdaq 100'];
           const responses = await Promise.all(
             marketIndices.map((indexName) =>
-              fetchJsonCached({
-                path: '/api/market/ticker-details',
-                method: 'POST',
-                body: { index: indexName, period: selectedPeriod },
-                ttlMs: 5 * 60 * 1000
-              })
+              fetchTickerDetailsQuery({ index: indexName, period: selectedPeriod })
             )
           );
           const uniqueBySymbol = new Map();
-          for (const response of responses) {
-            const rows = Array.isArray(response?.data?.data) ? response.data.data : [];
+          for (const payload of responses) {
+            const rows = Array.isArray(payload?.data) ? payload.data : [];
             const mappedRows = toMappedRows(rows);
             for (const row of mappedRows) {
               if (!uniqueBySymbol.has(row.symbol)) uniqueBySymbol.set(row.symbol, row);
@@ -351,16 +347,17 @@ export default function OdinSignalsPage({ initialData = null }) {
           }
           list = Array.from(uniqueBySymbol.values());
         } else {
-          const { data } = await fetchJsonCached({
-            path: '/api/market/ticker-details',
-            method: 'POST',
-            body: { index: activeIndex.apiIndex, period: selectedPeriod },
-            ttlMs: 5 * 60 * 1000
+          const data = await fetchTickerDetailsQuery({
+            index: activeIndex.apiIndex,
+            period: selectedPeriod
           });
           list = dedupeTickerDetailRows(Array.isArray(data?.data) ? data.data : []);
         }
         if (cancelled) return;
-        const mapped = toMappedRows(list).sort((a, b) => Math.abs(Number(b.ret) || 0) - Math.abs(Number(a.ret) || 0));
+        const mappedBase = activeIndex.id === 'all' ? list : toMappedRows(list);
+        const mapped = mappedBase.sort(
+          (a, b) => Math.abs(Number(b.ret) || 0) - Math.abs(Number(a.ret) || 0)
+        );
         setIndexRows(mapped);
       } catch {
         if (!cancelled) setIndexRows([]);

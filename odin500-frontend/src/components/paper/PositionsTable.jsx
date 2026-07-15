@@ -1,19 +1,26 @@
 'use client';
 import { useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
-import { fmtAbsSigned, fmtNumber, fmtPctSigned } from '../../utils/formatDisplayNumber.js';
+import { fmtAbsSigned, fmtPctSigned, fmtQty, roundQty6 } from '../../utils/formatDisplayNumber.js';
 import { PositionOrderModal, getClosableLegs } from './ClosePositionModal.jsx';
-
-function fmtQty(v) {
-  if (v == null || !Number.isFinite(Number(v))) return '0';
-  return fmtNumber(v, { decimals: 2, empty: '0' });
-}
+import { PaperManageModal } from './PaperManageModal.jsx';
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(
     Number(v)
   );
+}
+
+function closeAllConfirmCopy(position) {
+  const sym = position?.ticker ? String(position.ticker).toUpperCase() : 'this ticker';
+  const legs = getClosableLegs(position);
+  if (!legs.length) {
+    return `Close all open quantity for ${sym}?`;
+  }
+  const parts = legs.map((leg) => `${fmtQty(leg.qty)} ${leg.sideLabel.toLowerCase()} shares`);
+  const qtyLine = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return `Close all open quantity for ${sym}? This will flatten ${qtyLine} with market order${legs.length > 1 ? 's' : ''}.`;
 }
 
 function toneClass(v) {
@@ -55,6 +62,9 @@ function positionChangePct(p) {
 export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = false }) {
   const [orderModal, setOrderModal] = useState(null);
   const [orderBusy, setOrderBusy] = useState(false);
+  const [closeAllPosition, setCloseAllPosition] = useState(null);
+  const [closeAllBusy, setCloseAllBusy] = useState(false);
+  const [closeAllError, setCloseAllError] = useState('');
 
   async function handleOrderConfirm(orderInput) {
     if (!onPlaceOrder) {
@@ -65,6 +75,33 @@ export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = fa
       await onPlaceOrder(orderInput);
     } finally {
       setOrderBusy(false);
+    }
+  }
+
+  async function handleCloseAllConfirm() {
+    if (!closeAllPosition || !onPlaceOrder) return;
+    const legs = getClosableLegs(closeAllPosition);
+    if (!legs.length) {
+      setCloseAllPosition(null);
+      return;
+    }
+    setCloseAllBusy(true);
+    setCloseAllError('');
+    try {
+      const sym = String(closeAllPosition.ticker || '').toUpperCase();
+      for (const leg of legs) {
+        await onPlaceOrder({
+          ticker: sym,
+          action: leg.action,
+          qty: roundQty6(leg.qty),
+          orderType: 'market'
+        });
+      }
+      setCloseAllPosition(null);
+    } catch (err) {
+      setCloseAllError(err?.message || 'Failed to close position');
+    } finally {
+      setCloseAllBusy(false);
     }
   }
 
@@ -164,14 +201,27 @@ export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = fa
                           Buy
                         </button>
                         {canClose ? (
-                          <button
-                            type="button"
-                            className="paper-pos-action-btn paper-pos-action-btn--close"
-                            onClick={() => setOrderModal({ position: p, mode: 'close' })}
-                            title={`Close ${p.ticker} position`}
-                          >
-                            Close
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="paper-pos-action-btn paper-pos-action-btn--sell"
+                              onClick={() => setOrderModal({ position: p, mode: 'close' })}
+                              title={`Sell or cover part of ${p.ticker}`}
+                            >
+                              Sell
+                            </button>
+                            <button
+                              type="button"
+                              className="paper-pos-action-btn paper-pos-action-btn--close"
+                              onClick={() => {
+                                setCloseAllError('');
+                                setCloseAllPosition(p);
+                              }}
+                              title={`Close all ${p.ticker} quantity`}
+                            >
+                              Close
+                            </button>
+                          </>
                         ) : null}
                       </div>
                     ) : null}
@@ -194,6 +244,51 @@ export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = fa
         onConfirm={handleOrderConfirm}
         busy={orderBusy}
       />
+
+      <PaperManageModal
+        open={closeAllPosition != null}
+        title={
+          closeAllPosition?.ticker
+            ? `Close ${String(closeAllPosition.ticker).toUpperCase()}`
+            : 'Close position'
+        }
+        titleId="paper-close-all-position-title"
+        modalClassName="paper-close-all-modal"
+        onClose={() => {
+          if (!closeAllBusy) {
+            setCloseAllError('');
+            setCloseAllPosition(null);
+          }
+        }}
+        footer={
+          <div className="paper-rule-edit-modal__actions">
+            <button
+              type="button"
+              className="paper-btn paper-btn--ghost"
+              onClick={() => {
+                if (!closeAllBusy) {
+                  setCloseAllError('');
+                  setCloseAllPosition(null);
+                }
+              }}
+              disabled={closeAllBusy}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="paper-btn paper-btn--danger"
+              onClick={() => void handleCloseAllConfirm()}
+              disabled={closeAllBusy}
+            >
+              {closeAllBusy ? 'Closing…' : 'Confirm'}
+            </button>
+          </div>
+        }
+      >
+        <p className="paper-modal-msg">{closeAllConfirmCopy(closeAllPosition)}</p>
+        {closeAllError ? <p className="paper-strategy-err">{closeAllError}</p> : null}
+      </PaperManageModal>
     </>
   );
 }

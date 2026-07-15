@@ -4,6 +4,7 @@ import { TickerSymbolCombobox } from '../TickerSymbolCombobox.jsx';
 import { ThemedDropdown } from '../ThemedDropdown.jsx';
 import { canFetchProtectedApi, fetchJsonCached } from '../../store/apiStore.js';
 import { sanitizeTickerPageInput } from '../../utils/tickerUrlSync.js';
+import { fmtQty, qtyInputString, resolveCloseQty } from '../../utils/formatDisplayNumber.js';
 import {
   PAPER_ACTION_OPTIONS,
   isClosingPaperAction,
@@ -199,11 +200,17 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
 
   const quantity = useMemo(() => {
     if (sizeMode === 'shares') {
-      return Number.isFinite(rawShares) && rawShares > 0 ? rawShares : null;
+      if (!Number.isFinite(rawShares) || rawShares <= 0) return null;
+      if (isClose && closableQty > 0) {
+        return resolveCloseQty(qty, closableQty);
+      }
+      return rawShares;
     }
     if (referencePrice == null) return null;
     return sharesFromAmount(rawAmount, referencePrice);
-  }, [sizeMode, rawShares, rawAmount, referencePrice]);
+  }, [sizeMode, rawShares, rawAmount, referencePrice, isClose, closableQty, qty]);
+
+  const displayQty = quantity != null ? fmtQty(quantity) : '';
 
   const estTotal =
     quantity != null &&
@@ -276,7 +283,7 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
         return;
       }
       if (held.long < quantity) {
-        setError(`Not enough long shares to close. Open long qty: ${held.long}`);
+        setError(`Not enough long shares to close. Open long qty: ${fmtQty(held.long)}`);
         return;
       }
     }
@@ -286,7 +293,7 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
         return;
       }
       if (held.short < quantity) {
-        setError(`Not enough short shares to close. Open short qty: ${held.short}`);
+        setError(`Not enough short shares to close. Open short qty: ${fmtQty(held.short)}`);
         return;
       }
     }
@@ -332,7 +339,7 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
       const fillPrice = result?.fill?.fillPrice ?? result?.order?.avg_fill_price;
       if (fillPrice != null) {
         const bracketNote = body.bracket ? ' Bracket exits queued.' : '';
-        setSuccess(`Filled ${quantity} @ ${Number(fillPrice).toFixed(2)}.${bracketNote}`);
+        setSuccess(`Filled ${displayQty || fmtQty(quantity)} @ ${Number(fillPrice).toFixed(2)}.${bracketNote}`);
       } else if (result?.pending) {
         setSuccess(pendingOrderSuccessMessage(orderType));
       } else {
@@ -471,9 +478,9 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
             <button
               type="button"
               className="paper-qty-presets__btn paper-qty-presets__btn--all"
-              onClick={() => setQty(String(closableQty))}
+              onClick={() => setQty(qtyInputString(closableQty))}
             >
-              ALL ({closableQty})
+              ALL ({fmtQty(closableQty)})
             </button>
           ) : null}
           {sizeMode === 'amount' && isClose && closableQty > 0 && referencePrice != null ? (
@@ -578,7 +585,7 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
           <p className="paper-order__estimate">
             {sizeMode === 'amount' ? (
               <>
-                Est. shares: <strong>{quantity}</strong>
+                Est. shares: <strong>{fmtQty(quantity)}</strong>
                 <span className="paper-order__estimate-meta">
                   {' '}
                   ({money(rawAmount)} ÷ {money(referencePrice)}
@@ -590,7 +597,7 @@ export function OrderTicket({ onPlaceOrder, positions = [], strategyActive = fal
                 Est. order value: <strong>{money(estTotal)}</strong>
                 <span className="paper-order__estimate-meta">
                   {' '}
-                  ({quantity} × {money(referencePrice)}
+                  ({displayQty} × {money(referencePrice)}
                   {orderType === 'limit' ? ', limit' : orderType === 'market' ? ', mkt est.' : ', ref.'})
                 </span>
               </>
