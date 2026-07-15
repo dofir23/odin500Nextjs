@@ -26,6 +26,7 @@ async function fetchLatestClosePrices(symbols) {
     SELECT ticker, close_price AS close
     FROM ${OHLC_TABLE}
     WHERE ticker IN (${bqArray(list)})
+      AND market_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY market_date DESC) = 1
   `;
   const [job] = await bigquery.createQueryJob({ query: q });

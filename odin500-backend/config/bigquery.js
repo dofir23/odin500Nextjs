@@ -45,4 +45,47 @@ if (b64FromEnv) {
     );
 }
 
+/**
+ * Optional safety cap (bytes). When set, runaway scans fail instead of billing.
+ * Example: BIGQUERY_MAXIMUM_BYTES_BILLED=50000000000  (50 GB)
+ * Leave unset for no client-side cap.
+ */
+function resolveMaximumBytesBilled() {
+    const raw = process.env.BIGQUERY_MAXIMUM_BYTES_BILLED;
+    if (raw == null || String(raw).trim() === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return String(Math.trunc(n));
+}
+
+function withQueryGuards(options) {
+    const opts =
+        typeof options === 'string'
+            ? { query: options }
+            : options && typeof options === 'object'
+              ? { ...options }
+              : {};
+    const maxBytes = resolveMaximumBytesBilled();
+    if (maxBytes && opts.maximumBytesBilled == null) {
+        opts.maximumBytesBilled = maxBytes;
+    }
+    return opts;
+}
+
+const _query = bigquery.query.bind(bigquery);
+bigquery.query = (options, callback) => {
+    if (typeof callback === 'function') {
+        return _query(withQueryGuards(options), callback);
+    }
+    return _query(withQueryGuards(options));
+};
+
+const _createQueryJob = bigquery.createQueryJob.bind(bigquery);
+bigquery.createQueryJob = (options, callback) => {
+    if (typeof callback === 'function') {
+        return _createQueryJob(withQueryGuards(options), callback);
+    }
+    return _createQueryJob(withQueryGuards(options));
+};
+
 module.exports = bigquery;

@@ -1,7 +1,7 @@
 const { runSplitSync } = require('../jobs/splitSyncJob');
 const { runPaperSplitAdjustmentJob } = require('../jobs/paperSplitAdjustmentJob');
 
-const ENABLE = process.env.ENABLE_SPLIT_SYNC !== '0';
+const ENABLE = process.env.ENABLE_SPLIT_SYNC === '1';
 /** Default: once per day. */
 const INTERVAL_MS = Number(process.env.SPLITS_SYNC_INTERVAL_MS || 86400000);
 
@@ -34,7 +34,7 @@ async function runOnce() {
 
 function startSplitSyncRunner() {
   if (!ENABLE) {
-    console.log('[split-sync] disabled (set ENABLE_SPLIT_SYNC=0 to disable; default is on when MASSIVE_API_KEY is set)');
+    console.log('[split-sync] disabled (set ENABLE_SPLIT_SYNC=1 to enable; default is off to reduce BigQuery cost)');
     return;
   }
   if (!process.env.MASSIVE_API_KEY) {

@@ -6,7 +6,7 @@ const { checkPendingOrders } = require('../jobs/pendingOrderWatcher');
 const { runStrategiesOnce } = require('./paper/strategyRunner');
 const { runPaperSplitAdjustmentJob } = require('../jobs/paperSplitAdjustmentJob');
 
-const ENABLE = process.env.ENABLE_PAPER_JOBS !== '0';
+const ENABLE = process.env.ENABLE_PAPER_JOBS === '1';
 /** Default: once per day (86_400_000 ms). Override with PAPER_SNAPSHOT_INTERVAL_MS. */
 const SNAPSHOT_MS = Number(process.env.PAPER_SNAPSHOT_INTERVAL_MS || 86400000);
 /** Default: every 4 hours (14_400_000 ms). Override with PAPER_PENDING_ORDER_MS. */
@@ -89,7 +89,7 @@ async function runSplitAdjustOnce() {
 
 function startPaperJobs() {
   if (!ENABLE) {
-    console.log('[paper-jobs] disabled (ENABLE_PAPER_JOBS=0)');
+    console.log('[paper-jobs] disabled (set ENABLE_PAPER_JOBS=1 to enable; default is off to reduce BigQuery cost)');
     return;
   }
 

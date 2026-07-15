@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { runWeeklyNewsletterJob } = require('../jobs/weeklyNewsletterJob');
 
-const ENABLE = process.env.ENABLE_WEEKLY_NEWSLETTER_JOB !== '0';
+const ENABLE = process.env.ENABLE_WEEKLY_NEWSLETTER_JOB === '1';
 /** Cron: Sunday 12:00 UTC — Mon–Sun week ending that Sunday */
 const CRON_EXPR = process.env.WEEKLY_NEWSLETTER_CRON || '0 12 * * 0';
 
@@ -29,7 +29,7 @@ async function runOnce() {
 
 function startNewsletterJobRunner() {
   if (!ENABLE) {
-    console.log('[weekly-newsletter] disabled (ENABLE_WEEKLY_NEWSLETTER_JOB=0)');
+    console.log('[weekly-newsletter] disabled (set ENABLE_WEEKLY_NEWSLETTER_JOB=1 to enable; default is off to reduce BigQuery cost)');
     return;
   }
   if (!cron.validate(CRON_EXPR)) {

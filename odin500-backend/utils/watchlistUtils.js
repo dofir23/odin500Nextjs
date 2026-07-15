@@ -152,6 +152,7 @@ async function fetchOHLC(symbols) {
            dma_200 AS dma200
     FROM ${OHLC_TABLE}
     WHERE ticker IN (${bqArray(symbols)})
+      AND market_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY market_date DESC) = 1
   `;
   const [job] = await bigquery.createQueryJob({ query: q });
@@ -173,6 +174,7 @@ async function fetchHistoryChanges(symbols) {
              ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY market_date DESC) AS rn
       FROM ${HISTORY_TABLE}
       WHERE ticker IN (${bqArray(symbols)})
+        AND market_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
     )
     SELECT r1.ticker, r1.price AS latest_price, r2.price AS prev_price
     FROM ranked r1

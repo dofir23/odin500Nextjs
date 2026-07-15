@@ -618,6 +618,10 @@ function normalizeSignalCode(sig) {
 async function fetchLatestSignalsForTickers(tickerSymbols, endDate) {
   if (!tickerSymbols.length) return new Map();
   const tickersParam = tickerSymbols.map((t) => `'${String(t).replace(/'/g, "\\'")}'`).join(', ');
+  /** Bound the scan — only need the latest signal near as-of, not decades of history. */
+  const lookbackDays = Math.max(1, Number(process.env.SIGNALS_LATEST_LOOKBACK_DAYS) || 120);
+  const start = new Date(endDate);
+  start.setDate(start.getDate() - lookbackDays);
   const query = `
     WITH ranked AS (
       SELECT
@@ -630,7 +634,7 @@ async function fetchLatestSignalsForTickers(tickerSymbols, endDate) {
         ) AS rn
       FROM \`${SIGNALS_TABLE_FQN}\`
       WHERE UPPER(TRIM(CAST(Ticker AS STRING))) IN (${tickersParam})
-        AND DATE(Date) <= DATE('${isoDate(endDate)}')
+        AND DATE(Date) BETWEEN DATE('${isoDate(start)}') AND DATE('${isoDate(endDate)}')
     )
     SELECT ticker, signal
     FROM ranked
@@ -1219,7 +1223,11 @@ function buildConstituentsSql(tickerSymbols, weightByTicker) {
 
 async function calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, periods, baseStartDate, maxEndDate) {
   if (!Array.isArray(periods) || periods.length === 0) return [];
-  const constituentsSql = buildConstituentsSql(tickerSymbols, weightByTicker);
+  const uniqueTickers = [
+    ...new Set((tickerSymbols || []).map((s) => String(s || '').toUpperCase().trim()).filter(Boolean))
+  ];
+  if (!uniqueTickers.length) return [];
+  const constituentsSql = buildConstituentsSql(uniqueTickers, weightByTicker);
   const periodsSql = buildPeriodsSqlUnion(periods);
   const query = `
     WITH constituents AS (
@@ -1233,6 +1241,7 @@ async function calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, pe
       FROM \`${TABLE_FQN}\`
       WHERE DATE(Date) BETWEEN @baseStart AND @maxEnd
         AND Close IS NOT NULL
+        AND UPPER(TRIM(CAST(Ticker AS STRING))) IN UNNEST(@tickers)
     ),
     filtered_prices AS (
       SELECT p.d, p.ticker, p.c
@@ -1311,7 +1320,8 @@ async function calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, pe
     query,
     params: {
       baseStart: isoDate(baseStartDate),
-      maxEnd: isoDate(maxEndDate)
+      maxEnd: isoDate(maxEndDate),
+      tickers: uniqueTickers
     }
   });
   return (rows || []).map((r) => ({
@@ -1779,53 +1789,25 @@ async function calculateIndexReturns(indexValue, customRange = null, annualFromY
   const syntheticEnd = synthetic[synthetic.length - 1].Date;
   const minDt = synthetic[0].Date;
   const startYear = Math.max(minDt.getFullYear(), annualFromYear);
-  const calcStart = new Date(startYear, 0, 1);
-  const dynSpecs = buildDynamicPeriodSpecs(syntheticEnd);
-  const preSpecs = buildPredefinedPeriodSpecs(syntheticEnd);
-  const annualSpecs = buildAnnualPeriodSpecs(syntheticEnd, minDt.getFullYear());
-  const monthlySpecs = buildMonthlyPeriodSpecs(syntheticEnd, startYear);
-  const quarterlySpecs = buildQuarterlyPeriodSpecs(syntheticEnd, startYear);
-  const customSpecs =
+  /**
+   * Periods are computed in-memory from the synthetic series already built above.
+   * Avoids 5–6 extra full BigQuery rescans of stock_all_data (major cost driver).
+   */
+  const [dynamic, predefined, annual, monthly, quarterly, custom] = await Promise.all([
+    calculateDynamicPeriods(null, syntheticEnd, synthetic),
+    calculatePredefinedPeriods(null, syntheticEnd, synthetic),
+    calculateAnnualReturns(null, syntheticEnd, startYear, synthetic),
+    calculateMonthlyReturns(null, syntheticEnd, startYear, synthetic),
+    calculateQuarterlyReturns(null, syntheticEnd, startYear, synthetic),
     customRange && customRange.length === 2
-      ? [{
-          period: 'Selected dates',
-          start_date_requested: String(customRange[0]).slice(0, 10),
-          end_date_requested: String(customRange[1]).slice(0, 10)
-        }]
-      : [];
-
-  const [
-    dynamicRaw,
-    predefinedRaw,
-    annualRaw,
-    monthlyRaw,
-    quarterlyRaw,
-    customRaw
-  ] = await Promise.all([
-    calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, dynSpecs, calcStart, syntheticEnd),
-    calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, preSpecs, calcStart, syntheticEnd),
-    calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, annualSpecs, calcStart, syntheticEnd),
-    calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, monthlySpecs, calcStart, syntheticEnd),
-    calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, quarterlySpecs, calcStart, syntheticEnd),
-    customSpecs.length
-      ? calculateSyntheticPeriodsViaSql(tickerSymbols, weightByTicker, customSpecs, calcStart, syntheticEnd)
-      : Promise.resolve([])
+      ? calculateCustomRange(
+          null,
+          new Date(String(customRange[0]).slice(0, 10)),
+          new Date(String(customRange[1]).slice(0, 10)),
+          synthetic
+        )
+      : Promise.resolve(null)
   ]);
-
-  const dynamicByPeriod = new Map(dynamicRaw.map((r) => [r.period, r]));
-  const predefinedByPeriod = new Map(predefinedRaw.map((r) => [r.period, r]));
-  const dynamic = DYNAMIC_PERIOD_DEFS.map((d) => dynamicByPeriod.get(d.name)).filter(Boolean);
-  const predefined = PREDEFINED_START_YEARS.map((y) => predefinedByPeriod.get(String(y))).filter(Boolean);
-  const annual = annualRaw
-    .filter((r) => r.start_date_found && r.end_date_found)
-    .map((r) => ({ ...r, year: r.period }));
-  const monthly = monthlyRaw
-    .filter((r) => r.start_date_found && r.end_date_found)
-    .map((r) => ({ ...r, month: r.period }));
-  const quarterly = quarterlyRaw
-    .filter((r) => r.start_date_found && r.end_date_found)
-    .map((r) => ({ ...r, quarter: r.period }));
-  const custom = customRaw.length ? customRaw[0] : null;
 
   const performance = patchIndexReturnsPerformanceLastDate(
     {

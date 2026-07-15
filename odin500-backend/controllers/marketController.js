@@ -47,6 +47,9 @@ const PROJECT_ID = process.env.GCP_PROJECT || process.env.GOOGLE_CLOUD_PROJECT |
 const DATASET = process.env.BIGQUERY_DATASET || 'sp500data1';
 const TABLE = process.env.BIGQUERY_TABLE || 'stock_all_data';
 const TABLE_FQN = `${PROJECT_ID}.${DATASET}.${TABLE}`; // used in backticks below
+/** Narrow column projection — avoids billing for unused columns on SELECT *. */
+const OHLC_SELECT_COLUMNS =
+    process.env.OHLC_SELECT_COLUMNS || 'Date, Ticker, Open, High, Low, Close';
 /** Pre-aggregated weekly OHLC (see README). Override with BIGQUERY_WEEKLY_OHLC_TABLE. */
 const WEEKLY_OHLC_TABLE = process.env.BIGQUERY_WEEKLY_OHLC_TABLE || 'stock_weekly_data_test';
 const WEEKLY_OHLC_TABLE_FQN = `${PROJECT_ID}.${DATASET}.${WEEKLY_OHLC_TABLE}`;
@@ -306,7 +309,7 @@ const getOhlcSignalsIndicator = async (req, res) => {
 
         const fetchPromise = (async () => {
         const ohlcQuery = `
-            SELECT *
+            SELECT ${OHLC_SELECT_COLUMNS}
             FROM \`${TABLE_FQN}\`
             WHERE Ticker = @ticker
               AND Date BETWEEN @start AND @end
@@ -482,7 +485,7 @@ const getStockData = async (req, res) => {
             if (offset > 0) {
                 params.offset = offset;
                 query = `
-                    SELECT *
+                    SELECT ${OHLC_SELECT_COLUMNS}
                     FROM \`${TABLE_FQN}\`
                     WHERE Ticker = @symbol
                       AND Date BETWEEN @start AND @end
@@ -491,7 +494,7 @@ const getStockData = async (req, res) => {
                 `;
             } else {
                 query = `
-                    SELECT *
+                    SELECT ${OHLC_SELECT_COLUMNS}
                     FROM \`${TABLE_FQN}\`
                     WHERE Ticker = @symbol
                       AND Date BETWEEN @start AND @end
@@ -501,7 +504,7 @@ const getStockData = async (req, res) => {
             }
         } else {
             query = `
-                SELECT *
+                SELECT ${OHLC_SELECT_COLUMNS}
                 FROM \`${TABLE_FQN}\`
                 WHERE Ticker = @symbol
                 ORDER BY Date DESC
