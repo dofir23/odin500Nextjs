@@ -164,7 +164,7 @@ function PublicPortfoliosPageContent() {
 
 export default function PublicPortfoliosPage() {
   return (
-    <PaperLoginGate>
+    <PaperLoginGate returnTo="/paper-trading/public">
       <PublicPortfoliosPageContent />
     </PaperLoginGate>
   );

@@ -1672,6 +1672,7 @@ backdrop-filter: blur(12px);
 }
 
 .wl-ticker-ms__dropdown--portal {
+  z-index: 450;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2958,6 +2959,29 @@ backdrop-filter: blur(12px);
     flex: none;
     z-index: 1240;
     box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
+    /* Opaque page bg so content doesn’t show through; same wash as desktop dock */
+    background: var(--bg);
+  }
+
+  .app-watchlist-dock .wl-flyout.wl-flyout--docked {
+    background: var(--colors-opacity-bg-opacity-3, #ffffff08);
+  }
+
+  [data-theme='light'] .app-watchlist-dock {
+    background: var(--bg);
+  }
+
+  [data-theme='light'] .app-watchlist-dock .wl-flyout.wl-flyout--docked {
+    background: var(--colors-opacity-bg-opacity-3, rgba(255, 255, 255, 0.03));
+  }
+
+  /* Watchlist manage modals portaled to body — above fixed dock (1240) and mobile FAB (1300) */
+  .wl-manage-overlay {
+    z-index: 1310;
+  }
+
+  .wl-ticker-ms__dropdown--portal {
+    z-index: 1320;
   }
 }
 

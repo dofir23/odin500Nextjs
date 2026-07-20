@@ -279,8 +279,7 @@ export function WatchlistTickerMultiselect({
               top: ddRect.top,
               left: ddRect.left,
               width: ddRect.width,
-              maxHeight: ddRect.maxHeight,
-              zIndex: 450
+              maxHeight: ddRect.maxHeight
             }}
           >
             <div className="wl-ticker-ms__dropdown-scroll" role="listbox" aria-label="Ticker search results">

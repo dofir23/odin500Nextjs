@@ -6,7 +6,8 @@ export const HOME_HERO = {
   subtitle:
     'Research stocks and ETFs, analyze index and sector performance, screen Odin trading signals, and practice strategies — all in one place.',
   primaryCta: { href: '/signup', label: 'Sign up for free' },
-  secondaryCta: { href: '/market', label: 'Explore market dashboard' }
+  secondaryCta: { href: '/market', label: 'Explore market dashboard' },
+  tertiaryCta: { href: '/paper-trading/public', label: 'Public Portfolios' }
 };
 
 export const HOME_PILLARS = [
@@ -261,6 +262,10 @@ export const HOME_IMAGES = {
   tickerReport: homeScreenshot('ticker-report-preview.png'),
   historicalData: homeScreenshot('historical-data-preview.png'),
   paperTrading: homeScreenshot('paper-trading-preview.png'),
+  publicPortfolio: {
+    dark: '/home/publicportfolio.png',
+    light: `${HOME_LIGHT_DIR}/public_portfolio.png`
+  },
   indexHub: homeScreenshot('index-preview.png'),
   news: homeScreenshot('news-preview.png'),
   statisticData: homeScreenshot('statistic-data-preview.png')
@@ -293,6 +298,16 @@ export const HOME_SHOWCASE: HomeShowcaseItem[] = [
     linkLabel: 'Open market dashboard',
     imageKey: 'dashboard',
     imageAlt: 'Odin500 market dashboard with index performance chart and watchlist rails'
+  },
+  {
+    id: 'public-portfolio',
+    title: 'Public Portfolios',
+    description:
+      'Browse virtual portfolios published by Odin500 users. View-only snapshots of holdings, portfolio value, and total return — then open any strategy for a closer look.',
+    href: '/paper-trading/public',
+    linkLabel: 'Browse public portfolios',
+    imageKey: 'publicPortfolio',
+    imageAlt: 'Odin500 public portfolios list with values, returns, and published dates'
   },
   {
     id: 'signals',
@@ -404,6 +419,7 @@ export function getHomePagePrefetchRoutes(): string[] {
 
   add(HOME_HERO.primaryCta.href);
   add(HOME_HERO.secondaryCta.href);
+  add(HOME_HERO.tertiaryCta.href);
   add(HOME_PRICING_TEASER.href);
   add(HOME_FOOTER_CTA.href);
 
