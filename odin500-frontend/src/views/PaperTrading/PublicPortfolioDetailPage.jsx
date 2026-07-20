@@ -12,7 +12,6 @@ import { ClosedTradesTable } from '../../components/paper/ClosedTradesTable.jsx'
 import { ClosedTradesAnalytics } from '../../components/paper/ClosedTradesAnalytics.jsx';
 import { PortfolioInsightsTab } from '../../components/paper/PortfolioInsightsTab.jsx';
 import { StrategyPanel } from '../../components/paper/StrategyPanel.jsx';
-import { PaperLoginGate } from '../../components/paper/PaperLoginGate.jsx';
 import '../../styles/paper-trading.css';
 
 function fmtDate(iso) {
@@ -25,11 +24,7 @@ function fmtDate(iso) {
 }
 
 export default function PublicPortfolioDetailPage() {
-  return (
-    <PaperLoginGate>
-      <PublicPortfolioDetailContent />
-    </PaperLoginGate>
-  );
+  return <PublicPortfolioDetailContent />;
 }
 
 function PublicPortfolioDetailContent() {

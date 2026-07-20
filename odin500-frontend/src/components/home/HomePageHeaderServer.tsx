@@ -8,7 +8,7 @@ export function HomePageHeaderServer() {
   return (
     <header className="home-header">
       <div className="home-header__inner">
-        <a href="/" title="Odin500 home" className="odin-brand-link home-header__brand" aria-label="Odin500 Beta">
+        <a href="/market" title="Odin500 market dashboard" className="odin-brand-link home-header__brand" aria-label="Odin500 Beta">
           <span className="odin-brand-link__stack">
             <img
               src="/odin500-logo.svg"

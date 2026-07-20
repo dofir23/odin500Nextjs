@@ -33,6 +33,9 @@ export function HomePageBody() {
               <a href={HOME_HERO.secondaryCta.href} className="home-btn home-btn--ghost">
                 {HOME_HERO.secondaryCta.label}
               </a>
+              <a href={HOME_HERO.tertiaryCta.href} className="home-btn home-btn--ghost">
+                {HOME_HERO.tertiaryCta.label}
+              </a>
             </div>
           </div>
           <HomeMarketingImage
