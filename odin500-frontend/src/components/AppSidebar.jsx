@@ -246,6 +246,15 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
     [loggedIn, loginGate]
   );
 
+  const onPublicPortfoliosNavClick = useCallback(
+    (e) => {
+      if (loggedIn) return;
+      e.preventDefault();
+      loginGate?.showLoginRequired({ returnTo: '/paper-trading/public' });
+    },
+    [loggedIn, loginGate]
+  );
+
   useEffect(() => {
     const onDown = (e) => {
       const t = e.target;
@@ -572,7 +581,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                     icon={IconPeople}
                     label="Public Portfolios"
                     active={isPaperPublicRoute}
-                    onClick={onPaperTradingNavClick}
+                    onClick={onPublicPortfoliosNavClick}
                   />
                 </div>
               ) : null}

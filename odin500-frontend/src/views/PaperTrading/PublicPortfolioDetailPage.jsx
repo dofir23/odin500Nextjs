@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useParams } from '@/navigation/appRouterCompat.jsx';
+import { PaperLoginGate } from '../../components/paper/PaperLoginGate.jsx';
 import { usePublicPortfolio } from '../../hooks/usePublicPortfolios.js';
 import { AccountSummary } from '../../components/paper/AccountSummary.jsx';
 import { PaperPerformanceChart } from '../../components/paper/PaperPerformanceChart.jsx';
@@ -24,12 +25,22 @@ function fmtDate(iso) {
 }
 
 export default function PublicPortfolioDetailPage() {
-  return <PublicPortfolioDetailContent />;
-}
-
-function PublicPortfolioDetailContent() {
   const params = useParams();
   const accountId = String(params?.accountId || '').trim();
+  const returnTo = accountId
+    ? `/paper-trading/public/${encodeURIComponent(accountId)}`
+    : '/paper-trading/public';
+
+  return (
+    <PaperLoginGate returnTo={returnTo}>
+      <PublicPortfolioDetailContent accountId={accountId} />
+    </PaperLoginGate>
+  );
+}
+
+function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
+  const params = useParams();
+  const accountId = accountIdProp || String(params?.accountId || '').trim();
   const [tab, setTab] = useState('positions');
   const {
     portfolio,

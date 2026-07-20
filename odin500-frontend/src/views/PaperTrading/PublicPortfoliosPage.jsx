@@ -1,6 +1,7 @@
 'use client';
 
 import { Link } from '@/navigation/appRouterCompat.jsx';
+import { PaperLoginGate } from '../../components/paper/PaperLoginGate.jsx';
 import { usePublicPortfolios } from '../../hooks/usePublicPortfolios.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
 import '../../styles/paper-trading.css';
@@ -162,5 +163,9 @@ function PublicPortfoliosPageContent() {
 }
 
 export default function PublicPortfoliosPage() {
-  return <PublicPortfoliosPageContent />;
+  return (
+    <PaperLoginGate returnTo="/paper-trading/public">
+      <PublicPortfoliosPageContent />
+    </PaperLoginGate>
+  );
 }

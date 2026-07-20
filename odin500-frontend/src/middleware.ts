@@ -37,8 +37,7 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/statistic',
   '/relative-performance',
   '/accounts',
-  '/newsletter',
-  '/paper-trading/public'
+  '/newsletter'
 ];
 
 function isPublicPath(pathname: string) {
