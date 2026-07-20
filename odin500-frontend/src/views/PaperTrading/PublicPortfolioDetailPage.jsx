@@ -32,8 +32,8 @@ export default function PublicPortfolioDetailPage() {
     : '/paper-trading/public';
 
   return (
-    <PaperLoginGate returnTo={returnTo}>
-      <PublicPortfolioDetailContent accountId={accountId} />
+    <PaperLoginGate returnTo="/paper-trading/public">
+      <PublicPortfolioDetailContent />
     </PaperLoginGate>
   );
 }

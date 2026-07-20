@@ -55,6 +55,9 @@ function createNativeRedisAdapter(redisUrl) {
         await client.set(key, payload);
       }
     },
+    del(key) {
+      return client.del(key);
+    },
     incr(key) {
       return client.incr(key);
     }
@@ -75,6 +78,7 @@ function createUpstashAdapter() {
     },
     get: (key) => up.get(key),
     set: (key, value, opts) => up.set(key, value, opts),
+    del: (key) => up.del(key),
     incr: (key) => up.incr(key)
   };
 }
@@ -141,6 +145,11 @@ const redisFacade = {
     const c = await getResolvedClient();
     if (!c) return;
     return c.set(key, value, opts);
+  },
+  async del(key) {
+    const c = await getResolvedClient();
+    if (!c || typeof c.del !== 'function') return;
+    return c.del(key);
   },
   async incr(key) {
     const c = await getResolvedClient();

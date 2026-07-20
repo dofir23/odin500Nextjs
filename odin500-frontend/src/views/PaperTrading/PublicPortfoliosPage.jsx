@@ -1,9 +1,13 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
+import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PaperLoginGate } from '../../components/paper/PaperLoginGate.jsx';
+import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
 import { usePublicPortfolios } from '../../hooks/usePublicPortfolios.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
+import { sortPublicPortfolios } from '../../utils/paperPublicSort.js';
 import '../../styles/paper-trading.css';
 
 function money(v) {
@@ -39,6 +43,72 @@ function ownerInitials(label) {
 
 function PublicPortfoliosPageContent() {
   const { portfolios, loading, error } = usePublicPortfolios();
+  const [sortKey, setSortKey] = useState('avg_monthly_return_pct');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const sorted = useMemo(
+    () => sortPublicPortfolios(portfolios, sortKey, sortDir),
+    [portfolios, sortKey, sortDir]
+  );
+
+  const onSort = (key) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('desc');
+  };
+
+  const tableHead = (
+    <thead>
+      <tr>
+        <th scope="col">Portfolio</th>
+        <PaperSortableTh
+          label="Portfolio value"
+          sortKey="equity"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          align="right"
+        />
+        <PaperSortableTh
+          label="Total return"
+          sortKey="total_return_pct"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          align="right"
+        />
+        <PaperSortableTh
+          label="Avg monthly"
+          sortKey="avg_monthly_return_pct"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          align="right"
+        />
+        <PaperSortableTh
+          label="Positions"
+          sortKey="positions_count"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          align="right"
+        />
+        <PaperSortableTh
+          label="Published"
+          sortKey="published_at"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+        />
+        <th scope="col">
+          <span className="sr-only">Action</span>
+        </th>
+      </tr>
+    </thead>
+  );
 
   return (
     <div className="paper-page odin-content-page paper-page--public">
@@ -46,7 +116,9 @@ function PublicPortfoliosPageContent() {
         <div>
           <h1 className="paper-header__title">Public Portfolios</h1>
           <p className="paper-header__sub">
-            Browse virtual portfolios published by Odin500 users. View-only snapshots of holdings and performance.
+            Browse virtual portfolios published by Odin500 users — including AI-built books for major
+            indices (Claude, ChatGPT, Gemini). Ranked by average monthly return so portfolios of
+            different ages compare fairly.
           </p>
         </div>
         <div className="paper-header__actions">
@@ -58,25 +130,18 @@ function PublicPortfoliosPageContent() {
 
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
+      {loading || portfolios.length > 0 ? (
+        <PublicPortfoliosTopSummary portfolios={portfolios} loading={loading} />
+      ) : null}
+
       {loading ? (
         <div className="paper-table-wrap paper-public-table-wrap" aria-busy="true">
           <table className="paper-table paper-public-table">
-            <thead>
-              <tr>
-                <th scope="col">Portfolio</th>
-                <th scope="col">Portfolio value</th>
-                <th scope="col">Total return</th>
-                <th scope="col">Positions</th>
-                <th scope="col">Published</th>
-                <th scope="col">
-                  <span className="sr-only">Action</span>
-                </th>
-              </tr>
-            </thead>
+            {tableHead}
             <tbody>
               {[1, 2, 3, 4, 5].map((i) => (
                 <tr key={i} className="paper-public-table__skel-row" aria-hidden>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="paper-skeleton paper-public-table__skel" />
                   </td>
                 </tr>
@@ -102,21 +167,14 @@ function PublicPortfoliosPageContent() {
       {!loading && portfolios.length > 0 ? (
         <div className="paper-table-wrap paper-public-table-wrap">
           <table className="paper-table paper-public-table">
-            <thead>
-              <tr>
-                <th scope="col">Portfolio</th>
-                <th scope="col">Portfolio value</th>
-                <th scope="col">Total return</th>
-                <th scope="col">Positions</th>
-                <th scope="col">Published</th>
-                <th scope="col">
-                  <span className="sr-only">Action</span>
-                </th>
-              </tr>
-            </thead>
+            {tableHead}
             <tbody>
-              {portfolios.map((p) => {
+              {sorted.map((p) => {
                 const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
+                const avgTitle =
+                  p.months_elapsed != null
+                    ? `Over ~${p.months_elapsed} month${Number(p.months_elapsed) === 1 ? '' : 's'} since publish`
+                    : undefined;
                 return (
                   <tr key={p.id} className="paper-public-table__row">
                     <td className="paper-public-table__portfolio">
@@ -143,6 +201,14 @@ function PublicPortfoliosPageContent() {
                           {fmtPctSigned(p.total_return_pct, { decimals: 2 })}
                         </span>
                       </span>
+                    </td>
+                    <td
+                      className={'paper-public-table__num ' + toneClass(p.avg_monthly_return_pct)}
+                      title={avgTitle}
+                    >
+                      {p.avg_monthly_return_pct == null
+                        ? '—'
+                        : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
                     </td>
                     <td className="paper-public-table__num">{p.positions_count ?? 0}</td>
                     <td className="paper-public-table__date">{fmtDate(p.published_at)}</td>

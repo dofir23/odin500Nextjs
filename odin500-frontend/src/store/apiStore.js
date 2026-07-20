@@ -28,8 +28,17 @@ let cachePersistWarned = false;
 
 let refreshInFlight = null;
 let proactiveTimerId = null;
+/** Delays between refresh attempts (includes immediate first try). */
 const REFRESH_RETRY_DELAYS_MS = [0, 2000, 8000];
+/**
+ * After a hard refresh failure (401/400), wait and re-check session cookies before
+ * logging out — another tab may have rotated tokens within Supabase reuse interval.
+ */
+const REFRESH_HARD_FAIL_RECHECK_MS = 2500;
+/** Skip visibility-triggered refresh if we refreshed this recently (avoids load+focus races). */
+const VISIBILITY_REFRESH_COOLDOWN_MS = 20000;
 
+let lastRefreshAttemptAt = 0;
 let authHydrated = false;
 let authHydrationPromise = null;
 
@@ -232,8 +241,42 @@ function installVisibilityRefresh() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (!getAuthToken()) return;
+    // Page-load already refreshes; skipping avoids rotation races with reuse interval.
+    if (Date.now() - lastRefreshAttemptAt < VISIBILITY_REFRESH_COOLDOWN_MS) return;
     void refreshSessionOnce();
   });
+}
+
+async function fetchSessionAuthenticated() {
+  const res = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
+  const payload = await res.json().catch(() => ({}));
+  return Boolean(payload?.authenticated);
+}
+
+/**
+ * Hard refresh failures can be rotation races (another tab refreshed outside reuse window
+ * briefly, or our cookie was about to be replaced). Re-check cookies before wiping session.
+ * @returns {Promise<boolean>} true if cookies were cleared (logged out)
+ */
+async function logoutOnlyIfSessionGone() {
+  await new Promise((resolve) => setTimeout(resolve, REFRESH_HARD_FAIL_RECHECK_MS));
+  try {
+    if (await fetchSessionAuthenticated()) {
+      memoryStore.token = 'cookie';
+      dispatchAuthUpdated();
+      scheduleProactiveRefresh();
+      return false;
+    }
+  } catch {
+    // Network blip during re-check — never wipe cookies on connectivity errors.
+    if (getAuthToken()) {
+      scheduleProactiveRefresh();
+    }
+    return false;
+  }
+  await clearAuthToken();
+  clearApiCache();
+  return true;
 }
 
 /**
@@ -248,10 +291,11 @@ export async function initAuthSessionOnLoad() {
     ensureCacheLoaded();
     installVisibilityRefresh();
 
+    let sessionCheckFailed = false;
+
     try {
-      const res = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
-      const payload = await res.json().catch(() => ({}));
-      if (payload?.authenticated) {
+      const authenticated = await fetchSessionAuthenticated();
+      if (authenticated) {
         memoryStore.token = 'cookie';
         dispatchAuthUpdated();
         // Background renew — skip if another tab holds the refresh lock.
@@ -260,9 +304,29 @@ export async function initAuthSessionOnLoad() {
         return;
       }
     } catch {
-      /* ignore */
+      sessionCheckFailed = true;
     }
 
+    // Network error checking session ≠ logged out. Retry once before treating as guest.
+    if (sessionCheckFailed) {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if (await fetchSessionAuthenticated()) {
+          memoryStore.token = 'cookie';
+          dispatchAuthUpdated();
+          void refreshSessionOnce();
+          scheduleProactiveRefresh();
+          return;
+        }
+      } catch {
+        // Still unreachable — leave UI as guest without clearing cookies / remember prefs.
+        memoryStore.token = '';
+        dispatchAuthUpdated();
+        return;
+      }
+    }
+
+    // Explicit unauthenticated response — clear client prefs only (cookies already empty).
     memoryStore.token = '';
     localStorage.removeItem('market_api_email');
     localStorage.removeItem('odin_login_remember');
@@ -284,6 +348,8 @@ export async function refreshSessionOnce() {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
+    lastRefreshAttemptAt = Date.now();
+
     if (!tryAcquireRefreshLock()) {
       // Another tab is refreshing; keep local session marked as cookie-authenticated.
       if (!getAuthToken()) {
@@ -294,6 +360,7 @@ export async function refreshSessionOnce() {
     }
 
     let sawTransientFailure = false;
+    let sawHardAuthFailure = false;
 
     try {
       for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt += 1) {
@@ -301,6 +368,8 @@ export async function refreshSessionOnce() {
         if (delayMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
+
+        lastRefreshAttemptAt = Date.now();
 
         try {
           const response = await fetch('/api/auth/refresh', {
@@ -316,11 +385,10 @@ export async function refreshSessionOnce() {
             return true;
           }
 
-          // Invalid/expired/revoked refresh token — only then force logout.
+          // Hard auth failure — retry remaining delays first (rotation / reuse races).
           if (response.status === 400 || response.status === 401) {
-            await clearAuthToken();
-            clearApiCache();
-            return false;
+            sawHardAuthFailure = true;
+            continue;
           }
 
           sawTransientFailure = true;
@@ -330,6 +398,12 @@ export async function refreshSessionOnce() {
       }
     } finally {
       releaseRefreshLock();
+    }
+
+    if (sawHardAuthFailure) {
+      // Another tab may have refreshed successfully; only logout if cookies are gone.
+      const loggedOut = await logoutOnlyIfSessionGone();
+      return !loggedOut && Boolean(getAuthToken());
     }
 
     // Transient failures: keep the user signed in; retry later via proactive timer.

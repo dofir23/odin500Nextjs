@@ -10,7 +10,7 @@ export const DEFAULT_SITE_TITLE =
   'Stock Market Data, OHLC Historical Prices, Charts & Trading Signals';
 
 export const DEFAULT_SITE_DESCRIPTION =
-  'Free stock market dashboard with live OHLC historical data, price charts, sector heatmaps, index returns, and trading signals for U.S. stocks and ETFs.';
+  'Free stock market dashboard with OHLC historical data, charts, heatmaps, trading signals, and AI portfolio tracking for U.S. stocks and ETFs.';
 
 /** Default Open Graph / Twitter share image (absolute URL). */
 export const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/og-default.png`;

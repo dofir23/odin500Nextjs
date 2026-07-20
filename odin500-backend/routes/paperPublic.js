@@ -9,13 +9,32 @@ const {
   getPublishedOrders,
   getPublishedStrategy
 } = require('../services/paper/publicPortfolio');
+const { generatePortfolioSummaries } = require('../services/paper/portfolioSummaryAi');
 
 router.get('/portfolios', async (req, res) => {
   try {
     const portfolios = await listPublishedPortfolios();
+    const ttl = Number(process.env.PUBLIC_PORTFOLIOS_CACHE_TTL_SECS || 300);
+    if (ttl > 0) {
+      res.set('Cache-Control', `public, max-age=${Math.min(ttl, 60)}, s-maxage=${ttl}`);
+    }
     res.status(200).json({ success: true, portfolios });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Failed to load portfolios' });
+  }
+});
+
+/** Batch AI (or fallback) summaries for top public portfolio cards. */
+router.post('/portfolios/ai-summaries', async (req, res) => {
+  try {
+    const portfolios = Array.isArray(req.body?.portfolios) ? req.body.portfolios.slice(0, 6) : [];
+    if (!portfolios.length) {
+      return res.status(400).json({ success: false, error: 'portfolios array required' });
+    }
+    const result = await generatePortfolioSummaries(portfolios);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to generate summaries' });
   }
 });
 

@@ -237,20 +237,11 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   const { isAdmin } = useAdmin({ enabled: loggedIn });
   const accountWrapRef = useRef(null);
 
-  const onPaperTradingNavClick = useCallback(
-    (e) => {
+  const requirePaperLogin = useCallback(
+    (returnTo = '/paper-trading/public') => (e) => {
       if (loggedIn) return;
       e.preventDefault();
-      loginGate?.showLoginRequired({ returnTo: '/paper-trading' });
-    },
-    [loggedIn, loginGate]
-  );
-
-  const onPublicPortfoliosNavClick = useCallback(
-    (e) => {
-      if (loggedIn) return;
-      e.preventDefault();
-      loginGate?.showLoginRequired({ returnTo: '/paper-trading/public' });
+      loginGate?.showLoginRequired({ returnTo });
     },
     [loggedIn, loginGate]
   );
@@ -519,10 +510,10 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 }}
               >
                 <NavLink
-                  to="/paper-trading"
+                  to="/paper-trading/public"
                   className="app-sidebar__indices-main"
                   onClick={(e) => {
-                    onPaperTradingNavClick(e);
+                    requirePaperLogin('/paper-trading/public')(e);
                     setPaperOpen(true);
                     closeMobileSidebar();
                   }}
@@ -530,7 +521,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                     warmRoute('/paper-trading');
                     warmRoute('/paper-trading/public');
                   }}
-                  title="Your virtual portfolio (opens menu)"
+                  title="Public virtual portfolios (opens menu)"
                 >
                   <span className="app-sidebar__row-icon">
                     <IconWallet />
@@ -548,10 +539,10 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                       const nextOpen = !wasOpen;
                       if (nextOpen) {
                         if (!loggedIn) {
-                          loginGate?.showLoginRequired({ returnTo: '/paper-trading' });
+                          loginGate?.showLoginRequired({ returnTo: '/paper-trading/public' });
                           return nextOpen;
                         }
-                        navigate('/paper-trading');
+                        navigate('/paper-trading/public');
                         closeMobileSidebar();
                       }
                       return nextOpen;
@@ -569,19 +560,19 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
               {paperOpen ? (
                 <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Virtual portfolio options">
                   <NavRow
+                    to="/paper-trading/public"
+                    icon={IconPeople}
+                    label="Public Portfolios"
+                    active={isPaperPublicRoute}
+                    onClick={requirePaperLogin('/paper-trading/public')}
+                  />
+                  <NavRow
                     to="/paper-trading"
                     icon={IconWallet}
                     label="Your Portfolio"
                     active={isPaperYourRoute}
                     end
-                    onClick={onPaperTradingNavClick}
-                  />
-                  <NavRow
-                    to="/paper-trading/public"
-                    icon={IconPeople}
-                    label="Public Portfolios"
-                    active={isPaperPublicRoute}
-                    onClick={onPublicPortfoliosNavClick}
+                    onClick={requirePaperLogin('/paper-trading')}
                   />
                 </div>
               ) : null}

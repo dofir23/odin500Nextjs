@@ -422,6 +422,14 @@ async function setAccountPublished(userId, accountId, published, meta = {}) {
     .single();
 
   if (error) throw error;
+
+  try {
+    const { invalidatePublicPortfoliosListCache } = require('./publicPortfolio');
+    await invalidatePublicPortfoliosListCache();
+  } catch {
+    /* ignore cache invalidation errors */
+  }
+
   return data;
 }
 

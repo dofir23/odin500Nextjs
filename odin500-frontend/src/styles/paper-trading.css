@@ -15,7 +15,7 @@
   --paper-sell: #ef4444;
   --paper-amber: #fbbf24;
 
-  width: min(1280px, 100%);
+  /* width: min(1280px, 100%); */
   max-width: 100%;
   min-width: 0;
   margin: 0 auto;
@@ -176,7 +176,7 @@
 
 .paper-header__sub {
   margin: 0.5rem 0 0;
-  max-width: 52ch;
+  /* max-width: 52ch; */
   font-size: 0.92rem;
   line-height: 1.45;
   color: var(--paper-muted);
@@ -5309,6 +5309,70 @@
   background: rgba(15, 23, 42, 0.35);
 }
 
+.paper-public-table__th--num,
+.paper-table__th--num {
+  text-align: right;
+}
+
+.paper-public-table__sort,
+.paper-table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.paper-public-table__sort:hover,
+.paper-public-table__sort.is-active,
+.paper-table__sort:hover,
+.paper-table__sort.is-active {
+  color: var(--paper-text);
+}
+
+.paper-public-table__sort-label,
+.paper-table__sort-label {
+  min-width: 0;
+}
+
+.paper-public-table__sort-icon,
+.paper-table__sort-icon {
+  flex-shrink: 0;
+  width: 11px;
+  height: 12px;
+  opacity: 0.9;
+}
+
+.paper-public-table__sort-icon--neutral,
+.paper-table__sort-icon--neutral {
+  opacity: 0.55;
+}
+
+.paper-public-table__sort-icon--active,
+.paper-table__sort-icon--active {
+  opacity: 1;
+  color: #93c5fd;
+}
+
+.paper-public-table__th--num .paper-public-table__sort,
+.paper-table__th--num .paper-table__sort {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.paper-table--positions thead th {
+  vertical-align: middle;
+}
+
 .paper-public-table tbody td {
   padding: 0.85rem 1rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
@@ -5444,6 +5508,11 @@
 }
 
 [data-theme='light'] .paper-public-table__identity:hover .paper-public-table__name {
+  color: #1d4ed8;
+}
+
+[data-theme='light'] .paper-public-table__sort-icon--active,
+[data-theme='light'] .paper-table__sort-icon--active {
   color: #1d4ed8;
 }
 

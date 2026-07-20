@@ -1,4 +1,5 @@
 const supabaseService = require('../../config/supabaseService');
+const redis = require('../../config/redis');
 const {
   enrichLotsWithPnl,
   aggregateLotsToPositions,
@@ -105,6 +106,42 @@ function publicMetaFields(account) {
   };
 }
 
+/** Average calendar days per month (for fair age normalization across portfolios). */
+const DAYS_PER_MONTH = 30.4375;
+/** Floor so a 1-day portfolio does not explode avg monthly %. */
+const MIN_MONTHS_ELAPSED = 1 / DAYS_PER_MONTH;
+
+/**
+ * Normalize total return into an average monthly % so books of different ages compare fairly.
+ * Simple (linear) method: total_return_pct / months_elapsed.
+ * @returns {{ months_elapsed: number|null, avg_monthly_return_pct: number|null }}
+ */
+function computeAvgMonthlyReturn(totalReturnPct, startIso) {
+  const startMs = Date.parse(String(startIso || ''));
+  if (!Number.isFinite(startMs)) {
+    return { months_elapsed: null, days_elapsed: null, avg_monthly_return_pct: null };
+  }
+  const days = Math.max(0, (Date.now() - startMs) / 86400000);
+  const months = Math.max(days / DAYS_PER_MONTH, MIN_MONTHS_ELAPSED);
+  const total = Number(totalReturnPct);
+  if (!Number.isFinite(total)) {
+    return {
+      months_elapsed: Math.round(months * 100) / 100,
+      days_elapsed: Math.round(days * 10) / 10,
+      avg_monthly_return_pct: null
+    };
+  }
+  return {
+    months_elapsed: Math.round(months * 100) / 100,
+    days_elapsed: Math.round(days * 10) / 10,
+    avg_monthly_return_pct: Math.round((total / months) * 100) / 100
+  };
+}
+
+function performanceStartAt(account) {
+  return account.published_at || account.created_at || null;
+}
+
 async function loadPublishedAccountSnapshot(account) {
   const { data: lots, error: lotErr } = await supabaseService
     .from('paper_position_lots')
@@ -144,10 +181,29 @@ async function loadPublishedAccountSnapshot(account) {
   };
 }
 
-async function listPublishedPortfolios() {
+const PUBLIC_LIST_CACHE_KEY = 'public:paper:portfolios:list:v2';
+/** In-process fallback when Redis is unavailable (dev / misconfigured). */
+let publicListMemoryCache = null;
+/** Deduplicate concurrent cold loads (one BigQuery scan shared by waiters). */
+let publicListInFlight = null;
+
+async function invalidatePublicPortfoliosListCache() {
+  publicListMemoryCache = null;
+  publicListInFlight = null;
+  if (!redis) return;
+  try {
+    await redis.del(PUBLIC_LIST_CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function buildPublishedPortfoliosList() {
   const { data: accounts, error } = await supabaseService
     .from('paper_accounts')
-    .select('id, user_id, name, cash_balance, starting_capital, published_at, strategy_mode')
+    .select(
+      'id, user_id, name, cash_balance, starting_capital, created_at, published_at, strategy_mode, publish_description, publish_strategy'
+    )
     .eq('is_published', true)
     .order('published_at', { ascending: false });
 
@@ -155,29 +211,50 @@ async function listPublishedPortfolios() {
   const rows = accounts || [];
   if (!rows.length) return [];
 
-  const labels = await resolveOwnerLabels(rows.map((r) => r.user_id));
-  const summaries = [];
+  const accountIds = rows.map((r) => r.id);
 
-  for (const account of rows) {
-    const { data: lots, error: lotErr } = await supabaseService
+  // Parallel Supabase reads + owner labels (avoids N sequential round-trips).
+  const [labels, lotsRes, closedRes] = await Promise.all([
+    resolveOwnerLabels(rows.map((r) => r.user_id)),
+    supabaseService
       .from('paper_position_lots')
       .select('*')
-      .eq('account_id', account.id)
+      .in('account_id', accountIds)
       .eq('status', 'open')
-      .gt('remaining_qty', 0);
-    if (lotErr) throw lotErr;
-
-    const { data: closedTrades, error: closeErr } = await supabaseService
+      .gt('remaining_qty', 0),
+    supabaseService
       .from('paper_trades_closed')
-      .select('net_realized_pnl')
-      .eq('account_id', account.id);
-    if (closeErr) throw closeErr;
+      .select('account_id, net_realized_pnl')
+      .in('account_id', accountIds)
+  ]);
 
-    const enrichedLots = await enrichLotsWithPnl(lots || []);
+  if (lotsRes.error) throw lotsRes.error;
+  if (closedRes.error) throw closedRes.error;
+
+  const closedByAccount = new Map();
+  for (const row of closedRes.data || []) {
+    const aid = row.account_id;
+    if (!closedByAccount.has(aid)) closedByAccount.set(aid, []);
+    closedByAccount.get(aid).push(row);
+  }
+
+  // One BigQuery latest-price scan for all tickers across all published books.
+  const enrichedAll = await enrichLotsWithPnl(lotsRes.data || []);
+  const enrichedByAccount = new Map();
+  for (const lot of enrichedAll) {
+    const aid = lot.account_id;
+    if (!enrichedByAccount.has(aid)) enrichedByAccount.set(aid, []);
+    enrichedByAccount.get(aid).push(lot);
+  }
+
+  const summaries = rows.map((account) => {
+    const enrichedLots = enrichedByAccount.get(account.id) || [];
     const positions = aggregateLotsToPositions(enrichedLots);
-    const metrics = summarizeAccountMetrics(account, positions, closedTrades || []);
+    const closedTrades = closedByAccount.get(account.id) || [];
+    const metrics = summarizeAccountMetrics(account, positions, closedTrades);
+    const avgMonthly = computeAvgMonthlyReturn(metrics.total_return_pct, performanceStartAt(account));
 
-    summaries.push({
+    return {
       id: account.id,
       name: account.name,
       owner_label: labels.get(account.user_id) || 'Unknown user',
@@ -189,11 +266,82 @@ async function listPublishedPortfolios() {
       equity: metrics.equity,
       total_return: metrics.total_return,
       total_return_pct: metrics.total_return_pct,
+      months_elapsed: avgMonthly.months_elapsed,
+      days_elapsed: avgMonthly.days_elapsed,
+      avg_monthly_return_pct: avgMonthly.avg_monthly_return_pct,
       positions_count: positions.length
-    });
-  }
+    };
+  });
+
+  // Default ranking: highest average monthly return (nulls last).
+  summaries.sort((a, b) => {
+    const av = a.avg_monthly_return_pct;
+    const bv = b.avg_monthly_return_pct;
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return Number(bv) - Number(av);
+  });
 
   return summaries;
+}
+
+async function listPublishedPortfolios() {
+  const CACHE_TTL_SEC = Number(process.env.PUBLIC_PORTFOLIOS_CACHE_TTL_SECS || 300);
+  const now = Date.now();
+
+  if (publicListMemoryCache && publicListMemoryCache.expiresAt > now) {
+    return publicListMemoryCache.portfolios;
+  }
+
+  if (redis) {
+    try {
+      const cached = await redis.get(PUBLIC_LIST_CACHE_KEY);
+      if (cached && Array.isArray(cached.portfolios)) {
+        publicListMemoryCache = {
+          portfolios: cached.portfolios,
+          expiresAt: now + Math.min(CACHE_TTL_SEC, 60) * 1000
+        };
+        return cached.portfolios;
+      }
+    } catch {
+      /* ignore cache read errors */
+    }
+  }
+
+  if (publicListInFlight) {
+    return publicListInFlight;
+  }
+
+  publicListInFlight = (async () => {
+    try {
+      const summaries = await buildPublishedPortfoliosList();
+
+      if (CACHE_TTL_SEC > 0) {
+        publicListMemoryCache = {
+          portfolios: summaries,
+          expiresAt: Date.now() + CACHE_TTL_SEC * 1000
+        };
+        if (redis) {
+          try {
+            await redis.set(
+              PUBLIC_LIST_CACHE_KEY,
+              { portfolios: summaries, cached_at: new Date().toISOString() },
+              { ex: CACHE_TTL_SEC }
+            );
+          } catch {
+            /* ignore cache write errors */
+          }
+        }
+      }
+
+      return summaries;
+    } finally {
+      publicListInFlight = null;
+    }
+  })();
+
+  return publicListInFlight;
 }
 
 async function getPublishedPortfolioDetail(accountId) {
@@ -380,6 +528,7 @@ async function getPublishedStrategy(accountId) {
 
 module.exports = {
   listPublishedPortfolios,
+  invalidatePublicPortfoliosListCache,
   getPublishedPortfolioDetail,
   getPublishedPortfolioHistory,
   getPublishedClosedTrades,

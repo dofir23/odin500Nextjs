@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { fmtAbsSigned, fmtPctSigned, fmtQty, roundQty6 } from '../../utils/formatDisplayNumber.js';
+import { PaperSortableTh } from './PaperSortableTh.jsx';
 import { PositionOrderModal, getClosableLegs } from './ClosePositionModal.jsx';
 import { PaperManageModal } from './PaperManageModal.jsx';
 
@@ -59,12 +60,82 @@ function positionChangePct(p) {
   return (change / cost) * 100;
 }
 
+function sortValue(p, key) {
+  switch (key) {
+    case 'ticker':
+      return String(p.ticker || '').toUpperCase();
+    case 'long_qty':
+      return Number(p.long_qty) || 0;
+    case 'short_qty':
+      return Number(p.short_qty) || 0;
+    case 'net_qty':
+      return Number(p.net_qty) || 0;
+    case 'avg_long_cost':
+      return p.avg_long_cost == null ? null : Number(p.avg_long_cost);
+    case 'avg_short_cost':
+      return p.avg_short_cost == null ? null : Number(p.avg_short_cost);
+    case 'current_price':
+      return p.current_price == null ? null : Number(p.current_price);
+    case 'cost_basis':
+      return positionCostBasis(p);
+    case 'change':
+      return positionChangePerShare(p);
+    case 'change_pct':
+      return positionChangePct(p);
+    case 'market_value':
+      return p.market_value == null ? null : Number(p.market_value);
+    case 'unrealized_pnl':
+      return p.unrealized_pnl == null ? null : Number(p.unrealized_pnl);
+    default:
+      return null;
+  }
+}
+
+function sortPositions(positions, sortKey, sortDir) {
+  const dir = sortDir === 'asc' ? 1 : -1;
+  return [...(positions || [])].sort((a, b) => {
+    const av = sortValue(a, sortKey);
+    const bv = sortValue(b, sortKey);
+
+    if (sortKey === 'ticker') {
+      const as = String(av || '');
+      const bs = String(bv || '');
+      if (as === bs) return 0;
+      return as < bs ? -1 * dir : 1 * dir;
+    }
+
+    const aOk = av != null && Number.isFinite(Number(av));
+    const bOk = bv != null && Number.isFinite(Number(bv));
+    if (!aOk && !bOk) return 0;
+    if (!aOk) return 1;
+    if (!bOk) return -1;
+    if (Number(av) === Number(bv)) return 0;
+    return Number(av) < Number(bv) ? -1 * dir : 1 * dir;
+  });
+}
+
 export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = false }) {
   const [orderModal, setOrderModal] = useState(null);
   const [orderBusy, setOrderBusy] = useState(false);
   const [closeAllPosition, setCloseAllPosition] = useState(null);
   const [closeAllBusy, setCloseAllBusy] = useState(false);
   const [closeAllError, setCloseAllError] = useState('');
+  const [sortKey, setSortKey] = useState('ticker');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const sortedPositions = useMemo(
+    () => sortPositions(positions, sortKey, sortDir),
+    [positions, sortKey, sortDir]
+  );
+
+  const onSort = (key) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir(key === 'ticker' ? 'asc' : 'desc');
+  };
 
   async function handleOrderConfirm(orderInput) {
     if (!onPlaceOrder) {
@@ -126,23 +197,101 @@ export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = fa
         <table className="paper-table paper-table--positions">
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>Long qty</th>
-              <th>Short qty</th>
-              <th>Net qty</th>
-              <th>Avg long</th>
-              <th>Avg short</th>
-              <th>Last price</th>
-              <th>Cost basis</th>
-              <th>Change</th>
-              <th>Chg %</th>
-              <th title="Long MV minus short liability">Net market value</th>
-              <th>Unrealized P&amp;L</th>
+              <PaperSortableTh label="Symbol" sortKey="ticker" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+              <PaperSortableTh
+                label="Long qty"
+                sortKey="long_qty"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Short qty"
+                sortKey="short_qty"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Net qty"
+                sortKey="net_qty"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Avg long"
+                sortKey="avg_long_cost"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Avg short"
+                sortKey="avg_short_cost"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Last price"
+                sortKey="current_price"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Cost basis"
+                sortKey="cost_basis"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Change"
+                sortKey="change"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Chg %"
+                sortKey="change_pct"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <PaperSortableTh
+                label="Net market value"
+                sortKey="market_value"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+                title="Long MV minus short liability"
+              />
+              <PaperSortableTh
+                label="Unrealized P&L"
+                sortKey="unrealized_pnl"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
               {readOnly ? null : <th aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
-            {positions.map((p) => {
+            {sortedPositions.map((p) => {
               const lastPrice = p.current_price;
               const costBasis = positionCostBasis(p);
               const changePerShare = positionChangePerShare(p);

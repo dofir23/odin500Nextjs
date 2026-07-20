@@ -651,6 +651,13 @@ async function adminUnpublishPortfolio(adminId, accountId) {
     metadata: { name: data.name }
   });
 
+  try {
+    const { invalidatePublicPortfoliosListCache } = require('../paper/publicPortfolio');
+    await invalidatePublicPortfoliosListCache();
+  } catch {
+    /* ignore */
+  }
+
   return data;
 }
 
