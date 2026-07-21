@@ -6,7 +6,26 @@ import { apiUrl } from '@/utils/apiOrigin.js';
 import { pickHomeAiPortfolioTeaser } from '@/utils/aiPortfolioTags.js';
 import { fmtPctSigned } from '@/utils/formatDisplayNumber.js';
 
-function money(v) {
+type AiTag = { id: string; label: string } | null;
+
+type HomeAiPortfolioRow = {
+  id: string;
+  name: string;
+  equity?: number | null;
+  total_return_pct?: number | null;
+  positions_count?: number | null;
+  ai_engine?: AiTag;
+  index_focus?: AiTag;
+};
+
+type LiveState = {
+  loading: boolean;
+  error: string;
+  rows: HomeAiPortfolioRow[];
+  source: 'ai' | 'public-fallback';
+};
+
+function money(v: unknown) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -15,14 +34,14 @@ function money(v) {
   }).format(Number(v));
 }
 
-function toneClass(v) {
+function toneClass(v: unknown) {
   if (Number(v) > 0) return 'home-ai-live__tone--up';
   if (Number(v) < 0) return 'home-ai-live__tone--down';
   return '';
 }
 
 export function HomeAiPortfoliosLive() {
-  const [state, setState] = useState({
+  const [state, setState] = useState<LiveState>({
     loading: true,
     error: '',
     rows: [],
@@ -37,7 +56,14 @@ export function HomeAiPortfoliosLive() {
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(payload?.error || 'Failed to load portfolios');
         const { rows, source } = pickHomeAiPortfolioTeaser(payload.portfolios || [], 6);
-        if (!cancelled) setState({ loading: false, error: '', rows, source });
+        if (!cancelled) {
+          setState({
+            loading: false,
+            error: '',
+            rows: rows as HomeAiPortfolioRow[],
+            source: source as LiveState['source']
+          });
+        }
       } catch (err) {
         if (!cancelled) {
           setState({
