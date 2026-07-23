@@ -29,6 +29,11 @@ const {
   getSectorAllocation,
   getCompareHistory
 } = require('../services/paper/portfolioAnalytics');
+const {
+  hasOpenAiKey,
+  runPortfolioAssistantChat
+} = require('../services/paper/portfolioAssistant');
+const { paperAssistantLimiter } = require('../middleware/rateLimitMiddleware');
 
 router.use(requireAuthStrict);
 
@@ -712,6 +717,36 @@ router.post('/account/reset', async (req, res) => {
     res.status(200).json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/assistant/chat', paperAssistantLimiter, async (req, res) => {
+  try {
+    if (!hasOpenAiKey()) {
+      return res.status(503).json({
+        error: 'Portfolio assistant is not configured (OPENAI_API_KEY missing).',
+        code: 'OPENAI_MISSING',
+        openai_configured: false
+      });
+    }
+    const accountId = req.body?.account_id || req.body?.accountId;
+    if (!accountId) {
+      return res.status(400).json({ error: 'account_id is required' });
+    }
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    const result = await runPortfolioAssistantChat({
+      userId: req.user.id,
+      accountId,
+      messages
+    });
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      error: error.message || 'Assistant failed',
+      code: error.code || undefined
+    });
   }
 });
 
