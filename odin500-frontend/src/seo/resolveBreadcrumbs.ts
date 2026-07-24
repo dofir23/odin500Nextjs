@@ -77,7 +77,6 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
   ],
   '/paper-trading/public': [
     { name: 'Market', path: '/market' },
-    { name: 'Virtual portfolio', path: '/paper-trading' },
     { name: 'Public portfolios', path: '/paper-trading/public' }
   ],
   '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }],
@@ -120,7 +119,8 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
     const sym = decodeURIComponent(reportMatch[1]).toUpperCase();
     return [
       { name: 'Market', path: '/market' },
-      { name: `${sym} report`, path: `/ticker-report/${encodeURIComponent(sym.toLowerCase())}` }
+      { name: 'Statistics', path: '/statistic-data' },
+      { name: `${sym} monthly report`, path: `/ticker-report/${encodeURIComponent(sym.toLowerCase())}` }
     ];
   }
 
@@ -151,8 +151,8 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
     const label = STAT_KIND_LABELS[kind] || 'Statistics';
     return [
       { name: 'Market', path: '/market' },
-      { name: sym, path: `/ticker/${encodeURIComponent(sym.toLowerCase())}` },
-      { name: label, path: `/statistic/${kind}/${encodeURIComponent(sym.toLowerCase())}` }
+      { name: 'Statistics', path: '/statistic-data' },
+      { name: `${sym} ${label.toLowerCase()}`, path: `/statistic/${kind}/${encodeURIComponent(sym.toLowerCase())}` }
     ];
   }
 
@@ -161,9 +161,9 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
     const sym = decodeURIComponent(relMatch[1]).toUpperCase();
     return [
       { name: 'Market', path: '/market' },
-      { name: sym, path: `/ticker/${encodeURIComponent(sym.toLowerCase())}` },
+      { name: 'Statistics', path: '/statistic-data' },
       {
-        name: 'Relative performance',
+        name: `${sym} relative performance`,
         path: `/relative-performance/ticker/${encodeURIComponent(sym.toLowerCase())}`
       }
     ];
@@ -173,7 +173,6 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
   if (publicPaperMatch) {
     return [
       { name: 'Market', path: '/market' },
-      { name: 'Virtual portfolio', path: '/paper-trading' },
       { name: 'Public portfolios', path: '/paper-trading/public' },
       { name: 'Portfolio', path }
     ];

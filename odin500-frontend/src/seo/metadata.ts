@@ -218,10 +218,15 @@ const STAT_KIND_SEARCH: Record<
   }
 };
 
-/** Only auth entry pages and OAuth callback are excluded from search indexing. */
+/** Auth, account, and private portfolio routes stay out of the index. */
 export function shouldNoindexPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
-  return path === '/login' || path === '/signup' || path === '/auth/callback';
+  if (path === '/login' || path === '/signup' || path === '/auth/callback') return true;
+  if (path === '/profile' || path === '/accounts' || path === '/forgot-password') return true;
+  if (path === '/paper-trading') return true;
+  if (path.startsWith('/signup/')) return true;
+  if (path.startsWith('/admin')) return true;
+  return false;
 }
 
 export function normalizePathname(pathname: string) {

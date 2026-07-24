@@ -36,14 +36,15 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/sector-data',
   '/statistic',
   '/relative-performance',
-  '/accounts',
+  /** Public gallery only — private /paper-trading stays auth-gated. */
+  '/paper-trading/public',
   '/newsletter'
 ];
 
 function isPublicPath(pathname: string) {
   if (pathname === '/') return true;
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) return true;
-  return PUBLIC_CONTENT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  return PUBLIC_CONTENT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 function isGuestAuthEntryPath(pathname: string) {

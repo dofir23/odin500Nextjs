@@ -27,6 +27,7 @@ import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
 import { PaperManageModal } from '../../components/paper/PaperManageModal.jsx';
 import { StrategyPanel } from '../../components/paper/StrategyPanel.jsx';
 import { StrategyAccountWizard } from '../../components/paper/StrategyAccountWizard.jsx';
+import { PortfolioAssistantChat } from '../../components/paper/PortfolioAssistantChat.jsx';
 import { usePaperStrategy } from '../../hooks/usePaperStrategy.js';
 import { useProductTourContext } from '../../context/ProductTourContext.jsx';
 import { clearTourProgress, TOUR_IDS } from '../../engagement/tourStorage.js';
@@ -67,6 +68,7 @@ function PaperTradingPageContent() {
     loading: strategyLoading,
     error: strategyError,
     refetch: refetchStrategy,
+    loadExecutionLog,
     createStrategy,
     addRule,
     updateRule,
@@ -812,6 +814,34 @@ function PaperTradingPageContent() {
               )}
             </div>
           </section>
+
+      {selectedAccountId ? (
+        <PortfolioAssistantChat
+          accountId={selectedAccountId}
+          accountName={selectedAccountLabel}
+          strategyId={strategy?.id || null}
+          createStrategy={createStrategy}
+          addRule={addRule}
+          updateRule={updateRule}
+          deleteRule={deleteRule}
+          bindStrategy={bindStrategy}
+          patchBinding={patchBinding}
+          patchStrategy={patchStrategy}
+          runOnce={runOnce}
+          refetch={refetchStrategy}
+          loadExecutionLog={loadExecutionLog}
+          onApplied={async () => {
+            await Promise.all([
+              refetchAccount(selectedAccountId),
+              refetchPositions(),
+              refetchOrders(),
+              refetchStrategy(selectedAccountId),
+              loadExecutionLog(selectedAccountId)
+            ]);
+            goToTab('strategy');
+          }}
+        />
+      ) : null}
     </div>
   );
 }

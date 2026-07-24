@@ -19659,6 +19659,15 @@ html[data-theme='light'] .about-legal-item {
   font-size: 13px;
   font-weight: 600;
   padding: 10px 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.accounts-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .accounts-btn--primary {
@@ -19669,6 +19678,39 @@ html[data-theme='light'] .about-legal-item {
 
 .accounts-btn--ghost:hover {
   background: rgba(148, 163, 184, 0.12);
+}
+
+.accounts-alert {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+  font-size: 0.88rem;
+}
+
+.accounts-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.accounts-inline-link {
+  color: #60a5fa;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.accounts-inline-link:hover {
+  text-decoration: underline;
+}
+
+.accounts-card__hint {
+  margin: -4px 0 12px;
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 .accounts-kpis {
@@ -19737,6 +19779,12 @@ html[data-theme='light'] .about-legal-item {
   color: #60a5fa;
   font-size: 12px;
   font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.accounts-link-btn:hover {
+  text-decoration: underline;
 }
 
 .accounts-account-list {
@@ -19753,6 +19801,22 @@ html[data-theme='light'] .about-legal-item {
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.56);
   border: 1px solid rgba(51, 65, 85, 0.65);
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.accounts-account:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.accounts-account--selected {
+  border-color: rgba(96, 165, 250, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.25);
+  background: rgba(30, 58, 138, 0.28);
 }
 
 .accounts-account h3 {
@@ -19968,7 +20032,9 @@ html[data-theme='light'] .about-legal-item {
 [data-theme='light'] .accounts-mini__value,
 [data-theme='light'] .accounts-table th,
 [data-theme='light'] .accounts-activity__time,
-[data-theme='light'] .accounts-activity__detail {
+[data-theme='light'] .accounts-activity__detail,
+[data-theme='light'] .accounts-empty,
+[data-theme='light'] .accounts-card__hint {
   color: #64748b;
 }
 
@@ -19985,6 +20051,23 @@ html[data-theme='light'] .about-legal-item {
 [data-theme='light'] .accounts-activity__item {
   background: #f8fafc;
   border-color: rgba(203, 213, 225, 0.9);
+}
+
+[data-theme='light'] .accounts-account--selected {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+[data-theme='light'] .accounts-alert {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+[data-theme='light'] .accounts-inline-link,
+[data-theme='light'] .accounts-link-btn {
+  color: #2563eb;
 }
 
 [data-theme='light'] .accounts-meter {
