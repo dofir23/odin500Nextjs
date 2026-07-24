@@ -70,6 +70,8 @@ export async function fetchAllTickersForSitemap(): Promise<string[]> {
  * 1. SITEMAP_TICKERS — explicit comma-separated override
  * 2. API fetch (default when SITEMAP_USE_API is not "false")
  * 3. SITEMAP_FALLBACK_TICKERS hardcoded list
+ *
+ * Always returns at least the fallback list (never throws / never empty).
  */
 export async function resolveSitemapTickers(): Promise<string[]> {
   const raw = process.env.SITEMAP_TICKERS || '';
@@ -97,5 +99,5 @@ export async function resolveSitemapTickers(): Promise<string[]> {
     console.warn('[sitemap] SITEMAP_USE_API=false — using fallback ticker list only.');
   }
 
-  return SITEMAP_FALLBACK_TICKERS;
+  return [...SITEMAP_FALLBACK_TICKERS];
 }
