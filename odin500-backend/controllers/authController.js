@@ -1,4 +1,5 @@
 const supabase = require('../config/supabase');
+const { createAuthClient } = require('../config/supabase');
 const supabaseService = require('../config/supabaseService');
 const { isUserAdmin } = require('../services/admin/adminAuth');
 const { defaultRenewalFromJoinDate } = require('../services/admin/adminPlans');
@@ -41,7 +42,7 @@ const signUp = async (req, res) => {
             return res.status(400).json({ error: 'email and password are required' });
         }
 
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await createAuthClient().auth.signUp({
             email: email,
             password: password,
         });
@@ -80,7 +81,7 @@ const login = async (req, res) => {
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress; // Get IP
 
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await createAuthClient().auth.signInWithPassword({
             email,
             password,
         });
@@ -107,9 +108,19 @@ const login = async (req, res) => {
 // 3. Log Out
 const logout = async (req, res) => {
     try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.startsWith('Bearer ')
+            ? authHeader.slice('Bearer '.length)
+            : (req.body?.access_token || '');
+
+        // Revoke this specific token via the admin API (takes the token as an
+        // argument instead of reading it off shared client state), so logging
+        // one user out can never revoke a different user's session.
+        if (token) {
+            const { error } = await supabaseService.auth.admin.signOut(token, 'global');
+            if (error) throw error;
+        }
+
         res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -125,7 +136,7 @@ const refresh = async (req, res) => {
             return res.status(400).json({ error: 'refresh_token is required' });
         }
 
-        const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+        const { data, error } = await createAuthClient().auth.refreshSession({ refresh_token });
 
         if (error) throw error;
 
@@ -178,7 +189,7 @@ const verifySignUpOtp = async (req, res) => {
     }
 
     try {
-        const { data, error } = await supabase.auth.verifyOtp({
+        const { data, error } = await createAuthClient().auth.verifyOtp({
             email: em,
             token: code,
             type: 'signup'
@@ -206,7 +217,7 @@ const resendSignUpOtp = async (req, res) => {
     }
 
     try {
-        const { data, error } = await supabase.auth.resend({
+        const { data, error } = await createAuthClient().auth.resend({
             type: 'signup',
             email: em
         });
@@ -246,7 +257,7 @@ const startForgotPassword = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'No account found for this email' });
         }
-        const { error } = await supabase.auth.resetPasswordForEmail(
+        const { error } = await createAuthClient().auth.resetPasswordForEmail(
             email,
             redirectTo ? { redirectTo } : undefined
         );

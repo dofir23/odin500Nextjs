@@ -30,13 +30,6 @@ export const HOME_PILLARS = [
 
 export const HOME_USE_CASES = [
   {
-    title: 'Active traders & swing traders',
-    body:
-      'Monitor market movers, sector heatmaps, and daily Odin trading signals. Drill into any ticker for OHLC charts, signal history, drawdown analytics, and relative performance vs. benchmarks.',
-    href: '/odin-signals',
-    linkLabel: 'Open signals screener'
-  },
-  {
     title: 'Research & portfolio analysis',
     body:
       'Compare index and sector ETF returns across 1-day to multi-year horizons. Use return tables, statistic data exports, and ticker reports to stress-test ideas before committing capital.',
@@ -101,13 +94,6 @@ export const HOME_DATA_COVERAGE: HomeDataCoverageItem[] = [
     summary:
       'Daily open-high-low-close history with export-friendly tables for backtesting, charting, and quantitative research workflows.',
     href: '/historical-data/aapl'
-  },
-  {
-    id: 'signals',
-    title: 'Odin trading signals',
-    summary:
-      'Daily bullish and bearish signal screeners with treemap visualization, filters by index and sector, and historical signal performance context.',
-    href: '/odin-signals'
   },
   {
     id: 'heatmap',
@@ -180,12 +166,6 @@ export const HOME_FEATURES = [
     href: '/ticker/spy'
   },
   {
-    title: 'Odin Signals screener',
-    body:
-      'Filter the investable universe by signal direction, index membership, and sector — with visual treemap and tabular views.',
-    href: '/odin-signals'
-  },
-  {
     title: 'Return & statistic tables',
     body:
       'Sortable performance grids across horizons plus per-ticker annual, quarterly, monthly, weekly, and daily statistic routes.',
@@ -229,7 +209,6 @@ export const HOME_FOOTER_CTA = {
 export const HOME_NAV_PRODUCT = [
   { href: '/market', label: 'Market dashboard' },
   { href: '/heatmap', label: 'Heatmaps' },
-  { href: '/odin-signals', label: 'Odin Signals' },
   { href: '/paper-trading', label: 'Virtual portfolio' },
   { href: '/paper-trading/public', label: 'AI portfolios' },
   { href: '/premium', label: 'Pricing' },
@@ -329,16 +308,6 @@ export const HOME_SHOWCASE: HomeShowcaseItem[] = [
     linkLabel: 'Browse public portfolios',
     imageKey: 'publicPortfolio',
     imageAlt: 'Odin500 public portfolios list with values, returns, and published dates'
-  },
-  {
-    id: 'signals',
-    title: 'Odin Signals screener',
-    description:
-      'Screen bullish and bearish setups across U.S. indices and sectors with treemap and tabular views tied to daily OHLC analytics.',
-    href: '/odin-signals',
-    linkLabel: 'Browse trading signals',
-    imageKey: 'signals',
-    imageAlt: 'Odin500 trading signals screener with treemap and filters'
   },
   {
     id: 'ticker',
