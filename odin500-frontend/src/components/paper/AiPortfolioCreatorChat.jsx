@@ -132,6 +132,18 @@ function matchOption(text, options) {
   );
 }
 
+/** Common short all-caps words that would otherwise false-positive as tickers. */
+const TICKER_STOPWORDS = new Set([
+  'AI', 'OK', 'ETF', 'ETFS', 'CEO', 'CFO', 'USD', 'EPS', 'IPO', 'NYSE', 'SEC', 'GDP', 'US', 'USA', 'FAQ', 'API'
+]);
+
+/** Two or more ticker-looking tokens (AAPL, BRK.B, ...) means the user named exact holdings. */
+function mentionsExplicitTickers(text) {
+  const matches = text.match(/\b[A-Z]{1,5}(?:\.[A-Z])?\b/g) || [];
+  const tickers = matches.filter((m) => !TICKER_STOPWORDS.has(m));
+  return tickers.length >= 2;
+}
+
 /** Scans free text for any wizard slot values it already states, in step order. */
 function parseSlotsFromText(text) {
   const found = {};
@@ -142,6 +154,11 @@ function parseSlotsFromText(text) {
         break;
       }
     }
+  }
+  // Naming exact tickers ("build with AAPL, MSFT...") makes the picking-style question moot —
+  // there's no "style" to pick when the user already said exactly what to buy.
+  if (!found.criteria && mentionsExplicitTickers(text)) {
+    found.criteria = 'none';
   }
   return found;
 }
@@ -243,6 +260,10 @@ export function AiPortfolioCreatorChat({ onCreated }) {
   const [draft, setDraft] = useState('');
   const greetedRef = useRef(false);
   const autoStartedRef = useRef(false);
+  // Every user message typed during the wizard phase — not just the one that completes the last
+  // slot — so specifics like exact tickers named early on ("build with AAPL, MSFT...") aren't
+  // dropped once the AI takes over.
+  const userNotesRef = useRef([]);
   const pendingKickoffRef = useRef('');
 
   const wizardComplete = WIZARD_STEPS.every((s) => config[s.key]);
@@ -404,6 +425,7 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     }
 
     pushWizard('user', text);
+    userNotesRef.current.push(text);
 
     const parsed = parseSlotsFromText(text);
     let nextConfig = config;
@@ -423,8 +445,10 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     const stillMissing = missingStep(nextConfig);
 
     if (!stillMissing) {
-      // All four slots resolved — the effect watching `wizardComplete` sends this off to the AI.
-      pendingKickoffRef.current = text;
+      // All four slots resolved — hand off everything the user said during setup (not just this
+      // last message) so specifics like exact tickers named earlier aren't lost. The effect
+      // watching `wizardComplete` sends this off to the AI.
+      pendingKickoffRef.current = userNotesRef.current.join('\n');
       setAwaitingSlotKey(null);
       return;
     }
@@ -455,6 +479,7 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     setConfig({ engine: '', indexFocus: '', direction: '', criteria: '', cadence: '' });
     setAwaitingSlotKey(null);
     autoStartedRef.current = false;
+    userNotesRef.current = [];
     pendingKickoffRef.current = '';
     // Panel stays open across a reset, so the mount effect won't re-fire — post the greeting directly.
     greetedRef.current = true;
