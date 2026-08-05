@@ -79,6 +79,10 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { name: 'Market', path: '/market' },
     { name: 'Public portfolios', path: '/paper-trading/public' }
   ],
+  '/paper-trading/ai': [
+    { name: 'Market', path: '/market' },
+    { name: 'AI portfolios', path: '/paper-trading/ai' }
+  ],
   '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }],
   '/methodology': [
     { name: 'Market', path: '/market' },

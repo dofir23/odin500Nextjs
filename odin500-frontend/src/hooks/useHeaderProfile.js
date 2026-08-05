@@ -11,6 +11,7 @@ import {
   isAuthDisabled,
   profileInitialsFromName
 } from '../store/apiStore.js';
+import { toast } from '../utils/toast.js';
 
 /**
  * Profile label/avatar for header rails. Shows Guest when signed out (no stale email).
@@ -43,6 +44,7 @@ export function useHeaderProfile({ guestLabel = 'Guest', signedInFallback = 'Pro
     clearAuthToken();
     clearApiCache();
     resetProfileState();
+    toast.success('Signed out');
     if (isAuthDisabled()) {
       navigate('/market', { replace: true });
     } else {

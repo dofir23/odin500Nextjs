@@ -102,7 +102,13 @@ async function getBoundStrategyLabel(accountId) {
 function publicMetaFields(account) {
   return {
     publish_description: account.publish_description ? String(account.publish_description) : '',
-    publish_strategy: account.publish_strategy ? String(account.publish_strategy) : ''
+    publish_strategy: account.publish_strategy ? String(account.publish_strategy) : '',
+    ai_managed: Boolean(account.ai_managed),
+    ai_engine: account.ai_engine || null,
+    ai_index_focus: account.ai_index_focus || null,
+    ai_direction: account.ai_direction || null,
+    ai_criteria: account.ai_criteria || null,
+    ai_rebalance_cadence: account.ai_rebalance_cadence || null
   };
 }
 
@@ -202,7 +208,7 @@ async function buildPublishedPortfoliosList() {
   const { data: accounts, error } = await supabaseService
     .from('paper_accounts')
     .select(
-      'id, user_id, name, cash_balance, starting_capital, created_at, published_at, strategy_mode, publish_description, publish_strategy'
+      'id, user_id, name, cash_balance, starting_capital, created_at, published_at, strategy_mode, publish_description, publish_strategy, ai_managed, ai_engine, ai_index_focus, ai_direction, ai_criteria, ai_rebalance_cadence'
     )
     .eq('is_published', true)
     .order('published_at', { ascending: false });
@@ -262,6 +268,12 @@ async function buildPublishedPortfoliosList() {
       strategy_mode: account.strategy_mode || 'manual',
       publish_description: account.publish_description ? String(account.publish_description) : '',
       publish_strategy: account.publish_strategy ? String(account.publish_strategy) : '',
+      ai_managed: Boolean(account.ai_managed),
+      ai_engine: account.ai_engine || null,
+      ai_index_focus: account.ai_index_focus || null,
+      ai_direction: account.ai_direction || null,
+      ai_criteria: account.ai_criteria || null,
+      ai_rebalance_cadence: account.ai_rebalance_cadence || null,
       starting_capital: Number(account.starting_capital) || 100000,
       equity: metrics.equity,
       total_return: metrics.total_return,

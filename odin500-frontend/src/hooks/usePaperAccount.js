@@ -7,6 +7,7 @@ import { apiUrl } from '../utils/apiOrigin.js';
 import { fetchWithAuth, canFetchProtectedApi } from '../store/apiStore.js';
 import { usePaperSessionStore } from '../store/paperSessionStore.js';
 import { shouldIgnoreRouteLoadError, useRouteNavigationDeps } from './useRouteLoadGuard.js';
+import { toast } from '../utils/toast.js';
 
 async function parseJson(res) {
   const payload = await res.json().catch(() => ({}));
@@ -103,28 +104,40 @@ export function usePaperAccount() {
 
   const resetPortfolio = useCallback(async () => {
     const id = usePaperSessionStore.getState().activeAccountId;
-    const res = await fetchWithAuth(
-      apiUrl(`/api/paper/account/reset${id ? `?account_id=${encodeURIComponent(id)}` : ''}`),
-      { method: 'POST' }
-    );
-    await parseJson(res);
-    await refetch();
+    try {
+      const res = await fetchWithAuth(
+        apiUrl(`/api/paper/account/reset${id ? `?account_id=${encodeURIComponent(id)}` : ''}`),
+        { method: 'POST' }
+      );
+      await parseJson(res);
+      await refetch();
+      toast.success('Portfolio reset to starting capital');
+    } catch (err) {
+      toast.error(err);
+      throw err;
+    }
   }, [refetch]);
 
   const createAccount = useCallback(
     async ({ name, starting_capital, activate = true }) => {
-      const res = await fetchWithAuth(apiUrl('/api/paper/accounts'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, starting_capital })
-      });
-      const created = await parseJson(res);
-      await loadAccounts();
-      if (activate && created?.id) {
-        setActiveAccountId(created.id);
-        await refetch(created.id);
+      try {
+        const res = await fetchWithAuth(apiUrl('/api/paper/accounts'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, starting_capital })
+        });
+        const created = await parseJson(res);
+        await loadAccounts();
+        if (activate && created?.id) {
+          setActiveAccountId(created.id);
+          await refetch(created.id);
+        }
+        toast.success(`Portfolio "${created?.name || name}" created`);
+        return created;
+      } catch (err) {
+        toast.error(err);
+        throw err;
       }
-      return created;
     },
     [loadAccounts, refetch, setActiveAccountId]
   );
@@ -133,22 +146,28 @@ export function usePaperAccount() {
     async (accountId) => {
       const id = String(accountId || '').trim();
       if (!id) throw new Error('No account selected');
-      const res = await fetchWithAuth(apiUrl(`/api/paper/accounts/${encodeURIComponent(id)}`), {
-        method: 'DELETE'
-      });
-      await parseJson(res);
-      const rows = await loadAccounts({ pickFirstIfMissing: true });
-      const nextId = rows[0]?.id || '';
-      setActiveAccountId(nextId);
-      setError('');
-      if (!nextId) {
-        accountFetchGenRef.current += 1;
-        setAccount(null);
-        setLoading(false);
-        return { deletedId: id, nextAccountId: null };
+      try {
+        const res = await fetchWithAuth(apiUrl(`/api/paper/accounts/${encodeURIComponent(id)}`), {
+          method: 'DELETE'
+        });
+        await parseJson(res);
+        const rows = await loadAccounts({ pickFirstIfMissing: true });
+        const nextId = rows[0]?.id || '';
+        setActiveAccountId(nextId);
+        setError('');
+        toast.success('Portfolio deleted');
+        if (!nextId) {
+          accountFetchGenRef.current += 1;
+          setAccount(null);
+          setLoading(false);
+          return { deletedId: id, nextAccountId: null };
+        }
+        await refetch(nextId);
+        return { deletedId: id, nextAccountId: nextId };
+      } catch (err) {
+        toast.error(err);
+        throw err;
       }
-      await refetch(nextId);
-      return { deletedId: id, nextAccountId: nextId };
     },
     [loadAccounts, refetch, setActiveAccountId]
   );
@@ -157,25 +176,31 @@ export function usePaperAccount() {
     async (accountId, published, meta = {}) => {
       const id = String(accountId || usePaperSessionStore.getState().activeAccountId || '').trim();
       if (!id) throw new Error('No account selected');
-      const path = published
-        ? `/api/paper/accounts/${encodeURIComponent(id)}/publish`
-        : `/api/paper/accounts/${encodeURIComponent(id)}/unpublish`;
-      const res = await fetchWithAuth(apiUrl(path), {
-        method: 'PATCH',
-        headers: published ? { 'Content-Type': 'application/json' } : undefined,
-        body: published
-          ? JSON.stringify({
-              publishDescription: meta.publishDescription,
-              publishStrategy: meta.publishStrategy
-            })
-          : undefined
-      });
-      const updated = await parseJson(res);
-      await loadAccounts();
-      if (id === usePaperSessionStore.getState().activeAccountId) {
-        setAccount((prev) => (prev ? { ...prev, ...updated } : updated));
+      try {
+        const path = published
+          ? `/api/paper/accounts/${encodeURIComponent(id)}/publish`
+          : `/api/paper/accounts/${encodeURIComponent(id)}/unpublish`;
+        const res = await fetchWithAuth(apiUrl(path), {
+          method: 'PATCH',
+          headers: published ? { 'Content-Type': 'application/json' } : undefined,
+          body: published
+            ? JSON.stringify({
+                publishDescription: meta.publishDescription,
+                publishStrategy: meta.publishStrategy
+              })
+            : undefined
+        });
+        const updated = await parseJson(res);
+        await loadAccounts();
+        if (id === usePaperSessionStore.getState().activeAccountId) {
+          setAccount((prev) => (prev ? { ...prev, ...updated } : updated));
+        }
+        toast.success(published ? 'Portfolio published' : 'Portfolio unpublished');
+        return updated;
+      } catch (err) {
+        toast.error(err);
+        throw err;
       }
-      return updated;
     },
     [loadAccounts]
   );

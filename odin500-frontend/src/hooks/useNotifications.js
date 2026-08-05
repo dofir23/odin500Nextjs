@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { fetchJsonCached, getAuthToken } from '../store/apiStore.js';
+import { toast } from '../utils/toast.js';
 
 /** Sunday (local) — weekly newsletter and in-app notifications are published. */
 export function isNewsletterNotificationDay(date = new Date()) {
@@ -209,8 +210,11 @@ export function useNewsletterSubscription({ enabled = true } = {}) {
       setSubscribed(Boolean(res.data?.subscribed));
       setEmailOptIn(res.data?.emailOptIn !== false);
       setInAppOptIn(res.data?.inAppOptIn !== false);
+      toast.success('Subscribed to the weekly newsletter');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Subscribe failed');
+      const msg = err instanceof Error ? err.message : 'Subscribe failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -230,8 +234,11 @@ export function useNewsletterSubscription({ enabled = true } = {}) {
       setSubscribed(false);
       setEmailOptIn(false);
       setInAppOptIn(false);
+      toast.success('Unsubscribed from the weekly newsletter');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unsubscribe failed');
+      const msg = err instanceof Error ? err.message : 'Unsubscribe failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

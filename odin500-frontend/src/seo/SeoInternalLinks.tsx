@@ -68,6 +68,14 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
     { href: '/methodology', label: 'Data methodology' },
     { href: '/about', label: 'About Odin500' }
   ],
+  '/paper-trading/ai': [
+    { href: '/paper-trading/public', label: 'All public portfolios' },
+    { href: '/paper-trading', label: 'Your portfolio' },
+    { href: '/indices/sp500', label: 'S&P 500 index' },
+    { href: '/indices/dow-jones', label: 'Dow Jones index' },
+    { href: '/indices/nasdaq-100', label: 'Nasdaq 100 index' },
+    { href: '/market', label: 'Market dashboard' }
+  ],
   '/premium': [
     { href: '/methodology', label: 'Data methodology' },
     { href: '/about', label: 'About Odin500' },

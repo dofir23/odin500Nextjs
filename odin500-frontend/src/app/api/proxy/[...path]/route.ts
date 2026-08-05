@@ -66,19 +66,21 @@ async function doProxyRequest(request: NextRequest, pathSegments: string[]) {
 
   // 204/205/304 are "null body" statuses: the Response constructor throws a
   // TypeError if given any body (even an empty ArrayBuffer). Read the body as
-  // text and drop it entirely when it's empty or the status forbids a body.
-  const bodyText = await response.text();
+  // raw bytes (never text — that mangles binary payloads like .xlsx exports)
+  // and drop it entirely when it's empty or the status forbids a body.
+  const bodyBuffer = await response.arrayBuffer();
 
   if (response.status >= 400) {
+    const preview = new TextDecoder().decode(bodyBuffer.slice(0, 2000));
     console.error(
-      `[proxy] upstream ${request.method} ${target} -> ${response.status} :: ${bodyText.slice(0, 2000)}`
+      `[proxy] upstream ${request.method} ${target} -> ${response.status} :: ${preview}`
     );
   }
 
   const nullBodyStatus =
     response.status === 204 || response.status === 205 || response.status === 304;
   const outBody =
-    nullBodyStatus || request.method === 'HEAD' || bodyText.length === 0 ? null : bodyText;
+    nullBodyStatus || request.method === 'HEAD' || bodyBuffer.byteLength === 0 ? null : bodyBuffer;
 
   if (outBody !== null) {
     outHeaders.set('content-type', response.headers.get('content-type') || 'application/json');

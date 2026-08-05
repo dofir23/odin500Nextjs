@@ -3,6 +3,8 @@ const rateLimit = require('express-rate-limit');
 const { requireAuthStrict, requireAdmin } = require('../middleware/authMiddleware');
 const { isUserAdmin, getUserProfile } = require('../services/admin/adminAuth');
 const adminService = require('../services/admin/adminService');
+const supabaseService = require('../config/supabaseService');
+const { rebalanceAccount } = require('../services/paper/aiRebalancer');
 
 const router = express.Router();
 
@@ -166,6 +168,29 @@ router.get('/subscribers', async (req, res) => {
     res.status(200).json({ success: true, subscribers });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Failed to load subscribers' });
+  }
+});
+
+/**
+ * Manually trigger a rebalance for one AI-managed portfolio, bypassing its cadence timer —
+ * for verifying the autonomous job's behavior before ENABLE_AI_REBALANCE is turned on.
+ */
+router.post('/ai-portfolios/:accountId/rebalance-now', adminMutationLimiter, async (req, res) => {
+  try {
+    const { data: account, error } = await supabaseService
+      .from('paper_accounts')
+      .select('*')
+      .eq('id', req.params.accountId)
+      .eq('ai_managed', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!account) {
+      return res.status(404).json({ success: false, error: 'AI-managed portfolio not found' });
+    }
+    const result = await rebalanceAccount(account);
+    res.status(200).json({ success: true, result });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, error: error.message || 'Rebalance failed' });
   }
 });
 

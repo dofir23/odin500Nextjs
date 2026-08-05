@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { detectAiEngine, detectIndexFocus } from '@/utils/aiPortfolioTags.js';
 import { fmtPctSigned } from '@/utils/formatDisplayNumber.js';
@@ -109,15 +110,18 @@ export function pickTopPublicPortfolios(portfolios, limit = 3) {
 const RANK_LABELS = ['1st', '2nd', '3rd'];
 
 const CARD_BASE =
-  'flex max-h-[26rem] min-h-[14rem] flex-col gap-3 rounded-[14px] border px-4 pb-3.5 pt-4 transition duration-150 ease-out hover:-translate-y-0.5';
+  'flex h-full max-h-[26rem] min-h-[14rem] flex-col gap-3 rounded-[14px] border px-4 pb-3.5 pt-4 transition duration-150 ease-out hover:-translate-y-0.5';
+
+const CARD_BASE_COMPACT =
+  'flex h-full max-h-[21rem] min-h-[11.5rem] flex-col gap-2.5 rounded-[12px] border px-3 pb-3 pt-3 transition duration-150 ease-out hover:-translate-y-0.5';
 
 const CARD_BY_RANK = [
   // 1st
-  `${CARD_BASE} border-amber-300/70 bg-gradient-to-br from-amber-50 to-white shadow-sm hover:border-amber-400 hover:shadow-md dark:border-amber-400/35 dark:from-amber-400/10 dark:to-white/[0.02] dark:shadow-none dark:hover:border-amber-400/50 dark:hover:shadow-[0_8px_24px_rgba(2,6,23,0.28)]`,
+  `border-amber-300/70 bg-gradient-to-br from-amber-50 to-white shadow-sm hover:border-amber-400 hover:shadow-md dark:border-amber-400/35 dark:from-amber-400/10 dark:to-white/[0.02] dark:shadow-none dark:hover:border-amber-400/50 dark:hover:shadow-[0_8px_24px_rgba(2,6,23,0.28)]`,
   // 2nd
-  `${CARD_BASE} border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:shadow-md dark:border-slate-400/35 dark:bg-white/[0.03] dark:shadow-none dark:hover:border-blue-400/40 dark:hover:shadow-[0_8px_24px_rgba(2,6,23,0.28)]`,
+  `border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:shadow-md dark:border-slate-400/35 dark:bg-white/[0.03] dark:shadow-none dark:hover:border-blue-400/40 dark:hover:shadow-[0_8px_24px_rgba(2,6,23,0.28)]`,
   // 3rd
-  `${CARD_BASE} border-orange-200/90 bg-gradient-to-br from-orange-50/80 to-white shadow-sm hover:border-orange-300 hover:shadow-md dark:border-orange-500/30 dark:from-orange-500/10 dark:to-white/[0.02] dark:shadow-none dark:hover:border-orange-400/40 dark:hover:shadow-[0_8px_24px_rgba(2,6,23,0.28)]`
+  `border-orange-200/90 bg-gradient-to-br from-orange-50/80 to-white shadow-sm hover:border-orange-300 hover:shadow-md dark:border-orange-500/30 dark:from-orange-500/10 dark:to-white/[0.02] dark:shadow-none dark:hover:border-orange-400/40 dark:hover:shadow-[0_8px_24px_rgba(2,6,23,0.28)]`
 ];
 
 const RANK_PILL = [
@@ -141,13 +145,24 @@ const BADGE_DEFAULT = `${BADGE_BASE} border-blue-300/70 bg-blue-50 text-blue-800
 const SKEL_CARD =
   'min-h-[11.5rem] pointer-events-none animate-pulse rounded-[14px] border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[0.06]';
 
-export function PublicPortfoliosTopSummary({ portfolios, loading }) {
-  const top = useMemo(() => pickTopPublicPortfolios(portfolios, 3), [portfolios]);
+const SKEL_CARD_COMPACT =
+  'h-[15.5rem] w-[15.5rem] shrink-0 pointer-events-none animate-pulse rounded-[12px] border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[0.06] sm:w-[17rem]';
+
+const CAROUSEL_CARD_WIDTH = 'w-[15.5rem] sm:w-[17rem]';
+
+/**
+ * @param {{ portfolios: any[], loading: boolean, limit?: number, carousel?: boolean }} props
+ * `carousel`: renders a horizontally swipeable/scrollable row of smaller cards (with prev/next
+ * buttons) instead of the fixed 3-column grid — used on the AI Portfolios gallery to fit more cards.
+ */
+export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, carousel = false }) {
+  const top = useMemo(() => pickTopPublicPortfolios(portfolios, limit), [portfolios, limit]);
   const topIds = useMemo(() => top.map((p) => p.id).join(','), [top]);
   const [histories, setHistories] = useState({});
   const [historyLoading, setHistoryLoading] = useState(false);
   const [aiSummaries, setAiSummaries] = useState({});
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const scrollerRef = useRef(null);
 
   useEffect(() => {
     if (!topIds) {
@@ -224,6 +239,14 @@ export function PublicPortfoliosTopSummary({ portfolios, loading }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topIds]);
 
+  const scrollByCard = (dir) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const card = el.querySelector('[data-top-card]');
+    const step = card ? card.getBoundingClientRect().width + 14 : 260;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
   if (loading) {
     return (
       <section className="mt-5" aria-labelledby="public-top-portfolios-title" aria-busy="true">
@@ -233,145 +256,219 @@ export function PublicPortfoliosTopSummary({ portfolios, loading }) {
         >
           Top performers
         </h2>
-        <div className="mt-3.5 grid list-none grid-cols-1 gap-3.5 p-0 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className={SKEL_CARD} />
-          ))}
-        </div>
+        {carousel ? (
+          <div className="mt-3.5 flex gap-3.5 overflow-x-hidden p-0">
+            {Array.from({ length: limit }).map((_, i) => (
+              <div key={i} className={SKEL_CARD_COMPACT} />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3.5 grid list-none grid-cols-1 gap-3.5 p-0 lg:grid-cols-3">
+            {Array.from({ length: Math.min(limit, 3) }).map((_, i) => (
+              <div key={i} className={SKEL_CARD} />
+            ))}
+          </div>
+        )}
       </section>
     );
   }
 
   if (!top.length) return null;
 
+  const renderCard = (p, index) => {
+    const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
+    const rank = RANK_LABELS[index] || `${index + 1}th`;
+    const summary = aiSummaries[p.id] || (!summaryLoading ? buildPortfolioSummary(p) : '');
+    const rankClass = RANK_PILL[index] || RANK_PILL[1];
+    const cardClass = `${carousel ? CARD_BASE_COMPACT : CARD_BASE} ${CARD_BY_RANK[index] || CARD_BY_RANK[1]}`;
+
+    return (
+      <article className={cardClass}>
+        <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center justify-between gap-2.5">
+            <span
+              className={`inline-flex min-w-[2.35rem] items-center justify-center rounded-full px-2.5 py-0.5 text-[0.68rem] font-extrabold uppercase tracking-wide ${rankClass}`}
+              aria-label={`Rank ${index + 1}`}
+            >
+              {rank}
+            </span>
+            <span
+              className={
+                'inline-flex shrink-0 items-center justify-center rounded-full border border-blue-300/70 bg-blue-50 font-bold tracking-wide text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/20 dark:text-blue-200' +
+                (carousel ? ' h-8 w-8 text-[0.66rem]' : ' h-[2.35rem] w-[2.35rem] text-[0.74rem]')
+              }
+              aria-hidden
+            >
+              {ownerInitials(p.owner_label)}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p
+              className={
+                'm-0 truncate font-bold leading-snug text-slate-900 dark:text-slate-100' +
+                (carousel ? ' text-[0.86rem]' : ' text-base')
+              }
+            >
+              {p.name}
+            </p>
+            <p
+              className={
+                'mt-0.5 m-0 truncate text-slate-500 dark:text-slate-400' +
+                (carousel ? ' text-[0.72rem]' : ' text-sm')
+              }
+            >
+              by {p.owner_label}
+            </p>
+            {summaryLoading && !aiSummaries[p.id] ? (
+              <p
+                className="mt-1.5 m-0 text-[0.8rem] italic leading-snug text-slate-400 opacity-80 dark:text-slate-500"
+                aria-busy="true"
+              >
+                Generating summary…
+              </p>
+            ) : summary ? (
+              <p
+                className={
+                  'mt-1.5 m-0 leading-snug text-slate-600 dark:text-slate-400' +
+                  (carousel ? ' line-clamp-2 text-[0.72rem]' : ' text-[0.8rem]')
+                }
+              >
+                {summary}
+              </p>
+            ) : null}
+            <div className="mt-2.5 flex flex-wrap gap-1.5 empty:hidden">
+              {p.ai_engine ? (
+                <span className={BADGE_BY_ENGINE[p.ai_engine.id] || BADGE_DEFAULT}>
+                  {p.ai_engine.label}
+                </span>
+              ) : null}
+              {p.index_focus ? <span className={BADGE_INDEX}>{p.index_focus.label}</span> : null}
+              {p.strategy_mode && p.strategy_mode !== 'manual' ? (
+                <span className={BADGE_DEFAULT}>Automated</span>
+              ) : null}
+            </div>
+          </div>
+          <dl
+            className={
+              'm-0 grid grid-cols-3 gap-2 rounded-[10px] border border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.04]' +
+              (carousel ? ' px-2 py-2' : ' px-2.5 py-2.5')
+            }
+          >
+            <div>
+              <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Avg / mo
+              </dt>
+              <dd
+                className={`m-0 mt-0.5 font-bold tabular-nums ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'} ${toneClass(
+                  p.avg_monthly_return_pct ?? p.total_return_pct
+                )}`}
+              >
+                {p.avg_monthly_return_pct == null
+                  ? fmtPctSigned(p.total_return_pct, { decimals: 2 })
+                  : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
+              </dd>
+            </div>
+            <div>
+              <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Total
+              </dt>
+              <dd
+                className={`m-0 mt-0.5 font-bold tabular-nums ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'} ${toneClass(
+                  p.total_return_pct
+                )}`}
+              >
+                {fmtPctSigned(p.total_return_pct, { decimals: 2 })}
+              </dd>
+            </div>
+            <div>
+              <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Equity
+              </dt>
+              <dd
+                className={`m-0 mt-0.5 font-bold tabular-nums text-slate-900 dark:text-slate-100 ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'}`}
+              >
+                {money(p.equity)}
+              </dd>
+            </div>
+          </dl>
+          <div className="flex flex-col gap-1.5">
+            <p className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Performance
+            </p>
+            <PublicPortfolioMiniChart
+              history={histories[p.id] || []}
+              loading={historyLoading && !(histories[p.id]?.length > 0)}
+              height={carousel ? 64 : 96}
+            />
+          </div>
+        </div>
+        <Link
+          to={href}
+          className="mt-auto inline-flex shrink-0 items-center pt-0.5 text-[0.82rem] font-bold text-blue-700 no-underline hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+        >
+          View portfolio
+        </Link>
+      </article>
+    );
+  };
+
   return (
     <section className="mt-5" aria-labelledby="public-top-portfolios-title">
-      <div className="mb-3.5">
-        <h2
-          id="public-top-portfolios-title"
-          className="m-0 text-[1.05rem] font-bold text-slate-900 dark:text-slate-100"
-        >
-          Top performers
-        </h2>
-        <p className="mt-1.5 m-0 text-[0.86rem] leading-snug text-slate-500 dark:text-slate-400">
-          Highest average monthly return among published virtual portfolios.
-        </p>
+      <div className="mb-3.5 flex items-end justify-between gap-3">
+        <div>
+          <h2
+            id="public-top-portfolios-title"
+            className="m-0 text-[1.05rem] font-bold text-slate-900 dark:text-slate-100"
+          >
+            Top performers
+          </h2>
+          <p className="mt-1.5 m-0 text-[0.86rem] leading-snug text-slate-500 dark:text-slate-400">
+            Highest average monthly return among published virtual portfolios.
+          </p>
+        </div>
+        {carousel && top.length > 1 ? (
+          <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+            <button
+              type="button"
+              className="paper-btn paper-btn--icon paper-btn--ghost"
+              aria-label="Scroll to previous portfolios"
+              onClick={() => scrollByCard(-1)}
+            >
+              <ChevronLeft className="paper-btn__icon" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="paper-btn paper-btn--icon paper-btn--ghost"
+              aria-label="Scroll to next portfolios"
+              onClick={() => scrollByCard(1)}
+            >
+              <ChevronRight className="paper-btn__icon" aria-hidden />
+            </button>
+          </div>
+        ) : null}
       </div>
-      <ul className="m-0 grid list-none grid-cols-1 gap-3.5 p-0 lg:grid-cols-3">
-        {top.map((p, index) => {
-          const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
-          const rank = RANK_LABELS[index] || `${index + 1}th`;
-          const summary = aiSummaries[p.id] || (!summaryLoading ? buildPortfolioSummary(p) : '');
-          const cardClass = CARD_BY_RANK[index] || CARD_BY_RANK[1];
-          const rankClass = RANK_PILL[index] || RANK_PILL[1];
-          return (
-            <li key={p.id}>
-              <article className={cardClass}>
-                <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <div className="flex items-center justify-between gap-2.5">
-                    <span
-                      className={`inline-flex min-w-[2.35rem] items-center justify-center rounded-full px-2.5 py-0.5 text-[0.68rem] font-extrabold uppercase tracking-wide ${rankClass}`}
-                      aria-label={`Rank ${index + 1}`}
-                    >
-                      {rank}
-                    </span>
-                    <span
-                      className="inline-flex h-[2.35rem] w-[2.35rem] shrink-0 items-center justify-center rounded-full border border-blue-300/70 bg-blue-50 text-[0.74rem] font-bold tracking-wide text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/20 dark:text-blue-200"
-                      aria-hidden
-                    >
-                      {ownerInitials(p.owner_label)}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-base font-bold leading-snug text-slate-900 dark:text-slate-100">
-                      {p.name}
-                    </p>
-                    <p className="mt-0.5 m-0 truncate text-sm text-slate-500 dark:text-slate-400">
-                      by {p.owner_label}
-                    </p>
-                    {summaryLoading && !aiSummaries[p.id] ? (
-                      <p
-                        className="mt-1.5 m-0 text-[0.8rem] italic leading-snug text-slate-400 opacity-80 dark:text-slate-500"
-                        aria-busy="true"
-                      >
-                        Generating summary…
-                      </p>
-                    ) : summary ? (
-                      <p className="mt-1.5 m-0 text-[0.8rem] leading-snug text-slate-600 dark:text-slate-400">
-                        {summary}
-                      </p>
-                    ) : null}
-                    <div className="mt-2.5 flex flex-wrap gap-1.5 empty:hidden">
-                      {p.ai_engine ? (
-                        <span className={BADGE_BY_ENGINE[p.ai_engine.id] || BADGE_DEFAULT}>
-                          {p.ai_engine.label}
-                        </span>
-                      ) : null}
-                      {p.index_focus ? (
-                        <span className={BADGE_INDEX}>{p.index_focus.label}</span>
-                      ) : null}
-                      {p.strategy_mode && p.strategy_mode !== 'manual' ? (
-                        <span className={BADGE_DEFAULT}>Automated</span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <dl className="m-0 grid grid-cols-3 gap-2 rounded-[10px] border border-slate-200 bg-slate-50/80 px-2.5 py-2.5 dark:border-white/10 dark:bg-white/[0.04]">
-                    <div>
-                      <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Avg / mo
-                      </dt>
-                      <dd
-                        className={`m-0 mt-0.5 text-[0.9rem] font-bold tabular-nums ${toneClass(
-                          p.avg_monthly_return_pct ?? p.total_return_pct
-                        )}`}
-                      >
-                        {p.avg_monthly_return_pct == null
-                          ? fmtPctSigned(p.total_return_pct, { decimals: 2 })
-                          : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Total
-                      </dt>
-                      <dd
-                        className={`m-0 mt-0.5 text-[0.9rem] font-bold tabular-nums ${toneClass(
-                          p.total_return_pct
-                        )}`}
-                      >
-                        {fmtPctSigned(p.total_return_pct, { decimals: 2 })}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Equity
-                      </dt>
-                      <dd className="m-0 mt-0.5 text-[0.9rem] font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                        {money(p.equity)}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="flex flex-col gap-1.5">
-                    <p className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Performance
-                    </p>
-                    <PublicPortfolioMiniChart
-                      history={histories[p.id] || []}
-                      loading={historyLoading && !(histories[p.id]?.length > 0)}
-                    />
-                  </div>
-                </div>
-                <Link
-                  to={href}
-                  className="mt-auto inline-flex shrink-0 items-center pt-0.5 text-[0.82rem] font-bold text-blue-700 no-underline hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
-                >
-                  View portfolio
-                </Link>
-              </article>
+      {carousel ? (
+        <ul
+          ref={scrollerRef}
+          className="flex touch-pan-x list-none gap-3.5 overflow-x-auto p-0 pb-2 [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {top.map((p, index) => (
+            <li
+              key={p.id}
+              data-top-card
+              className={`mt-2 shrink-0 [scroll-snap-align:start] ${CAROUSEL_CARD_WIDTH}`}
+            >
+              {renderCard(p, index)}
             </li>
-          );
-        })}
-      </ul>
+          ))}
+        </ul>
+      ) : (
+        <ul className="m-0 grid list-none grid-cols-1 gap-3.5 p-0 lg:grid-cols-3">
+          {top.map((p, index) => (
+            <li key={p.id}>{renderCard(p, index)}</li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

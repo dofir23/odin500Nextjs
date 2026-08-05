@@ -47,7 +47,7 @@ export const HOME_USE_CASES = [
     title: 'Compare AI portfolios',
     body:
       'Follow virtual portfolios built with strategies from Claude, ChatGPT, and Gemini across the S&P 500, Dow Jones, and Nasdaq-100 — with live equity curves and transparent performance tracking.',
-    href: '/paper-trading/public',
+    href: '/paper-trading/ai',
     linkLabel: 'Browse AI portfolios'
   }
 ];
@@ -142,7 +142,7 @@ export const HOME_DATA_COVERAGE: HomeDataCoverageItem[] = [
     title: 'AI portfolios',
     summary:
       'Index-focused virtual portfolios designed with Claude, ChatGPT, and Gemini strategies — published for side-by-side performance tracking.',
-    href: '/paper-trading/public'
+    href: '/paper-trading/ai'
   }
 ];
 
@@ -210,7 +210,7 @@ export const HOME_NAV_PRODUCT = [
   { href: '/market', label: 'Market dashboard' },
   { href: '/heatmap', label: 'Heatmaps' },
   { href: '/paper-trading', label: 'Virtual portfolio' },
-  { href: '/paper-trading/public', label: 'AI portfolios' },
+  { href: '/paper-trading/ai', label: 'AI portfolios' },
   { href: '/premium', label: 'Pricing' },
   { href: '/methodology', label: 'Methodology' },
   { href: '/about', label: 'About' }

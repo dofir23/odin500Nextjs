@@ -82,7 +82,10 @@ async function createAccountForUser(userId, payload = {}) {
       );
     }
     if (String(error.message || '').includes('uq_paper_accounts_user_name')) {
-      throw new Error('You already have a paper account with that name.');
+      const dupErr = new Error('You already have a paper account with that name — try a different one.');
+      dupErr.status = 409;
+      dupErr.code = 'DUPLICATE_NAME';
+      throw dupErr;
     }
     throw error;
   }

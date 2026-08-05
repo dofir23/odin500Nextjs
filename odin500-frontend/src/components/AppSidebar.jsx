@@ -348,7 +348,8 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   const isRelativePerformanceGroupRoute = isRelativePerformanceRoute || isReturnTableRoute;
   const isPaperYourRoute = location.pathname === '/paper-trading';
   const isPaperPublicRoute = location.pathname.startsWith('/paper-trading/public');
-  const isPaperRoute = isPaperYourRoute || isPaperPublicRoute;
+  const isPaperAiRoute = location.pathname.startsWith('/paper-trading/ai');
+  const isPaperRoute = isPaperYourRoute || isPaperPublicRoute || isPaperAiRoute;
   const isAdminRoute = location.pathname.startsWith('/admin');
   const [indicesOpen, setIndicesOpen] = useState(isIndicesRoute);
   const [statsOpen, setStatsOpen] = useState(isStatsRoute);
@@ -507,19 +508,20 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 onMouseEnter={() => {
                   warmRoute('/paper-trading');
                   warmRoute('/paper-trading/public');
+                  warmRoute('/paper-trading/ai');
                 }}
               >
                 <NavLink
                   to="/paper-trading/public"
                   className="app-sidebar__indices-main"
-                  onClick={(e) => {
-                    requirePaperLogin('/paper-trading/public')(e);
+                  onClick={() => {
                     setPaperOpen(true);
                     closeMobileSidebar();
                   }}
                   onFocus={() => {
                     warmRoute('/paper-trading');
                     warmRoute('/paper-trading/public');
+                    warmRoute('/paper-trading/ai');
                   }}
                   title="Public virtual portfolios (opens menu)"
                 >
@@ -538,10 +540,6 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                     setPaperOpen((wasOpen) => {
                       const nextOpen = !wasOpen;
                       if (nextOpen) {
-                        if (!loggedIn) {
-                          loginGate?.showLoginRequired({ returnTo: '/paper-trading/public' });
-                          return nextOpen;
-                        }
                         navigate('/paper-trading/public');
                         closeMobileSidebar();
                       }
@@ -564,7 +562,12 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                     icon={IconPeople}
                     label="Public Portfolios"
                     active={isPaperPublicRoute}
-                    onClick={requirePaperLogin('/paper-trading/public')}
+                  />
+                  <NavRow
+                    to="/paper-trading/ai"
+                    icon={IconAnalyst}
+                    label="AI Portfolios"
+                    active={isPaperAiRoute}
                   />
                   <NavRow
                     to="/paper-trading"

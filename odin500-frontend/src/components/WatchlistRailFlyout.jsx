@@ -12,6 +12,7 @@ import {
 import { WatchlistTickerMultiselect } from './WatchlistTickerMultiselect.jsx';
 import { ModalCloseIcon } from './ModalCloseIcon.jsx';
 import { fmtPctSigned, fmtPrice } from '../utils/formatDisplayNumber.js';
+import { toast } from '../utils/toast.js';
 
 /**
  * @typedef {{ symbol: string, companyName: string, last: number | null, pctFraction: number | null, tickerId?: string }} WatchlistTickerRow
@@ -520,8 +521,11 @@ export function WatchlistRailFlyout({ open, onClose, docked = false }) {
       closeManageUi();
       await load({ forceMine: true });
       setSelectedKey('usr:' + wlId);
+      toast.success(`Watchlist "${name}" created`);
     } catch (e) {
-      setCreateErr(e?.message || 'Could not create watchlist');
+      const msg = e?.message || 'Could not create watchlist';
+      setCreateErr(msg);
+      toast.error(msg);
     } finally {
       setCreateBusy(false);
     }
@@ -532,8 +536,11 @@ export function WatchlistRailFlyout({ open, onClose, docked = false }) {
     try {
       await apiJsonAuth('/api/watchlists/' + encodeURIComponent(watchlistId), { method: 'DELETE' });
       await load({ forceMine: true });
+      toast.success('Watchlist deleted');
     } catch (e) {
-      setError(e?.message || 'Could not delete watchlist');
+      const msg = e?.message || 'Could not delete watchlist';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setDeleteBusyId('');
     }
@@ -557,8 +564,11 @@ export function WatchlistRailFlyout({ open, onClose, docked = false }) {
       closeManageUi();
       await load({ forceMine: true });
       setSelectedKey('usr:' + updateEditId);
+      toast.success(`Watchlist "${name}" updated`);
     } catch (e) {
-      setUpdateErr(e?.message || 'Could not update watchlist');
+      const msg = e?.message || 'Could not update watchlist';
+      setUpdateErr(msg);
+      toast.error(msg);
     } finally {
       setUpdateBusy(false);
     }
@@ -597,8 +607,11 @@ export function WatchlistRailFlyout({ open, onClose, docked = false }) {
         closeManageUi();
         await load({ forceMine: true });
         setSelectedKey('usr:' + opt.watchlistId);
+        toast.success(`${symbol} added to "${opt.name}"`);
       } catch (e) {
-        setUpdatePickErr(e?.message || 'Could not add ticker to watchlist');
+        const msg = e?.message || 'Could not add ticker to watchlist';
+        setUpdatePickErr(msg);
+        toast.error(msg);
       } finally {
         setQuickAddBusyId('');
       }

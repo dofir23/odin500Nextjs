@@ -1,13 +1,27 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Filter } from 'lucide-react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
+import { AiPortfolioCreatorChat } from '../../components/paper/AiPortfolioCreatorChat.jsx';
+import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
 import { usePublicPortfolios } from '../../hooks/usePublicPortfolios.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
 import { sortPublicPortfolios } from '../../utils/paperPublicSort.js';
+import { ENGINE_PATTERNS, INDEX_PATTERNS, enrichPortfolioTags } from '../../utils/aiPortfolioTags.js';
 import '../../styles/paper-trading.css';
+
+const ALL_ENGINES = { id: '__all__', label: 'All AI engines' };
+const ALL_INDICES = { id: '__all__', label: 'All indices' };
+const DIRECTION_OPTIONS = [
+  { id: '__all__', label: 'All directions' },
+  { id: 'long', label: 'Long' },
+  { id: 'short', label: 'Short' },
+  { id: 'long_short', label: 'Long-Short' }
+];
+const INDEX_OPTIONS = [ALL_INDICES, ...INDEX_PATTERNS.map(({ id, label }) => ({ id, label }))];
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -24,11 +38,7 @@ function toneClass(v) {
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function ownerInitials(label) {
@@ -40,14 +50,44 @@ function ownerInitials(label) {
   return text.slice(0, 2).toUpperCase();
 }
 
-function PublicPortfoliosPageContent() {
-  const { portfolios, loading, error } = usePublicPortfolios();
+function AiPortfoliosPageContent() {
+  const { portfolios, loading, error, refetch } = usePublicPortfolios();
   const [sortKey, setSortKey] = useState('avg_monthly_return_pct');
   const [sortDir, setSortDir] = useState('desc');
+  const [engineFilter, setEngineFilter] = useState('__all__');
+  const [indexFilter, setIndexFilter] = useState('__all__');
+  const [directionFilter, setDirectionFilter] = useState('__all__');
+
+  const tagged = useMemo(
+    () => portfolios.map(enrichPortfolioTags).filter((p) => p.ai_engine),
+    [portfolios]
+  );
+
+  const engineOptions = useMemo(() => {
+    const present = new Map();
+    for (const p of tagged) {
+      if (p.ai_engine && !present.has(p.ai_engine.id)) present.set(p.ai_engine.id, p.ai_engine);
+    }
+    // Keep known-engine ordering (Claude, ChatGPT, Gemini, ...) for the ones present.
+    const known = ENGINE_PATTERNS.filter((e) => present.has(e.id)).map(({ id, label }) => ({ id, label }));
+    const extra = [...present.values()].filter((e) => !known.some((k) => k.id === e.id));
+    return [ALL_ENGINES, ...known, ...extra];
+  }, [tagged]);
+
+  const filtered = useMemo(
+    () =>
+      tagged.filter(
+        (p) =>
+          (engineFilter === '__all__' || p.ai_engine?.id === engineFilter) &&
+          (indexFilter === '__all__' || p.index_focus?.id === indexFilter) &&
+          (directionFilter === '__all__' || p.direction?.id === directionFilter)
+      ),
+    [tagged, engineFilter, indexFilter, directionFilter]
+  );
 
   const sorted = useMemo(
-    () => sortPublicPortfolios(portfolios, sortKey, sortDir),
-    [portfolios, sortKey, sortDir]
+    () => sortPublicPortfolios(filtered, sortKey, sortDir),
+    [filtered, sortKey, sortDir]
   );
 
   const onSort = (key) => {
@@ -113,24 +153,58 @@ function PublicPortfoliosPageContent() {
     <div className="paper-page odin-content-page paper-page--public">
       <header className="paper-header">
         <div>
-          <h1 className="paper-header__title">Public Portfolios</h1>
+          <h1 className="paper-header__title">AI Portfolios</h1>
           <p className="paper-header__sub">
-            Browse virtual portfolios published by Odin500 users — including AI-built books for major
-            indices (Claude, ChatGPT, Gemini). Ranked by average monthly return so portfolios of
-            different ages compare fairly.
+            Virtual portfolios traded by AI models — Claude and ChatGPT today, with Gemini and more on the
+            way — going long and short on the S&amp;P 500, Nasdaq-100, and Dow Jones. Ranked by average
+            monthly return so portfolios of different ages compare fairly.
           </p>
         </div>
         <div className="paper-header__actions">
-          <Link to="/paper-trading" className="paper-btn paper-btn--ghost">
-            Your Portfolio
+          <Link to="/paper-trading/public" className="paper-btn paper-btn--ghost">
+            All Public Portfolios
           </Link>
         </div>
       </header>
 
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      {loading || portfolios.length > 0 ? (
-        <PublicPortfoliosTopSummary portfolios={portfolios} loading={loading} />
+      <AiPortfolioCreatorChat onCreated={() => refetch()} />
+
+      {loading || filtered.length > 0 ? (
+        <PublicPortfoliosTopSummary portfolios={filtered} loading={loading} limit={5} carousel />
+      ) : null}
+
+      {!loading ? (
+        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 mt-5">
+          <label className="flex items-center gap-2">
+            <Filter size={16} strokeWidth={2} aria-hidden />
+            <ThemedDropdown
+              value={engineFilter}
+              options={engineOptions}
+              onChange={setEngineFilter}
+              title="AI engine filter"
+              ariaLabelPrefix="AI engine filter"
+              wideLabel
+            />
+          </label>
+          <ThemedDropdown
+            value={indexFilter}
+            options={INDEX_OPTIONS}
+            onChange={setIndexFilter}
+            title="Index filter"
+            ariaLabelPrefix="Index filter"
+            wideLabel
+          />
+          <ThemedDropdown
+            value={directionFilter}
+            options={DIRECTION_OPTIONS}
+            onChange={setDirectionFilter}
+            title="Direction filter"
+            ariaLabelPrefix="Direction filter"
+            wideLabel
+          />
+        </div>
       ) : null}
 
       {loading ? (
@@ -150,20 +224,26 @@ function PublicPortfoliosPageContent() {
         </div>
       ) : null}
 
-      {!loading && !portfolios.length ? (
+      {!loading && !tagged.length ? (
         <div className="paper-empty paper-empty--public">
-          <p>No published portfolios yet</p>
+          <p>No AI portfolios published yet</p>
           <p className="paper-empty__hint">
-            Publish your virtual portfolio account from{' '}
-            <Link to="/paper-trading" className="paper-link">
-              Your Portfolio
+            Check back soon, or browse{' '}
+            <Link to="/paper-trading/public" className="paper-link">
+              all public portfolios
             </Link>{' '}
-            to share it here.
+            in the meantime.
           </p>
         </div>
       ) : null}
 
-      {!loading && portfolios.length > 0 ? (
+      {!loading && tagged.length > 0 && !filtered.length ? (
+        <div className="paper-empty paper-empty--public">
+          <p>No AI portfolios match these filters yet</p>
+        </div>
+      ) : null}
+
+      {!loading && filtered.length > 0 ? (
         <div className="paper-table-wrap paper-public-table-wrap">
           <table className="paper-table paper-public-table">
             {tableHead}
@@ -184,6 +264,13 @@ function PublicPortfoliosPageContent() {
                         <span className="paper-public-table__identity-text">
                           <span className="paper-public-table__name-row">
                             <span className="paper-public-table__name">{p.name}</span>
+                            {p.ai_engine ? (
+                              <span className="paper-public-card__tag">{p.ai_engine.label}</span>
+                            ) : null}
+                            {p.index_focus ? (
+                              <span className="paper-public-card__tag">{p.index_focus.label}</span>
+                            ) : null}
+                            <span className="paper-public-card__tag">{p.direction.label}</span>
                             {p.strategy_mode && p.strategy_mode !== 'manual' ? (
                               <span className="paper-public-card__tag">Automated</span>
                             ) : null}
@@ -227,6 +314,6 @@ function PublicPortfoliosPageContent() {
   );
 }
 
-export default function PublicPortfoliosPage() {
-  return <PublicPortfoliosPageContent />;
+export default function AiPortfoliosPage() {
+  return <AiPortfoliosPageContent />;
 }

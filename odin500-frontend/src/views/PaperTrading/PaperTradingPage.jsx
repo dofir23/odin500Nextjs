@@ -111,17 +111,17 @@ function PaperTradingPageContent() {
     () =>
       (accounts || []).map((a) => {
         const base = String(a.name || 'Account').trim() || 'Account';
+        const ai = Boolean(a.ai_managed);
         const auto = automatedAccountIds.has(a.id);
         const published = Boolean(a.is_published);
-        let label = base;
-        if (auto && published) label = `${base} · auto · public`;
-        else if (auto) label = `${base} · auto`;
-        else if (published) label = `${base} · public`;
-        return auto
-          ? { id: a.id, label, tag: 'auto' }
-          : published
-            ? { id: a.id, label, tag: 'published' }
-            : { id: a.id, label };
+        const parts = [];
+        if (ai) parts.push('AI');
+        if (auto) parts.push('auto');
+        if (published) parts.push('public');
+        const label = parts.length ? `${base} · ${parts.join(' · ')}` : base;
+        // Left-side pill: AI takes priority (most specific), then auto, then published.
+        const tag = ai ? 'ai' : auto ? 'auto' : published ? 'published' : undefined;
+        return tag ? { id: a.id, label, tag } : { id: a.id, label };
       }),
     [accounts, automatedAccountIds]
   );

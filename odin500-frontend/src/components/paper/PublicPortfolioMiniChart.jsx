@@ -5,16 +5,14 @@ import { createChart } from 'lightweight-charts';
 import { getDocumentTheme, subscribeDocumentTheme } from '../../utils/documentTheme.js';
 import { historyToChartPoints } from '../../utils/paperPerformanceUtils.js';
 
-const CHART_HEIGHT = 96;
-
 const CHART_SHELL =
-  'min-h-24 overflow-hidden rounded-[10px] border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950/40';
+  'overflow-hidden rounded-[10px] border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950/40';
 
 /**
  * Compact equity sparkline for public portfolio summary cards.
- * @param {{ history: Array<{ snapshot_at: string, equity: number }>, loading?: boolean }} props
+ * @param {{ history: Array<{ snapshot_at: string, equity: number }>, loading?: boolean, height?: number }} props
  */
-export function PublicPortfolioMiniChart({ history = [], loading = false }) {
+export function PublicPortfolioMiniChart({ history = [], loading = false, height = 96 }) {
   const theme = useSyncExternalStore(subscribeDocumentTheme, getDocumentTheme, () => 'dark');
   const hostRef = useRef(null);
   const points = useMemo(() => historyToChartPoints(history), [history]);
@@ -27,7 +25,7 @@ export function PublicPortfolioMiniChart({ history = [], loading = false }) {
     const light = theme === 'light';
     const chart = createChart(el, {
       width: el.clientWidth || 240,
-      height: CHART_HEIGHT,
+      height,
       layout: {
         background: { color: 'transparent' },
         textColor: light ? '#64748b' : '#94a3b8',
@@ -68,12 +66,13 @@ export function PublicPortfolioMiniChart({ history = [], loading = false }) {
       ro.disconnect();
       chart.remove();
     };
-  }, [theme, history]);
+  }, [theme, history, height]);
 
   if (loading) {
     return (
       <div
         className={`${CHART_SHELL} animate-pulse bg-gradient-to-r from-slate-100 via-slate-200/80 to-slate-100 dark:from-white/[0.06] dark:via-white/10 dark:to-white/[0.06]`}
+        style={{ minHeight: height }}
         aria-hidden
       />
     );
@@ -81,7 +80,10 @@ export function PublicPortfolioMiniChart({ history = [], loading = false }) {
 
   if (points.length < 2) {
     return (
-      <div className={`${CHART_SHELL} flex items-center justify-center p-3 text-center text-[0.72rem] text-slate-500 dark:text-slate-400`}>
+      <div
+        className={`${CHART_SHELL} flex items-center justify-center p-3 text-center text-[0.72rem] text-slate-500 dark:text-slate-400`}
+        style={{ minHeight: height }}
+      >
         <span>Equity curve builds after more snapshots.</span>
       </div>
     );
@@ -89,7 +91,7 @@ export function PublicPortfolioMiniChart({ history = [], loading = false }) {
 
   return (
     <div className={CHART_SHELL} aria-hidden>
-      <div ref={hostRef} className="h-24 w-full" />
+      <div ref={hostRef} className="w-full" style={{ height }} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { HydrationMarker } from '@/components/HydrationMarker';
 import { SocialCaptureBootstrap } from '@/components/SocialCaptureBootstrap';
+import { ToastStack } from '@/components/ToastStack.jsx';
 import { LoginGateProvider } from '@/context/LoginGateContext.jsx';
 import { EngagementProvider } from '@/context/EngagementContext.jsx';
 import { WatchlistDockProvider } from '@/context/WatchlistDockContext.jsx';
@@ -34,6 +35,7 @@ export function Providers({ children }) {
             <ProductTourProvider>
               <HydrationMarker />
               <SocialCaptureBootstrap />
+              <ToastStack />
               {children}
             </ProductTourProvider>
           </WatchlistDockProvider>
