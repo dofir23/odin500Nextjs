@@ -9,6 +9,7 @@ import { applyAuthSession } from '../store/apiStore.js';
 import { hardNavigate } from '../utils/installChunkLoadRecovery.js';
 import { AuthField, AuthShellThemeContext, AuthSplitShell } from '../components/AuthSplitShell.jsx';
 import { PENDING_DISPLAY_NAME_KEY } from '../utils/signupSession.js';
+import { toast } from '../utils/toast.js';
 
 function LoginForm() {
   const [searchParams] = useSearchParams();
@@ -75,7 +76,9 @@ function LoginForm() {
         : resolvePostLoginPath(searchParams, '/market');
       hardNavigate(dest);
     } catch (err) {
-      setError(err.message || 'Login failed');
+      const msg = err.message || 'Login failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

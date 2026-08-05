@@ -6054,6 +6054,28 @@ body.paper-assistant--resizing iframe {
   font-weight: 700;
 }
 
+.paper-assistant__proposal-name-label {
+  display: block;
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--paper-text-muted, rgba(226, 232, 240, 0.6));
+}
+
+.ai-portfolio-creator__name-input {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.ai-portfolio-creator__name-input.has-error {
+  border-color: rgba(248, 113, 113, 0.75);
+  outline: 2px solid rgba(248, 113, 113, 0.3);
+  outline-offset: 1px;
+}
+
 .paper-assistant__proposal-summary {
   margin: 0.35rem 0 0;
   font-size: 0.78rem;
@@ -6118,6 +6140,49 @@ body.paper-assistant--resizing iframe {
 .paper-assistant__input:focus {
   outline: 2px solid rgba(59, 130, 246, 0.45);
   outline-offset: 1px;
+}
+
+.ai-portfolio-creator__engine-dd {
+  flex: 0 0 auto;
+  max-width: 6.75rem;
+}
+
+.ai-portfolio-creator__attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--paper-border, rgba(148, 163, 184, 0.3));
+  background: rgba(2, 6, 23, 0.35);
+  color: inherit;
+  cursor: pointer;
+}
+
+.ai-portfolio-creator__attach-btn:hover:not(.is-disabled) {
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+.ai-portfolio-creator__attach-btn.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+[data-theme='light'] .ai-portfolio-creator__attach-btn {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.ai-portfolio-creator__send-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
 }
 
 @media (max-width: 640px) {

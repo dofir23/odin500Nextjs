@@ -2,6 +2,7 @@
 // Mount: index.js → app.use('/api/paper', paperRoutes)
 
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const { requireAuthStrict } = require('../middleware/authMiddleware');
 const supabaseService = require('../config/supabaseService');
@@ -20,7 +21,8 @@ const {
 const {
   enrichLotsWithPnl,
   aggregateLotsToPositions,
-  summarizeAccountMetrics
+  summarizeAccountMetrics,
+  fetchLatestClosePrices
 } = require('../services/paper/pnlCalculator');
 const { runStrategiesForAccount } = require('../services/paper/strategyRunner');
 const { getWatchlistSignalLeaders } = require('../services/paper/watchlistResolver');
@@ -33,7 +35,25 @@ const {
   hasOpenAiKey,
   runPortfolioAssistantChat
 } = require('../services/paper/portfolioAssistant');
-const { paperAssistantLimiter } = require('../middleware/rateLimitMiddleware');
+const {
+  runAiPortfolioCreatorChat,
+  validateProposal,
+  buildDefaultPublishText
+} = require('../services/paper/aiPortfolioCreator');
+const { parseHoldingsWorkbook } = require('../services/paper/portfolioExport');
+const { listEngines } = require('../services/paper/aiProviders');
+const { paperAssistantLimiter, aiPortfolioChatLimiter } = require('../middleware/rateLimitMiddleware');
+
+const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+function uploadSingleImportFile(req, res, next) {
+  importUpload.single('file')(req, res, (err) => {
+    if (err) {
+      const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+      return res.status(status).json({ error: err.message || 'Upload failed' });
+    }
+    next();
+  });
+}
 
 router.use(requireAuthStrict);
 
@@ -83,9 +103,22 @@ router.delete('/accounts/:id', async (req, res) => {
 router.patch('/accounts/:id/publish', async (req, res) => {
   try {
     const body = req.body || {};
+    let publishDescription = body.publishDescription ?? body.publish_description;
+    let publishStrategy = body.publishStrategy ?? body.publish_strategy;
+
+    // AI-managed accounts get sensible defaults if the user didn't write their own copy.
+    if (!String(publishDescription || '').trim() || !String(publishStrategy || '').trim()) {
+      const existing = await resolveAccountForUser(req.user.id, req.params.id);
+      if (existing.ai_managed) {
+        const defaults = buildDefaultPublishText(existing, existing.publish_description);
+        if (!String(publishDescription || '').trim()) publishDescription = defaults.description;
+        if (!String(publishStrategy || '').trim()) publishStrategy = defaults.strategy;
+      }
+    }
+
     const account = await setAccountPublished(req.user.id, req.params.id, true, {
-      publishDescription: body.publishDescription ?? body.publish_description,
-      publishStrategy: body.publishStrategy ?? body.publish_strategy
+      publishDescription,
+      publishStrategy
     });
     res.status(200).json(account);
   } catch (error) {
@@ -717,6 +750,167 @@ router.post('/account/reset', async (req, res) => {
     res.status(200).json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/ai-portfolios/engines', (req, res) => {
+  res.status(200).json({ engines: listEngines() });
+});
+
+router.post('/ai-portfolios/chat', aiPortfolioChatLimiter, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const result = await runAiPortfolioCreatorChat({
+      userId: req.user.id,
+      engine: body.engine,
+      indexFocus: body.index_focus || body.indexFocus,
+      direction: body.direction,
+      criteria: body.criteria,
+      cadence: body.cadence,
+      messages
+    });
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      error: error.message || 'AI portfolio chat failed',
+      code: error.code || undefined
+    });
+  }
+});
+
+/**
+ * Alternative to chatting: upload an .xlsx (matching the "Export" button's Holdings sheet shape)
+ * to seed a portfolio's initial holdings directly. Still returns a proposal for the same
+ * Confirm step — engine/cadence must be chosen either way, since they govern who manages it after.
+ */
+router.post('/ai-portfolios/import', uploadSingleImportFile, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'file is required' });
+    const body = req.body || {};
+    const { engine, direction, criteria, cadence } = body;
+    const indexFocus = body.index_focus || body.indexFocus;
+    if (!engine || !indexFocus || !direction || !criteria || !cadence) {
+      return res
+        .status(400)
+        .json({ error: 'engine, index_focus, direction, criteria, and cadence are required' });
+    }
+
+    const holdings = await parseHoldingsWorkbook(req.file.buffer);
+    if (!holdings.length) {
+      return res.status(400).json({ error: 'No valid holdings found — need Ticker and Direction columns.' });
+    }
+
+    const name = String(body.name || '').trim() || `Imported Portfolio ${new Date().toISOString().slice(0, 10)}`;
+    const outcome = await validateProposal({ userId: req.user.id, indexFocus, direction }, { name, holdings });
+    if (outcome.error) {
+      return res.status(400).json({ error: outcome.error });
+    }
+
+    res.status(200).json({
+      success: true,
+      proposal: { engine, index_focus: indexFocus, direction, criteria, cadence, ...outcome.proposal }
+    });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, error: error.message || 'Failed to import file' });
+  }
+});
+
+/** Confirm step: creates the account, tags it AI-managed, places the initial holdings, publishes it. */
+router.post('/ai-portfolios', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const { engine, direction } = body;
+    const indexFocus = body.index_focus || body.indexFocus;
+    const holdings = Array.isArray(body.holdings) ? body.holdings : [];
+
+    if (!engine || !indexFocus || !direction || !body.criteria || !body.cadence) {
+      return res
+        .status(400)
+        .json({ error: 'engine, index_focus, direction, criteria, and cadence are required' });
+    }
+    if (!holdings.length) {
+      return res.status(400).json({ error: 'holdings is required' });
+    }
+
+    const tickers = [...new Set(holdings.map((h) => String(h.ticker || '').trim().toUpperCase()).filter(Boolean))];
+    const priceMap = await fetchLatestClosePrices(tickers);
+    const perPositionDollars = STARTING_CAPITAL / holdings.length;
+
+    const account = await createAccountForUser(req.user.id, { name: body.name });
+
+    const { error: tagErr } = await supabaseService
+      .from('paper_accounts')
+      .update({
+        ai_engine: engine,
+        ai_index_focus: indexFocus,
+        ai_direction: direction,
+        ai_criteria: body.criteria,
+        ai_rebalance_cadence: body.cadence,
+        ai_managed: true
+      })
+      .eq('id', account.id);
+    if (tagErr) throw tagErr;
+
+    const placedTickers = [];
+    const failed = [];
+    for (const h of holdings) {
+      const ticker = String(h.ticker || '').trim().toUpperCase();
+      const action = String(h.action || '').trim().toUpperCase();
+      const price = priceMap.get(ticker);
+      if (!price) {
+        failed.push({ ticker, error: 'No market price available' });
+        continue;
+      }
+      const qty = Math.floor(perPositionDollars / price);
+      if (qty < 1) {
+        failed.push({ ticker, error: 'Price too high for equal-weight allocation' });
+        continue;
+      }
+      try {
+        await placeOrder(req.user.id, {
+          accountId: account.id,
+          ticker,
+          action,
+          qty,
+          orderType: 'market',
+          source: 'ai_portfolio_create'
+        });
+        placedTickers.push(ticker);
+      } catch (err) {
+        failed.push({ ticker, error: err.message });
+      }
+    }
+
+    // Not published by default — pre-fill description/strategy so they're ready whenever the
+    // user does publish, but leave that as an explicit action rather than doing it automatically.
+    const { description, strategy } = buildDefaultPublishText(
+      {
+        ai_engine: engine,
+        ai_index_focus: indexFocus,
+        ai_direction: direction,
+        ai_criteria: body.criteria,
+        ai_rebalance_cadence: body.cadence
+      },
+      body.rationale
+    );
+    const { data: finalAccount, error: draftErr } = await supabaseService
+      .from('paper_accounts')
+      .update({ publish_description: description, publish_strategy: strategy })
+      .eq('id', account.id)
+      .select('*')
+      .single();
+    if (draftErr) throw draftErr;
+
+    res.status(201).json({ success: true, account: finalAccount, placed: placedTickers, failed });
+  } catch (error) {
+    res.status(error.status || 500).json({
+      success: false,
+      error: error.message || 'Failed to create AI portfolio',
+      code: error.code || undefined
+    });
   }
 });
 

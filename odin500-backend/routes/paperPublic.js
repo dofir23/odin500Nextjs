@@ -10,6 +10,7 @@ const {
   getPublishedStrategy
 } = require('../services/paper/publicPortfolio');
 const { generatePortfolioSummaries } = require('../services/paper/portfolioSummaryAi');
+const { buildPortfolioExportWorkbook } = require('../services/paper/portfolioExport');
 
 router.get('/portfolios', async (req, res) => {
   try {
@@ -85,6 +86,22 @@ router.get('/portfolios/:accountId/orders', async (req, res) => {
   } catch (error) {
     const status = error.status || 500;
     res.status(status).json({ success: false, error: error.message || 'Failed to load orders' });
+  }
+});
+
+router.get('/portfolios/:accountId/export.xlsx', async (req, res) => {
+  try {
+    const { workbook, filename } = await buildPortfolioExportWorkbook(req.params.accountId);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to export portfolio' });
   }
 });
 

@@ -7,6 +7,7 @@ import { signup } from '../services/authApi.js';
 import { applyAuthSession } from '../store/apiStore.js';
 import { SIGNUP_EMAIL_KEY } from '../utils/signupSession.js';
 import { AuthField, AuthShellThemeContext, AuthSplitShell } from '../components/AuthSplitShell.jsx';
+import { toast } from '../utils/toast.js';
 
 function SignupForm() {
   const [email, setEmail] = useState('');
@@ -38,9 +39,12 @@ function SignupForm() {
       } catch {
         /* ignore */
       }
+      toast.success('Account created — check your email to verify.');
       navigate('/signup/verify-email', { replace: true });
     } catch (err) {
-      setError(err.message || 'Signup failed');
+      const msg = err.message || 'Signup failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

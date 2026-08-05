@@ -20,4 +20,15 @@ const paperAssistantLimiter = rateLimit({
   validate: { keyGeneratorIpFallback: false }
 });
 
-module.exports = { loginLimiter, paperAssistantLimiter };
+/** AI portfolio creator chat — separate, lower budget (multi-round tool calls against paid APIs). */
+const aiPortfolioChatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.PAPER_AI_PORTFOLIO_RATE_MAX || 20),
+  message: { error: 'Too many AI portfolio requests. Please try again in a few minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `ai-portfolio:${req.user?.id || req.ip || 'anon'}`,
+  validate: { keyGeneratorIpFallback: false }
+});
+
+module.exports = { loginLimiter, paperAssistantLimiter, aiPortfolioChatLimiter };

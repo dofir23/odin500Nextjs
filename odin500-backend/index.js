@@ -50,6 +50,7 @@ const { startTickerReturnsPrewarmer, waitForTickerReturnsWarmup } = require('./s
 const { startPaperJobs } = require('./services/paperJobRunner');
 const { startSplitSyncRunner } = require('./services/splitSyncRunner');
 const { startNewsletterJobRunner } = require('./services/newsletterJobRunner');
+const { startAiRebalanceRunner } = require('./services/aiRebalanceRunner');
 const { prewarmNewsletterCache } = require('./services/newsletter/newsletterCache');
 const { getPublicOhlcPreview } = require('./controllers/marketController');
 const { checkRedisHealth } = require('./config/redisHealth');
@@ -142,6 +143,7 @@ async function bootstrap() {
         startPaperJobs();
         startSplitSyncRunner();
         startNewsletterJobRunner();
+        startAiRebalanceRunner();
         void prewarmNewsletterCache();
     });
 }

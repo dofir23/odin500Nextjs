@@ -15,14 +15,17 @@ const MENU_PORTAL_Z = 12000;
 
 function OptionTag({ tag }) {
   if (!tag) return null;
-  const label = tag === 'auto' ? 'Auto' : tag === 'user' ? 'Yours' : 'Default';
+  const label =
+    tag === 'ai' ? 'AI' : tag === 'auto' ? 'Auto' : tag === 'user' ? 'Yours' : 'Default';
   const cls =
     'wl-flyout__select-item-tag' +
-    (tag === 'auto'
-      ? ' wl-flyout__select-item-tag--auto'
-      : tag === 'user'
-        ? ' wl-flyout__select-item-tag--user'
-        : ' wl-flyout__select-item-tag--default');
+    (tag === 'ai'
+      ? ' wl-flyout__select-item-tag--ai'
+      : tag === 'auto'
+        ? ' wl-flyout__select-item-tag--auto'
+        : tag === 'user'
+          ? ' wl-flyout__select-item-tag--user'
+          : ' wl-flyout__select-item-tag--default');
   return <span className={cls}>{label}</span>;
 }
 
@@ -40,7 +43,7 @@ function OptionLabel({ opt }) {
  * Shared menu-style dropdown for dark/light themes.
  * @param {{
  *   value: string,
- *   options: Array<{ id: string, label: string, tag?: 'auto' | 'user' | 'default', disabled?: boolean, disabledTitle?: string }>,
+ *   options: Array<{ id: string, label: string, tag?: 'ai' | 'auto' | 'user' | 'default', disabled?: boolean, disabledTitle?: string }>,
  *   onChange: (next: string) => void,
  *   icon?: import('react').ReactNode,
  *   title?: string,
@@ -80,7 +83,9 @@ export function ThemedDropdown({
   const wrapRef = useRef(null);
   const menuRef = useRef(/** @type {HTMLUListElement | null} */ (null));
   const [menuPos, setMenuPos] = useState(
-    /** @type {{ top: number, left: number, width: number, maxHeight: string } | null} */ (null)
+    /** @type {{ top: number|null, bottom: number|null, left: number, width: number, maxHeight: string } | null} */ (
+      null
+    )
   );
 
   const syncMenuPosition = useCallback(() => {
@@ -90,17 +95,28 @@ export function ThemedDropdown({
     const gap = 4;
     const vh = window.innerHeight;
     const vw = window.innerWidth;
-    const top = r.bottom + gap;
     let left = r.left;
     const minMenu = size === 'sm' ? 92 : 132;
     const width = menuMatchTriggerWidth ? Math.max(r.width, minMenu) : Math.max(r.width, minMenu);
     left = Math.min(left, vw - width - 8);
     left = Math.max(8, left);
-    const spaceBelow = vh - top - 10;
+
     const defaultCap = 300;
-    const cap = menuMaxHeight ? defaultCap : Math.min(defaultCap, Math.max(140, spaceBelow));
-    const maxHeight = menuMaxHeight || `${cap}px`;
-    setMenuPos({ top, left, width, maxHeight });
+    const minCap = 140;
+    const spaceBelow = vh - r.bottom - gap - 10;
+    const spaceAbove = r.top - gap - 10;
+
+    // Prefer opening downward; flip above the trigger only when there isn't room below
+    // but there is more room above (e.g. a dropdown near the bottom of the viewport).
+    if (spaceBelow < minCap && spaceAbove > spaceBelow) {
+      const cap = menuMaxHeight ? undefined : Math.min(defaultCap, Math.max(minCap, spaceAbove));
+      const maxHeight = menuMaxHeight || `${cap}px`;
+      setMenuPos({ top: null, bottom: vh - r.top + gap, left, width, maxHeight });
+    } else {
+      const cap = menuMaxHeight ? undefined : Math.min(defaultCap, Math.max(minCap, spaceBelow));
+      const maxHeight = menuMaxHeight || `${cap}px`;
+      setMenuPos({ top: r.bottom + gap, bottom: null, left, width, maxHeight });
+    }
   }, [size, menuMatchTriggerWidth, menuMaxHeight]);
 
   useEffect(() => {
@@ -155,7 +171,7 @@ export function ThemedDropdown({
 
   const menuListClass =
     'app-dropdown__menu' +
-    (menuMaxHeight ? ' app-dropdown__menu--scrollable' : '') +
+    (menuMaxHeight || menuPortal ? ' app-dropdown__menu--scrollable' : '') +
     (menuPortal ? ' app-dropdown__menu--portal' : '');
 
   const menuEl = open ? (
@@ -167,7 +183,11 @@ export function ThemedDropdown({
         menuPortal && menuPos
           ? {
               position: 'fixed',
-              top: menuPos.top,
+              // Always set both explicitly — the base .app-dropdown__menu class has its own
+              // `top: calc(100% + 4px)`, which otherwise stays active alongside an inline
+              // `bottom` (flip-up case) and produces a negative computed height.
+              top: menuPos.top != null ? menuPos.top : 'auto',
+              bottom: menuPos.bottom != null ? menuPos.bottom : 'auto',
               left: menuPos.left,
               width: menuPos.width,
               minWidth: menuPos.width,

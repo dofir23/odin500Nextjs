@@ -38,6 +38,7 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/relative-performance',
   /** Public gallery only — private /paper-trading stays auth-gated. */
   '/paper-trading/public',
+  '/paper-trading/ai',
   '/newsletter'
 ];
 

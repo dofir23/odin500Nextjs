@@ -3,17 +3,28 @@
  * until structured metadata (ai_engine, index_focus) exists on paper accounts.
  */
 
-const ENGINE_PATTERNS = [
+export const ENGINE_PATTERNS = [
   { id: 'claude', label: 'Claude', re: /\b(claude|anthropic)\b/i },
   { id: 'chatgpt', label: 'ChatGPT', re: /\b(chatgpt|chat\s*gpt|openai|\bgpt-?\d*\b|\bgpt\b)/i },
   { id: 'gemini', label: 'Gemini', re: /\b(gemini|google\s*ai|\bbard\b)/i }
 ];
 
-const INDEX_PATTERNS = [
+export const INDEX_PATTERNS = [
   { id: 'sp500', label: 'S&P 500', re: /\b(s\s*&\s*p\s*500|sp\s*500|sp500|\bspx\b|\bspy\b)\b/i },
   { id: 'dow', label: 'Dow Jones', re: /\b(dow\s*jones|\bdjia\b|\bdow\b|\bdia\b)\b/i },
   { id: 'nasdaq', label: 'Nasdaq-100', re: /\b(nasdaq[\s-]*100|\bndx\b|\bqqq\b|nasdaq)\b/i }
 ];
+
+/** Text-heuristic fallback only — real AI-managed accounts carry a structured ai_direction column instead. */
+const DIRECTION_PATTERNS = [
+  { id: 'short', label: 'Short', re: /\b(short(?:ing)?|bear(?:ish)?|inverse)\b/i }
+];
+
+export const DIRECTION_LABELS = {
+  long: 'Long',
+  short: 'Short',
+  long_short: 'Long-Short'
+};
 
 const GENERIC_AI_RE = /\b(ai[-\s]?generated|ai[-\s]?portfolio|ai[-\s]?strateg|artificial\s+intelligence)\b/i;
 
@@ -51,11 +62,51 @@ export function detectIndexFocus(text) {
   return null;
 }
 
+/** Defaults to Long when no explicit short/bearish signal is found in the text. */
+export function detectDirection(text) {
+  const t = String(text || '');
+  for (const dir of DIRECTION_PATTERNS) {
+    if (dir.re.test(t)) return { id: dir.id, label: dir.label };
+  }
+  return { id: 'long', label: 'Long' };
+}
+
 export function isAiTaggedPortfolio(p) {
+  if (p?.ai_managed) return true;
   const id = String(p?.id || '').trim().toLowerCase();
   if (id && curatedIds().has(id)) return true;
   const blob = blobFromPortfolio(p);
   return Boolean(detectAiEngine(blob));
+}
+
+/**
+ * Shared enrich helper for pages that need engine/index/direction tags together.
+ * Real AI-managed accounts (`ai_managed: true`, set by the AI portfolio creator) carry
+ * structured `ai_engine`/`ai_index_focus`/`ai_direction` columns — prefer those over the
+ * text heuristic, which stays as a fallback for older/manually-published portfolios.
+ */
+export function enrichPortfolioTags(p) {
+  if (p?.ai_managed) {
+    const engineMeta = ENGINE_PATTERNS.find((e) => e.id === p.ai_engine);
+    const indexMeta = INDEX_PATTERNS.find((i) => i.id === p.ai_index_focus);
+    return {
+      ...p,
+      ai_engine: engineMeta
+        ? { id: engineMeta.id, label: engineMeta.label }
+        : p.ai_engine
+          ? { id: p.ai_engine, label: p.ai_engine }
+          : { id: 'ai', label: 'AI' },
+      index_focus: indexMeta ? { id: indexMeta.id, label: indexMeta.label } : null,
+      direction: { id: p.ai_direction || 'long', label: DIRECTION_LABELS[p.ai_direction] || 'Long' }
+    };
+  }
+  const blob = blobFromPortfolio(p);
+  return {
+    ...p,
+    ai_engine: detectAiEngine(blob),
+    index_focus: detectIndexFocus(blob),
+    direction: detectDirection(blob)
+  };
 }
 
 /**
@@ -67,6 +118,7 @@ export function pickHomeAiPortfolioTeaser(portfolios, limit = 6) {
   const curated = curatedIds();
 
   const enriched = list.map((p) => {
+    if (p?.ai_managed) return enrichPortfolioTags(p);
     const blob = blobFromPortfolio(p);
     const engine = detectAiEngine(blob) || (curated.has(String(p?.id || '').toLowerCase())
       ? { id: 'ai', label: 'AI' }

@@ -831,6 +831,12 @@ a.app-right-rail__btn {
   color: #fcd34d;
 }
 
+.wl-flyout__select-item-tag--ai {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(167, 139, 250, 0.14);
+  color: #c4b5fd;
+}
+
 .wl-flyout__select-item--active .wl-flyout__select-item-tag {
   border-color: rgba(56, 189, 248, 0.45);
   background: rgba(56, 189, 248, 0.15);
@@ -1939,6 +1945,12 @@ backdrop-filter: blur(12px);
   border-color: rgba(217, 119, 6, 0.4);
   background: rgba(251, 191, 36, 0.15);
   color: #b45309;
+}
+
+[data-theme="light"] .wl-flyout__select-item-tag--ai {
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(167, 139, 250, 0.15);
+  color: #6d28d9;
 }
 
 [data-theme="light"] .wl-flyout__select-item--active .wl-flyout__select-item-tag {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiUrl } from '../utils/apiOrigin.js';
 import { fetchWithAuth } from '../store/apiStore.js';
+import { toast } from '../utils/toast.js';
 
 async function parseJson(res) {
   const payload = await res.json().catch(() => ({}));
@@ -49,10 +50,16 @@ export function useAdminUsers({ page = 1, search = '' } = {}) {
 export function useAdminDeleteUser() {
   const deleteUser = useCallback(async (userId) => {
     const id = String(userId || '').trim();
-    const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}`), {
-      method: 'DELETE'
-    });
-    await parseJson(res);
+    try {
+      const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}`), {
+        method: 'DELETE'
+      });
+      await parseJson(res);
+      toast.success('User deleted');
+    } catch (err) {
+      toast.error(err);
+      throw err;
+    }
   }, []);
 
   return { deleteUser };
@@ -93,12 +100,18 @@ export function useAdminUserDetail(userId) {
   const updatePlan = useCallback(
     async (patch) => {
       const id = String(userId || '').trim();
-      const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}/plan`), {
-        method: 'PATCH',
-        body: JSON.stringify(patch)
-      });
-      await parseJson(res);
-      await load();
+      try {
+        const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}/plan`), {
+          method: 'PATCH',
+          body: JSON.stringify(patch)
+        });
+        await parseJson(res);
+        await load();
+        toast.success('Plan updated');
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
     },
     [userId, load]
   );
@@ -106,33 +119,51 @@ export function useAdminUserDetail(userId) {
   const setAdmin = useCallback(
     async (isAdmin) => {
       const id = String(userId || '').trim();
-      const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}/admin`), {
-        method: 'PATCH',
-        body: JSON.stringify({ is_admin: isAdmin })
-      });
-      await parseJson(res);
-      await load();
+      try {
+        const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}/admin`), {
+          method: 'PATCH',
+          body: JSON.stringify({ is_admin: isAdmin })
+        });
+        await parseJson(res);
+        await load();
+        toast.success(isAdmin ? 'Admin access granted' : 'Admin access revoked');
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
     },
     [userId, load]
   );
 
   const unsubscribeNewsletter = useCallback(async () => {
     const id = String(userId || '').trim();
-    const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}/newsletter`), {
-      method: 'DELETE'
-    });
-    await parseJson(res);
-    await load();
+    try {
+      const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}/newsletter`), {
+        method: 'DELETE'
+      });
+      await parseJson(res);
+      await load();
+      toast.success('Unsubscribed from newsletter');
+    } catch (err) {
+      toast.error(err);
+      throw err;
+    }
   }, [userId, load]);
 
   const unpublishPortfolio = useCallback(
     async (accountId) => {
-      const res = await fetchWithAuth(
-        apiUrl(`/api/admin/portfolios/${encodeURIComponent(accountId)}/unpublish`),
-        { method: 'PATCH' }
-      );
-      await parseJson(res);
-      await load();
+      try {
+        const res = await fetchWithAuth(
+          apiUrl(`/api/admin/portfolios/${encodeURIComponent(accountId)}/unpublish`),
+          { method: 'PATCH' }
+        );
+        await parseJson(res);
+        await load();
+        toast.success('Portfolio unpublished');
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
     },
     [load]
   );
@@ -140,12 +171,18 @@ export function useAdminUserDetail(userId) {
   const deletePortfolio = useCallback(
     async (accountId) => {
       const id = String(userId || '').trim();
-      const res = await fetchWithAuth(
-        apiUrl(`/api/admin/users/${encodeURIComponent(id)}/portfolios/${encodeURIComponent(accountId)}`),
-        { method: 'DELETE' }
-      );
-      await parseJson(res);
-      await load();
+      try {
+        const res = await fetchWithAuth(
+          apiUrl(`/api/admin/users/${encodeURIComponent(id)}/portfolios/${encodeURIComponent(accountId)}`),
+          { method: 'DELETE' }
+        );
+        await parseJson(res);
+        await load();
+        toast.success('Portfolio deleted');
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
     },
     [userId, load]
   );
@@ -153,24 +190,36 @@ export function useAdminUserDetail(userId) {
   const deleteWatchlist = useCallback(
     async (watchlistId) => {
       const id = String(userId || '').trim();
-      const res = await fetchWithAuth(
-        apiUrl(
-          `/api/admin/users/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(watchlistId)}`
-        ),
-        { method: 'DELETE' }
-      );
-      await parseJson(res);
-      await load();
+      try {
+        const res = await fetchWithAuth(
+          apiUrl(
+            `/api/admin/users/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(watchlistId)}`
+          ),
+          { method: 'DELETE' }
+        );
+        await parseJson(res);
+        await load();
+        toast.success('Watchlist deleted');
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
     },
     [userId, load]
   );
 
   const deleteUser = useCallback(async () => {
     const id = String(userId || '').trim();
-    const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}`), {
-      method: 'DELETE'
-    });
-    await parseJson(res);
+    try {
+      const res = await fetchWithAuth(apiUrl(`/api/admin/users/${encodeURIComponent(id)}`), {
+        method: 'DELETE'
+      });
+      await parseJson(res);
+      toast.success('User deleted');
+    } catch (err) {
+      toast.error(err);
+      throw err;
+    }
   }, [userId]);
 
   return {
@@ -214,12 +263,18 @@ export function useAdminPortfolios() {
 
   const unpublish = useCallback(
     async (accountId) => {
-      const res = await fetchWithAuth(
-        apiUrl(`/api/admin/portfolios/${encodeURIComponent(accountId)}/unpublish`),
-        { method: 'PATCH' }
-      );
-      await parseJson(res);
-      await load();
+      try {
+        const res = await fetchWithAuth(
+          apiUrl(`/api/admin/portfolios/${encodeURIComponent(accountId)}/unpublish`),
+          { method: 'PATCH' }
+        );
+        await parseJson(res);
+        await load();
+        toast.success('Portfolio unpublished');
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
     },
     [load]
   );

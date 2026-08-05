@@ -80,6 +80,19 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
       { href: '/market', label: 'Market dashboard' }
     ]
   },
+  '/paper-trading/ai': {
+    heading: 'AI stock portfolios — Claude, ChatGPT & Gemini',
+    paragraphs: [
+      'Odin500 hosts virtual portfolios built and rebalanced by AI models — Claude and ChatGPT today, with Gemini and more on the way — trading long and short on the S&P 500, Nasdaq-100, and Dow Jones.',
+      'Each AI portfolio picks its own tickers, sizes positions equally, and rebalances on a set cadence. Portfolios are ranked by average monthly return so books of different ages compare fairly, with full holdings, equity curves, and closed-trade history published for every book.',
+      'Simulated paper trading only — not investment advice.'
+    ],
+    links: [
+      { href: '/paper-trading/public', label: 'All public portfolios' },
+      { href: '/paper-trading', label: 'Your portfolio' },
+      { href: '/market', label: 'Market dashboard' }
+    ]
+  },
   '/login': {
     heading: 'Sign in',
     paragraphs: [

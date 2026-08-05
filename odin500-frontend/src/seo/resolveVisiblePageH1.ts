@@ -10,6 +10,7 @@ const VISIBLE_H1: Record<string, string> = {
   '/premium': 'Simple pricing',
   '/paper-trading': 'Virtual portfolio simulator',
   '/paper-trading/public': 'Public virtual portfolios',
+  '/paper-trading/ai': 'AI stock portfolios — Claude & ChatGPT',
   '/methodology': 'Data methodology & editorial standards',
   '/about': 'About Odin500',
   '/profile': 'Your profile',

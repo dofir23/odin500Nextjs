@@ -115,6 +115,12 @@ export const ROUTE_METADATA: Record<
       'Browse published virtual portfolios from Odin500 users. View holdings, performance, and trade history in read-only mode.',
     canonical: `${SITE_ORIGIN}/paper-trading/public`
   },
+  '/paper-trading/ai': {
+    title: 'AI Stock Portfolios – Claude & ChatGPT Trading Performance',
+    description:
+      'Compare AI-run virtual portfolios trading the S&P 500, Nasdaq-100, and Dow Jones long and short, ranked by real performance.',
+    canonical: `${SITE_ORIGIN}/paper-trading/ai`
+  },
   '/login': {
     title: 'Sign In – Stock Market Data & Charts',
     description: 'Sign in to access stock charts, market signals, watchlists, and historical OHLC data.',

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useParams } from '@/navigation/appRouterCompat.jsx';
-import { PaperLoginGate } from '../../components/paper/PaperLoginGate.jsx';
+import { apiUrl } from '../../utils/apiOrigin.js';
 import { usePublicPortfolio } from '../../hooks/usePublicPortfolios.js';
 import { AccountSummary } from '../../components/paper/AccountSummary.jsx';
 import { PaperPerformanceChart } from '../../components/paper/PaperPerformanceChart.jsx';
@@ -25,17 +25,7 @@ function fmtDate(iso) {
 }
 
 export default function PublicPortfolioDetailPage() {
-  const params = useParams();
-  const accountId = String(params?.accountId || '').trim();
-  const returnTo = accountId
-    ? `/paper-trading/public/${encodeURIComponent(accountId)}`
-    : '/paper-trading/public';
-
-  return (
-    <PaperLoginGate returnTo="/paper-trading/public">
-      <PublicPortfolioDetailContent />
-    </PaperLoginGate>
-  );
+  return <PublicPortfolioDetailContent />;
 }
 
 function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
@@ -138,6 +128,15 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
           )}
         </div>
         <div className="paper-header__actions">
+          {portfolio ? (
+            <a
+              href={apiUrl(`/api/public/paper/portfolios/${encodeURIComponent(accountId)}/export.xlsx`)}
+              className="paper-btn paper-btn--ghost"
+              download
+            >
+              Export
+            </a>
+          ) : null}
           <Link to="/paper-trading/public" className="paper-btn paper-btn--ghost">
             All public portfolios
           </Link>
