@@ -255,13 +255,22 @@ async function fetchSessionAuthenticated() {
 
 /**
  * Hard refresh failures can be rotation races (another tab refreshed outside reuse window
- * briefly, or our cookie was about to be replaced). Re-check cookies before wiping session.
+ * briefly, or our cookie was about to be replaced). Re-verify by actually attempting a refresh
+ * — not by checking cookie presence via /api/auth/session, which only checks whether a cookie
+ * exists, not whether the backend still honors it. A refresh-token cookie that's present but
+ * server-invalidated (expired/rotated, browser just hasn't dropped it yet) made that presence
+ * check report "authenticated" forever, so this never resolved to a real logout: the client
+ * kept believing it was signed in, kept firing protected requests that all failed, and kept
+ * retrying — indefinitely, across every affected session.
  * @returns {Promise<boolean>} true if cookies were cleared (logged out)
  */
 async function logoutOnlyIfSessionGone() {
   await new Promise((resolve) => setTimeout(resolve, REFRESH_HARD_FAIL_RECHECK_MS));
   try {
-    if (await fetchSessionAuthenticated()) {
+    const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'same-origin' });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok && payload.session?.access_token) {
+      // Another tab rotated the token in the meantime — it's genuinely valid now.
       memoryStore.token = 'cookie';
       dispatchAuthUpdated();
       scheduleProactiveRefresh();
