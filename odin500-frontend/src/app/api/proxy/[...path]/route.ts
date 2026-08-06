@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_ORIGIN } from '@/lib/env';
 import {
-  getAccessTokenFromCookies,
+  resolveAccessTokenForRequest,
   refreshSessionOnServer
 } from '@/lib/server-api';
 
@@ -30,7 +30,8 @@ async function doProxyRequest(request: NextRequest, pathSegments: string[]) {
     headers.set(key, value);
   });
 
-  let token = await getAccessTokenFromCookies();
+  // Refresh access when missing so upstream does not see "No token provided".
+  let token = await resolveAccessTokenForRequest();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const init: RequestInit = {

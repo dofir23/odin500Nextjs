@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getRefreshTokenFromCookies, getAccessTokenFromCookies } from '@/lib/server-api';
-import { setSessionCookies } from '@/lib/server-api';
+import { hasValidAuthSession, setSessionCookies } from '@/lib/server-api';
 
 export async function GET() {
-  const refresh = await getRefreshTokenFromCookies();
-  const access = await getAccessTokenFromCookies();
-  return NextResponse.json({ authenticated: Boolean(refresh || access) });
+  const authenticated = await hasValidAuthSession();
+  return NextResponse.json({ authenticated });
 }
 
 export async function POST(request: Request) {
