@@ -222,7 +222,7 @@ export default function StockSplitsPage({ initialData = null }) {
                 return (
                 <tr key={row.id} className={upcoming ? 'stock-splits-page__row--upcoming' : undefined}>
                   <td>
-                    <Link className="stock-splits-page__sym" to={`/ticker/${encodeURIComponent(row.ticker)}`}>
+                    <Link className="stock-splits-page__sym" to={`/ticker/${encodeURIComponent(row.ticker).toLowerCase()}`}>
                       {row.ticker}
                     </Link>
                   </td>

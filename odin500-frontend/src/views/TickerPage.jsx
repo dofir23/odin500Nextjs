@@ -1855,7 +1855,7 @@ export default function TickerPage({ initialData = null }) {
   }, [navigate, relativeTickerSymbol, sym]);
 
   const onOpenNewsPage = useCallback(() => {
-    navigate(`/news?ticker=${encodeURIComponent(sym)}`);
+    navigate(`/news?ticker=${encodeURIComponent(sym).toLowerCase()}`);
   }, [navigate, sym]);
 
   const relativePerfCompareRows = useMemo(() => {
@@ -1985,7 +1985,7 @@ export default function TickerPage({ initialData = null }) {
             </div>
             {sectorDataSlug ? (
               <Link
-                to={`/sector-data/${encodeURIComponent(sectorDataSlug)}`}
+                to={`/sector-data/${encodeURIComponent(sectorDataSlug).toLowerCase()}`}
                 className="ticker-page__metric-label ticker-page__metric-label--link"
               >
                 {sector}
@@ -2453,7 +2453,7 @@ export default function TickerPage({ initialData = null }) {
                 <span className="ticker-kd-comp-label__links">
                   {competitors.length ? (
                     competitors.map((t) => (
-                      <Link key={t} to={`/ticker/${encodeURIComponent(t)}`} className="ticker-kd-comp__a">
+                      <Link key={t} to={`/ticker/${encodeURIComponent(t).toLowerCase()}`} className="ticker-kd-comp__a">
                         {t}
                       </Link>
                     ))

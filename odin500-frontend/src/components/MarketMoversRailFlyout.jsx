@@ -160,7 +160,7 @@ export function MarketMoversRailFlyout({ open, onClose, docked = false }) {
                       <td>
                         <Link
                           className="wl-flyout__sec-link"
-                          to={`/ticker/${encodeURIComponent(symRoute)}`}
+                          to={`/ticker/${encodeURIComponent(symRoute).toLowerCase()}`}
                           onClick={onClose}
                         >
                           <span className="wl-flyout__sec-top">

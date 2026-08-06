@@ -64,7 +64,7 @@ export function OrdersTable({ orders, loading, onCancel, onModify, readOnly = fa
         </td>
         <td>
           <Link
-            to={`/ticker/${encodeURIComponent(o.ticker)}`}
+            to={`/ticker/${encodeURIComponent(o.ticker).toLowerCase()}`}
             className="paper-table__sym paper-table__sym-link"
           >
             {o.ticker}

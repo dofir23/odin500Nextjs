@@ -181,7 +181,7 @@ export function AppMainTopBar({
             <TickerSymbolCombobox
               variant="header"
               symbol=""
-              onSymbolChange={(sym) => navigate(`/ticker/${encodeURIComponent(sym)}`)}
+              onSymbolChange={(sym) => navigate(`/ticker/${encodeURIComponent(sym).toLowerCase()}`)}
               inputId="app-main-topbar-ticker-search"
             />
           </div>

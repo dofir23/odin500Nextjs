@@ -1083,7 +1083,7 @@ export function WatchlistRailFlyout({ open, onClose, docked = false }) {
                 sortedRows.map((row) => (
                   <tr key={row.tickerId ? row.symbol + '-' + row.tickerId : row.symbol}>
                     <td>
-                      <Link className="wl-flyout__sec-link" to={'/ticker/' + encodeURIComponent(row.symbol)}>
+                      <Link className="wl-flyout__sec-link" to={'/ticker/' + encodeURIComponent(row.symbol).toLowerCase()}>
                         <span className="wl-flyout__sec-top">
                           <span className="wl-flyout__bullet" aria-hidden />
                           <span className="wl-flyout__sym">{row.symbol}</span>

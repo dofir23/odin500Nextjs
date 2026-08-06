@@ -303,7 +303,7 @@ export function PositionsTable({ positions, loading, onPlaceOrder, readOnly = fa
                 <tr key={p.id || p.ticker}>
                   <td>
                     <Link
-                      to={`/ticker/${encodeURIComponent(p.ticker)}`}
+                      to={`/ticker/${encodeURIComponent(p.ticker).toLowerCase()}`}
                       className="paper-table__sym paper-table__sym-link"
                       title={`View ${p.ticker} chart and data`}
                     >
