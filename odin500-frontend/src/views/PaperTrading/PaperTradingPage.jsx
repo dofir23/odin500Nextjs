@@ -48,7 +48,8 @@ function PaperTradingPageContent() {
     resetPortfolio,
     createAccount,
     deleteAccount,
-    setPublished
+    setPublished,
+    rebalanceAiPortfolio
   } = usePaperAccount();
   const { positions, loading: positionsLoading, refetch: refetchPositions } = usePaperPositions({
     accountId: activeAccountId
@@ -828,17 +829,24 @@ function PaperTradingPageContent() {
           patchBinding={patchBinding}
           patchStrategy={patchStrategy}
           runOnce={runOnce}
+          rebalanceAiPortfolio={rebalanceAiPortfolio}
+          placeOrder={handlePlaceOrder}
           refetch={refetchStrategy}
           loadExecutionLog={loadExecutionLog}
-          onApplied={async () => {
+          onApplied={async (proposal) => {
             await Promise.all([
               refetchAccount(selectedAccountId),
               refetchPositions(),
               refetchOrders(),
+              refetchClosed(),
+              loadHistory(),
+              refetchAnalytics(),
               refetchStrategy(selectedAccountId),
               loadExecutionLog(selectedAccountId)
             ]);
-            goToTab('strategy');
+            // Trades land in the blotter, rule/automation changes land on the strategy tab.
+            const types = new Set((proposal?.actions || []).map((a) => a.type));
+            goToTab(types.has('place_order') || types.has('ai_rebalance') ? 'positions' : 'strategy');
           }}
         />
       ) : null}

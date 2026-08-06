@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Wand2, Plus, Send } from 'lucide-react';
 import { useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { ModalCloseIcon } from '../ModalCloseIcon.jsx';
+import { apiUrl } from '../../utils/apiOrigin.js';
 import { ThemedDropdown } from '../ThemedDropdown.jsx';
 import { useAiEngines, useAiPortfolioCreator } from '../../hooks/useAiPortfolioCreator.js';
 import { usePaperSessionStore } from '../../store/paperSessionStore.js';
@@ -83,8 +84,11 @@ const SLOT_PATTERNS = {
 const BUILD_INTENT_RE =
   /\bportfolio\b.*\b(build|create|make|start|construct|generate|set\s*up)\b|\b(build|create|make|start|construct|generate|set\s*up)\b.*\bportfolio\b|^(let'?s\s+(build|go|do\s+this)|build\s+it|create\s+it|do\s+it|go\s+ahead)\.?$/i;
 
+/** Blank importer template — public route, so a plain download link works. */
+const TEMPLATE_URL = apiUrl('/api/public/paper/ai-portfolio-template.xlsx');
+
 const SIZE_STORAGE_KEY = 'odin_ai_portfolio_creator_size_v1';
-const DEFAULT_SIZE = { width: 420, height: 580 };
+const DEFAULT_SIZE = { width: 440, height: 640 };
 const MIN_W = 320;
 const MIN_H = 380;
 const INTRO_SUGGESTIONS = ['Build me a portfolio', 'How does this work?'];
@@ -499,7 +503,20 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    await importHoldingsFile(file);
+    const imported = await importHoldingsFile(file);
+    if (!imported) return;
+    // The file carried its own config — adopt it so the thread is live and the proposal can be
+    // confirmed. Mark the build as already started so the wizard-complete effect doesn't kick
+    // off a fresh AI run that would overwrite the proposal we just got back.
+    autoStartedRef.current = true;
+    setAwaitingSlotKey(null);
+    setConfig((prev) => ({
+      engine: imported.engine || prev.engine,
+      indexFocus: imported.index_focus || prev.indexFocus,
+      direction: imported.direction || prev.direction,
+      criteria: imported.criteria || prev.criteria,
+      cadence: imported.cadence || prev.cadence
+    }));
   }
 
   async function handleConfirm() {
@@ -624,18 +641,32 @@ export function AiPortfolioCreatorChat({ onCreated }) {
             ))}
 
             {showIntroSuggestions ? (
-              <div className="paper-assistant__chips" aria-label="Suggested prompts">
-                {INTRO_SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className="paper-assistant__chip"
-                    onClick={() => void handleUserUtterance(s)}
+              <>
+                <div className="paper-assistant__chips" aria-label="Suggested prompts">
+                  {INTRO_SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="paper-assistant__chip"
+                      onClick={() => void handleUserUtterance(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <p className="ai-portfolio-creator__template-hint">
+                  Already know your picks? Fill in the{' '}
+                  <a
+                    className="ai-portfolio-creator__template-link"
+                    href={TEMPLATE_URL}
+                    download
                   >
-                    {s}
-                  </button>
-                ))}
-              </div>
+                    portfolio template (.xlsx)
+                  </a>{' '}
+                  and upload it with the <strong>+</strong> button — it carries your settings, so
+                  no questions needed.
+                </p>
+              </>
             ) : null}
 
             {!wizardComplete && awaitingStep && anyEngineConfigured ? (
@@ -656,6 +687,10 @@ export function AiPortfolioCreatorChat({ onCreated }) {
               </div>
             ) : null}
 
+            {/* Upload works before the wizard is answered, so its status lives outside it. */}
+            {importing ? <p className="paper-assistant__typing">Reading file…</p> : null}
+            {importError ? <p className="paper-assistant__error">{importError}</p> : null}
+
             {wizardComplete ? (
               <>
                 <div className="paper-assistant__chips" aria-label="Suggested prompts">
@@ -671,8 +706,6 @@ export function AiPortfolioCreatorChat({ onCreated }) {
                     </button>
                   ))}
                 </div>
-                {importing ? <p className="paper-assistant__typing">Reading file…</p> : null}
-                {importError ? <p className="paper-assistant__error">{importError}</p> : null}
 
                 {messages.map((m) => (
                   <div
@@ -724,16 +757,16 @@ export function AiPortfolioCreatorChat({ onCreated }) {
               disabled={!engineOptions.length}
             />
             <label
-              className={'ai-portfolio-creator__attach-btn' + (importing || !wizardComplete ? ' is-disabled' : '')}
-              title="Upload holdings (.xlsx)"
-              aria-label="Upload holdings (.xlsx)"
+              className={'ai-portfolio-creator__attach-btn' + (importing ? ' is-disabled' : '')}
+              title="Upload a filled template (.xlsx)"
+              aria-label="Upload a filled template (.xlsx)"
             >
               <Plus size={18} strokeWidth={2.25} aria-hidden />
               <input
                 type="file"
                 accept=".xlsx"
                 onChange={handleFileUpload}
-                disabled={importing || !wizardComplete}
+                disabled={importing}
                 style={{ display: 'none' }}
               />
             </label>

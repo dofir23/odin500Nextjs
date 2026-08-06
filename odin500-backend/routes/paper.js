@@ -35,6 +35,7 @@ const {
   hasOpenAiKey,
   runPortfolioAssistantChat
 } = require('../services/paper/portfolioAssistant');
+const { rebalanceAccount, isDue: isAiRebalanceDue } = require('../services/paper/aiRebalancer');
 const {
   runAiPortfolioCreatorChat,
   validateProposal,
@@ -757,6 +758,45 @@ router.get('/ai-portfolios/engines', (req, res) => {
   res.status(200).json({ engines: listEngines() });
 });
 
+/** First engine the server actually has an API key for — used when an import doesn't name one. */
+function firstConfiguredEngine() {
+  return listEngines().find((e) => e.configured)?.id || '';
+}
+
+
+/** On-demand rebalance for one AI-managed account — same logic the scheduled job uses,
+ *  triggered manually (e.g. from the portfolio assistant chat) instead of waiting for cadence. */
+router.post('/accounts/:id/ai-rebalance', async (req, res) => {
+  try {
+    const account = await resolveAccountForUser(req.user.id, req.params.id);
+    if (!account.ai_managed) {
+      return res.status(400).json({ error: 'This portfolio is not AI-managed.', code: 'NOT_AI_MANAGED' });
+    }
+    // force=true lets the owner rebalance ahead of the cadence after confirming in chat.
+    const force = req.body?.force === true || req.query?.force === 'true';
+    if (!force && !isAiRebalanceDue(account)) {
+      return res.status(429).json({
+        error: `This portfolio was already rebalanced recently (cadence: ${account.ai_rebalance_cadence || 'daily'}). It isn't due for another rebalance yet.`,
+        code: 'NOT_DUE'
+      });
+    }
+    const result = await rebalanceAccount(account);
+    if (result.status === 'error') {
+      return res.status(502).json({ error: result.error || 'Rebalance failed', code: 'REBALANCE_FAILED' });
+    }
+    if (result.status === 'no_proposal') {
+      return res.status(502).json({
+        error: 'The AI engine did not return a valid set of holdings. Try again in a moment.',
+        code: 'NO_PROPOSAL'
+      });
+    }
+    res.status(200).json({ success: true, result });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ error: error.message || 'Rebalance failed' });
+  }
+});
+
 router.post('/ai-portfolios/chat', aiPortfolioChatLimiter, async (req, res) => {
   try {
     const body = req.body || {};
@@ -790,20 +830,42 @@ router.post('/ai-portfolios/import', uploadSingleImportFile, async (req, res) =>
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
     const body = req.body || {};
-    const { engine, direction, criteria, cadence } = body;
-    const indexFocus = body.index_focus || body.indexFocus;
-    if (!engine || !indexFocus || !direction || !criteria || !cadence) {
-      return res
-        .status(400)
-        .json({ error: 'engine, index_focus, direction, criteria, and cadence are required' });
-    }
 
-    const holdings = await parseHoldingsWorkbook(req.file.buffer);
+    const { holdings, settings } = await parseHoldingsWorkbook(req.file.buffer);
     if (!holdings.length) {
       return res.status(400).json({ error: 'No valid holdings found — need Ticker and Direction columns.' });
     }
 
-    const name = String(body.name || '').trim() || `Imported Portfolio ${new Date().toISOString().slice(0, 10)}`;
+    // The uploaded file is allowed to carry the whole wizard config, so a user can skip the
+    // chat entirely. Anything already answered in the UI wins; the file fills the rest.
+    const pick = (fromBody, fromFile) => String(fromBody || '').trim() || fromFile || '';
+    const indexFocus = pick(body.index_focus || body.indexFocus, settings.indexFocus);
+    const criteria = pick(body.criteria, settings.criteria);
+    const cadence = pick(body.cadence, settings.cadence);
+    // Direction is implied by the rows themselves when nothing else states it.
+    const hasLong = holdings.some((h) => h.action === 'BTO');
+    const hasShort = holdings.some((h) => h.action === 'STO');
+    const inferredDirection = hasLong && hasShort ? 'long_short' : hasShort ? 'short' : 'long';
+    const direction = pick(body.direction, settings.direction) || inferredDirection;
+
+    // Engine is a server capability, not a spreadsheet value — fall back to any configured one.
+    const engine = pick(body.engine, null) || firstConfiguredEngine();
+    if (!engine) {
+      return res.status(503).json({ error: 'No AI engine is configured on the server.' });
+    }
+
+    const missing = [];
+    if (!indexFocus) missing.push('Index');
+    if (!criteria) missing.push('Criteria');
+    if (!cadence) missing.push('Cadence');
+    if (missing.length) {
+      return res.status(400).json({
+        error: `Missing ${missing.join(', ')}. Add them to the file's "Settings" sheet (download the template) or answer them in the chat first.`,
+        code: 'MISSING_SETTINGS'
+      });
+    }
+
+    const name = String(body.name || '').trim() || settings.name || `Imported Portfolio ${new Date().toISOString().slice(0, 10)}`;
     const outcome = await validateProposal({ userId: req.user.id, indexFocus, direction }, { name, holdings });
     if (outcome.error) {
       return res.status(400).json({ error: outcome.error });

@@ -10,7 +10,10 @@ const {
   getPublishedStrategy
 } = require('../services/paper/publicPortfolio');
 const { generatePortfolioSummaries } = require('../services/paper/portfolioSummaryAi');
-const { buildPortfolioExportWorkbook } = require('../services/paper/portfolioExport');
+const {
+  buildPortfolioExportWorkbook,
+  buildAiPortfolioTemplateWorkbook
+} = require('../services/paper/portfolioExport');
 
 router.get('/portfolios', async (req, res) => {
   try {
@@ -86,6 +89,23 @@ router.get('/portfolios/:accountId/orders', async (req, res) => {
   } catch (error) {
     const status = error.status || 500;
     res.status(status).json({ success: false, error: error.message || 'Failed to load orders' });
+  }
+});
+
+/** Blank .xlsx the user fills in to create an AI portfolio without going through the chat
+ *  wizard. Contains no user data, so it's served publicly and downloads via a plain link. */
+router.get('/ai-portfolio-template.xlsx', async (req, res) => {
+  try {
+    const { workbook, filename } = buildAiPortfolioTemplateWorkbook();
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to build template' });
   }
 });
 

@@ -51,7 +51,10 @@ export function SeoCrawlerSummary({ pathname, data }: SeoCrawlerSummaryProps) {
 
   return (
     <div className="sr-only" aria-hidden="true">
-      <h1>{visibleH1}</h1>
+      {/* Not an <h1> — ServerPageBody and the client component each already render their own
+          page heading; a third one here just inflates the H1 count for no benefit, since this
+          block exists purely to give non-JS crawlers the same text, not to add a heading. */}
+      <p>{visibleH1}</p>
       <p>{text}</p>
     </div>
   );

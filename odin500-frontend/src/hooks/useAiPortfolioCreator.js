@@ -147,24 +147,24 @@ export function useAiPortfolioCreator(config) {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
 
-  /** Alternative to chatting: upload an .xlsx (matching the Export button's Holdings sheet) to seed a proposal. */
+  /**
+   * Alternative to chatting: upload an .xlsx to seed a proposal directly. The file's own
+   * "Settings" sheet can supply the whole config, so this works before the wizard is answered —
+   * anything already chosen here is sent along and takes precedence server-side.
+   */
   const importHoldingsFile = useCallback(
     async (file) => {
       if (!file || !canFetchProtectedApi()) return null;
-      if (!engine || !indexFocus || !direction || !criteria || !cadence) {
-        setImportError('Choose an AI engine, index, direction, criteria, and cadence first.');
-        return null;
-      }
       setImporting(true);
       setImportError('');
       try {
         const form = new FormData();
         form.append('file', file);
-        form.append('engine', engine);
-        form.append('index_focus', indexFocus);
-        form.append('direction', direction);
-        form.append('criteria', criteria);
-        form.append('cadence', cadence);
+        if (engine) form.append('engine', engine);
+        if (indexFocus) form.append('index_focus', indexFocus);
+        if (direction) form.append('direction', direction);
+        if (criteria) form.append('criteria', criteria);
+        if (cadence) form.append('cadence', cadence);
 
         const res = await fetchWithAuth(apiUrl('/api/paper/ai-portfolios/import'), {
           method: 'POST',

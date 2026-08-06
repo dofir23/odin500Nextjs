@@ -38,7 +38,9 @@ async function doProxyRequest(request: NextRequest, pathSegments: string[]) {
     method: request.method,
     headers,
     cache: 'no-store',
-    body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text()
+    // Raw bytes, never text: .text() UTF-8-mangles binary request bodies (multipart .xlsx
+    // uploads arrive as a corrupted zip). An ArrayBuffer is also replayable for the 401 retry.
+    body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer()
   };
 
   let response = await fetch(target, init);
