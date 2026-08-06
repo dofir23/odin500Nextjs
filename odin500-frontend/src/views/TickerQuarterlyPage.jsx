@@ -359,7 +359,7 @@ export default function TickerQuarterlyPage({ initialData = null }) {
     (next) => {
       const s = sanitizeTickerPageInput(next) || 'AAPL';
       setSym(s);
-      navigate('/statistic/ticker-quarterly/' + encodeURIComponent(s));
+      navigate('/statistic/ticker-quarterly/' + encodeURIComponent(s).toLowerCase());
     },
     [navigate]
   );
@@ -1053,7 +1053,7 @@ export default function TickerQuarterlyPage({ initialData = null }) {
                 <span className="ticker-kd-comp-label__links">
                   {competitors.length ? (
                     competitors.map((t) => (
-                      <Link key={t} to={`/ticker/${encodeURIComponent(t)}`} className="ticker-kd-comp__a">
+                      <Link key={t} to={`/ticker/${encodeURIComponent(t).toLowerCase()}`} className="ticker-kd-comp__a">
                         {t}
                       </Link>
                     ))

@@ -26,7 +26,7 @@ function buildFaqPageJsonLd(faqs: Array<{ q: string; a: string }>) {
   };
 }
 
-function faqJsonLdForPath(pathname: string) {
+function faqJsonLdForPath(pathname: string, seoData: unknown) {
   const path = pathname.split('?')[0].replace(/\/+$/, '') || '/';
   if (path === '/premium') {
     return buildFaqPageJsonLd(
@@ -41,6 +41,15 @@ function faqJsonLdForPath(pathname: string) {
   }
   if (path === '/paper-trading') {
     return buildFaqPageJsonLd([...PAPER_TRADING_FAQS]);
+  }
+  if (path.startsWith('/ticker-report/')) {
+    const report = (seoData as { report?: { faqs?: Array<{ q?: string; a?: string }> } } | null)?.report;
+    const faqs = Array.isArray(report?.faqs)
+      ? report.faqs
+          .filter((f) => f?.q && f?.a)
+          .map((f) => ({ q: String(f.q), a: String(f.a) }))
+      : [];
+    return buildFaqPageJsonLd(faqs);
   }
   return null;
 }
@@ -136,7 +145,7 @@ export function buildPageJsonLd(
     graph.push(financialProductJsonLd(sym, pageUrl, seoData));
   }
 
-  const faqLd = faqJsonLdForPath(pathname);
+  const faqLd = faqJsonLdForPath(pathname, seoData);
   if (faqLd) graph.push(faqLd);
 
   return graph;

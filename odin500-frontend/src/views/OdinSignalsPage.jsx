@@ -197,7 +197,7 @@ export default function OdinSignalsPage({ initialData = null }) {
     (sym) => {
       const clean = sanitizeTickerPageInput(sym);
       if (!clean) return;
-      navigate(`/ticker/${encodeURIComponent(clean)}?ticker=${encodeURIComponent(clean)}`);
+      navigate(`/ticker/${encodeURIComponent(clean).toLowerCase()}?ticker=${encodeURIComponent(clean).toLowerCase()}`);
     },
     [navigate]
   );

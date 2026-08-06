@@ -152,7 +152,7 @@ function MarketMiniCardRow({ row: r, groupId, snapshot, selectedKeys, onToggleSe
   const indexTo = r.indexRouteSlug ? `/indices/${encodeURIComponent(r.indexRouteSlug)}` : '';
   const tickerTo =
     indexTo ||
-    (routeSym ? `/ticker/${encodeURIComponent(routeSym)}?ticker=${encodeURIComponent(routeSym)}` : '');
+    (routeSym ? `/ticker/${encodeURIComponent(routeSym).toLowerCase()}?ticker=${encodeURIComponent(routeSym).toLowerCase()}` : '');
   const linkTitle = indexTo
     ? `Open ${r.label} index page`
     : routeSym
@@ -802,7 +802,7 @@ function RightWatchlistCard({ refreshMs = 0, initialRows = null }) {
               const last = watchRowLastNum(r);
               const pct = watchRowPctNum(r);
               return (
-                <Link to={'/ticker/' + encodeURIComponent(symbol)} className="mkt-watch-card__row" key={`${symbol}-${idx}`}>
+                <Link to={'/ticker/' + encodeURIComponent(symbol).toLowerCase()} className="mkt-watch-card__row" key={`${symbol}-${idx}`}>
                   <span>{symbol || '—'}</span>
                   <span>{fmtPrice(last)}</span>
                   <span className={pct > 0 ? 'app-num--up' : pct < 0 ? 'app-num--down' : ''}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import { usePortfolioAssistant } from '../../hooks/usePortfolioAssistant.js';
 import { ModalCloseIcon } from '../ModalCloseIcon.jsx';
 
@@ -13,11 +13,13 @@ const SUGGESTIONS = [
   'Any recent news on NVDA?',
   'How is the market today?',
   'Explain my automation rules',
-  'Add buy AAPL on L2, max 10 shares, sell on Neutral'
+  'Add buy AAPL on L2, max 10 shares, sell on Neutral',
+  'Rebalance my AI portfolio now',
+  'Close my worst-performing position'
 ];
 
 const SIZE_STORAGE_KEY = 'odin_paper_assistant_size_v1';
-const DEFAULT_SIZE = { width: 420, height: 560 };
+const DEFAULT_SIZE = { width: 440, height: 640 };
 const MIN_W = 320;
 const MIN_H = 360;
 
@@ -111,6 +113,28 @@ export async function applyAssistantProposal(proposal, api) {
       results.push(out);
       continue;
     }
+    if (type === 'ai_rebalance') {
+      const out = await api.rebalanceAiPortfolio(action.payload?.account_id || api.accountId, {
+        force: action.payload?.force === true
+      });
+      results.push(out);
+      continue;
+    }
+    if (type === 'place_order') {
+      const p = action.payload || {};
+      const out = await api.placeOrder({
+        account_id: p.account_id || api.accountId,
+        ticker: p.ticker,
+        action: p.action,
+        qty: p.qty,
+        order_type: p.order_type || 'market',
+        limit_price: p.limit_price ?? undefined,
+        stop_price: p.stop_price ?? undefined,
+        source: p.source || 'assistant_chat'
+      });
+      results.push(out);
+      continue;
+    }
     throw new Error(`Unknown action type: ${type}`);
   }
 
@@ -139,7 +163,11 @@ function ProposalCard({ proposal, busy, onConfirm, onCancel }) {
         {(proposal.actions || []).map((a, i) => (
           <li key={`${a.type}-${i}`}>
             <code>{a.type}</code>
-            {a.payload?.ticker ? ` · ${a.payload.ticker}` : ''}
+            {a.type === 'place_order' && a.payload?.action
+              ? ` · ${a.payload.action} ${a.payload.qty} ${a.payload.ticker}`
+              : a.payload?.ticker
+                ? ` · ${a.payload.ticker}`
+                : ''}
             {a.rule_id ? ` · ${String(a.rule_id).slice(0, 8)}…` : ''}
           </li>
         ))}
@@ -174,6 +202,8 @@ function ProposalCard({ proposal, busy, onConfirm, onCancel }) {
  *   patchBinding: Function,
  *   patchStrategy: Function,
  *   runOnce: Function,
+ *   rebalanceAiPortfolio: Function,
+ *   placeOrder: Function,
  *   refetch: Function,
  *   loadExecutionLog: Function,
  *   onApplied?: Function
@@ -191,11 +221,14 @@ export function PortfolioAssistantChat({
   patchBinding,
   patchStrategy,
   runOnce,
+  rebalanceAiPortfolio,
+  placeOrder,
   refetch,
   loadExecutionLog,
   onApplied
 }) {
   const [open, setOpen] = useState(false);
+  const [chipsExpanded, setChipsExpanded] = useState(false);
   const [draft, setDraft] = useState('');
   const [applyBusyId, setApplyBusyId] = useState('');
   const [applyError, setApplyError] = useState('');
@@ -304,6 +337,8 @@ export function PortfolioAssistantChat({
     if (!value || sending) return;
     setDraft('');
     setApplyError('');
+    // Once the conversation starts, give the transcript the space back.
+    setChipsExpanded(false);
     await sendMessage(value);
   }
 
@@ -322,11 +357,13 @@ export function PortfolioAssistantChat({
         patchBinding,
         patchStrategy,
         runOnce,
+        rebalanceAiPortfolio,
+        placeOrder,
         refetch,
         loadExecutionLog
       });
       markProposalApplied(messageId, proposal.id);
-      onApplied?.();
+      onApplied?.(proposal);
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : 'Failed to apply proposal');
     } finally {
@@ -421,18 +458,43 @@ export function PortfolioAssistantChat({
             </p>
           )}
 
-          <div className="paper-assistant__chips" aria-label="Suggested prompts">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className="paper-assistant__chip"
-                disabled={sending || !openaiConfigured}
-                onClick={() => void handleSend(s)}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="paper-assistant__chips-row">
+            <div
+              id="paper-assistant-chips"
+              className={
+                'paper-assistant__chips' +
+                (chipsExpanded ? ' paper-assistant__chips--expanded' : '')
+              }
+              aria-label="Suggested prompts"
+            >
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="paper-assistant__chip"
+                  disabled={sending || !openaiConfigured}
+                  onClick={() => void handleSend(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className={
+                'paper-assistant__chips-toggle' +
+                (chipsExpanded ? ' paper-assistant__chips-toggle--open' : '')
+              }
+              aria-expanded={chipsExpanded}
+              aria-controls="paper-assistant-chips"
+              title={chipsExpanded ? 'Collapse suggestions' : `Show all ${SUGGESTIONS.length} suggestions`}
+              onClick={() => setChipsExpanded((v) => !v)}
+            >
+              <ChevronDown className="paper-assistant__chips-toggle-icon" aria-hidden />
+              <span className="sr-only">
+                {chipsExpanded ? 'Collapse suggested prompts' : 'Show all suggested prompts'}
+              </span>
+            </button>
           </div>
 
           <div ref={listRef} className="paper-assistant__messages" role="log" aria-live="polite">

@@ -504,7 +504,7 @@ export default function MarketHeatmapPage({ initialData = null }) {
     (sym) => {
       const clean = String(sym || '').toUpperCase().trim();
       if (!clean) return;
-      navigate(`/ticker/${encodeURIComponent(clean)}?ticker=${encodeURIComponent(clean)}`);
+      navigate(`/ticker/${encodeURIComponent(clean).toLowerCase()}?ticker=${encodeURIComponent(clean.toLowerCase())}`);
     },
     [navigate]
   );

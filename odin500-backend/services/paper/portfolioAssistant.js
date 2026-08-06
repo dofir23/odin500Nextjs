@@ -21,12 +21,20 @@ const { fetchNewsletterContext, formatContextForPrompt } = require('../newslette
 const { listNewsletterSummaries, getNewsletterBySlug } = require('../newsletter/newsletterStore');
 const { getSectorAllocation, fetchSectorMapForSymbols } = require('./portfolioAnalytics');
 const { fetchGeneralMarketNews, fetchCompanyNews } = require('../marketNews');
+const { isDue: isAiRebalanceDue } = require('./aiRebalancer');
+const {
+  ENGINE_LABELS: AI_ENGINE_LABELS,
+  INDEX_LABELS: AI_INDEX_LABELS,
+  INDEX_WATCHLIST_KEYS: AI_INDEX_WATCHLIST_KEYS
+} = require('./aiPortfolioCreator');
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_TOOL_ROUNDS = 8;
 const MAX_RULES_PER_PROPOSAL = 4;
+const MAX_ORDERS_PER_PROPOSAL = 6;
 const VALID_ACTIONS = new Set(['BTO', 'STO', 'BTC', 'STC']);
+const VALID_ORDER_TYPES = new Set(['market', 'limit', 'stop_market', 'stop_limit']);
 const VALID_BUCKETS = new Set(['L1', 'L2', 'L3', 'S1', 'S2', 'S3', 'N']);
 /** API rule_type values stored in paper_strategy_rules / evaluated by strategyRunner. */
 const VALID_RULE_TYPES = new Set([
@@ -74,10 +82,24 @@ Facts about the product:
   {"rule_type":"signal_bucket","ticker":"AAPL","action":"BTO","qty":10,"params":{"buckets":["L2","L3"],"max_position_qty":10}}
 - Closing rules may use params.close_all=true with qty ignored.
 - If the portfolio has no strategy (has_strategy=false), call propose_create_strategy_and_bind — not propose_create_rules.
+
+TRADE NOW vs AUTOMATE LATER — this distinction matters, get it right:
+- If the user wants a trade to happen NOW ("close CARR", "sell my AAPL", "buy 20 NVDA", "replace CARR with a stronger short", "exit that position", "trim half"), call propose_place_order. NEVER create a strategy or rules for an immediate trade, and never tell the user you can only do it through rules.
+- propose_place_order works on EVERY portfolio — including AI-managed ones and portfolios with has_strategy=false. A missing strategy is never a reason to refuse a trade.
+- Only use propose_create_rules / propose_create_strategy_and_bind when the user wants an ongoing automated rule ("every time NVDA hits L2, buy 10").
+- To close a whole position set close_all=true and omit qty. Use the snapshot's positions[] (long_qty / short_qty / side) to know what is actually open.
+- One proposal can hold several orders — e.g. close CARR and open a replacement short together.
+- When YOU choose a replacement/candidate ticker, pick it from get_index_universe (it returns the real index members ranked strongest-first as longs/shorts) and size it with get_ticker_prices. Never invent a ticker. If the user says "from the index/indice", that means the portfolio's ai_index_label universe.
+
+AI-MANAGED PORTFOLIOS (snapshot ai_managed=true):
+- The portfolio picks its own holdings via an AI engine (ai_engine_label) on a fixed cadence (ai_rebalance_cadence), separate from the rule-based strategy system.
+- When the user asks to rebalance / refresh picks / "run the AI again", call propose_ai_rebalance.
+- If it is not due yet the tool returns needs_user_confirmation instead of a proposal. Do NOT refuse. Report when it last ran (ai_last_rebalanced_at) and exactly what changed using ai_last_rebalance.added / ai_last_rebalance.dropped (say no holdings changed if both are empty), then ask if they want to rebalance again anyway. If they confirm, call propose_ai_rebalance again with force=true.
+- The user can still trade an AI-managed portfolio by hand with propose_place_order; mention that the engine may revert manual changes on its next scheduled rebalance.
 - Never invent prices, signals, news, or account numbers. Always use tools.
-- Prefer tools: get_ticker_prices, get_ticker_signals, get_ticker_report, get_ticker_returns, get_market_news, get_company_news, get_market_snapshot, get_newsletters, get_portfolio_sectors, plus portfolio tools.
+- Prefer tools: get_ticker_prices, get_ticker_signals, get_index_universe, get_ticker_report, get_ticker_returns, get_market_news, get_company_news, get_market_snapshot, get_newsletters, get_portfolio_sectors, plus portfolio tools.
 - This is educational paper trading — not investment advice. Do not tell users to invest real money.
-- You CANNOT mutate data directly. To create/update/delete rules or pause/resume/run, call the propose_* tools.
+- You CANNOT mutate data directly. To place orders, create/update/delete rules, pause/resume/run, or rebalance, call the propose_* tools — the user confirms each proposal before it executes.
 - Prefer concise, clear answers. When proposing changes, explain them in plain English.
 - If a propose_* tool returns an error, fix the payload using the error message — do not call the same broken payload again.
 - News headlines are informational only; summarize briefly and do not present them as trade recommendations.`;
@@ -312,6 +334,7 @@ async function loadPortfolioSnapshot(userId, accountId) {
   const automationActive = Boolean(
     strategyBundle.binding?.is_active && strategyBundle.strategy?.is_active !== false
   );
+  const aiLastRebalance = account.ai_managed ? await loadLastRebalanceLog(account.id) : null;
 
   return {
     account_id: account.id,
@@ -324,11 +347,14 @@ async function loadPortfolioSnapshot(userId, accountId) {
     positions_count: positions.length,
     positions: positions.slice(0, 25).map((p) => ({
       ticker: p.ticker,
-      qty: p.qty,
-      avg_cost: p.avg_cost,
+      side: p.long_qty > 0 && p.short_qty > 0 ? 'both' : p.short_qty > 0 ? 'short' : 'long',
+      long_qty: p.long_qty,
+      short_qty: p.short_qty,
+      avg_long_cost: p.avg_long_cost,
+      avg_short_cost: p.avg_short_cost,
+      current_price: p.current_price,
       market_value: p.market_value,
-      unrealized_pnl: p.unrealized_pnl,
-      unrealized_pnl_pct: p.unrealized_pnl_pct
+      unrealized_pnl: p.unrealized_pnl
     })),
     has_strategy: Boolean(strategyBundle.strategy),
     strategy_id: strategyBundle.strategy?.id || null,
@@ -336,7 +362,39 @@ async function loadPortfolioSnapshot(userId, accountId) {
     automation_active: automationActive,
     rules_count: (strategyBundle.rules || []).length,
     last_run_at: strategyBundle.binding?.last_run_at || null,
-    last_error: strategyBundle.binding?.last_error || null
+    last_error: strategyBundle.binding?.last_error || null,
+    ai_managed: Boolean(account.ai_managed),
+    ai_engine: account.ai_managed ? account.ai_engine || null : null,
+    ai_engine_label: account.ai_managed ? AI_ENGINE_LABELS[account.ai_engine] || account.ai_engine || null : null,
+    ai_index_focus: account.ai_managed ? account.ai_index_focus || null : null,
+    ai_index_label: account.ai_managed
+      ? AI_INDEX_LABELS[account.ai_index_focus] || account.ai_index_focus || null
+      : null,
+    ai_direction: account.ai_managed ? account.ai_direction || null : null,
+    ai_criteria: account.ai_managed ? account.ai_criteria || null : null,
+    ai_rebalance_cadence: account.ai_managed ? account.ai_rebalance_cadence || null : null,
+    ai_last_rebalanced_at: account.ai_managed ? account.ai_last_rebalanced_at || null : null,
+    ai_rebalance_due: account.ai_managed ? isAiRebalanceDue(account) : false,
+    ai_last_rebalance: aiLastRebalance
+  };
+}
+
+/** Most recent autonomous/on-demand rebalance run for an AI-managed account (what changed, when). */
+async function loadLastRebalanceLog(accountId) {
+  const { data, error } = await supabaseService
+    .from('paper_ai_rebalance_log')
+    .select('ran_at, status, added, dropped, raw_output')
+    .eq('account_id', accountId)
+    .order('ran_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    ran_at: data.ran_at,
+    status: data.status,
+    added: Array.isArray(data.added) ? data.added : [],
+    dropped: Array.isArray(data.dropped) ? data.dropped : [],
+    rationale: data.raw_output ? String(data.raw_output).slice(0, 800) : null
   };
 }
 
@@ -378,7 +436,7 @@ async function loadOrders(userId, accountId, limit = 20) {
   const { data, error } = await supabaseService
     .from('paper_orders')
     .select(
-      'id, ticker, side, action, qty, status, order_type, limit_price, stop_price, fill_price, submitted_at, filled_at'
+      'id, ticker, side, action, qty, filled_qty, status, order_type, limit_price, stop_price, avg_fill_price, total_fees, source, submitted_at, filled_at'
     )
     .eq('account_id', account.id)
     .order('submitted_at', { ascending: false })
@@ -391,19 +449,25 @@ async function loadClosedTrades(userId, accountId, limit = 20) {
   const account = await resolveAccountForUser(userId, accountId);
   const { data, error } = await supabaseService
     .from('paper_trades_closed')
-    .select('id, ticker, side, qty, entry_price, exit_price, net_realized_pnl, closed_at')
+    .select(
+      'id, ticker, action, qty_closed, avg_entry_price, avg_exit_price, gross_realized_pnl, total_fees, net_realized_pnl, closed_at'
+    )
     .eq('account_id', account.id)
     .order('closed_at', { ascending: false })
     .limit(Math.min(Number(limit) || 20, 50));
   if (error) throw error;
-  return data || [];
+  // STC closes a long, BTC covers a short — surface that plainly for the model.
+  return (data || []).map((t) => ({
+    ...t,
+    side: String(t.action || '').toUpperCase() === 'BTC' ? 'short' : 'long'
+  }));
 }
 
 async function loadExecutionLog(userId, accountId, limit = 30) {
   const account = await resolveAccountForUser(userId, accountId);
   const { data, error } = await supabaseService
     .from('paper_strategy_execution_log')
-    .select('id, ran_at, status, message, ticker, paper_strategy_rules(rule_type, ticker, action)')
+    .select('id, ran_at, status, message, order_id, paper_strategy_rules(rule_type, ticker, action)')
     .eq('account_id', account.id)
     .order('ran_at', { ascending: false })
     .limit(Math.min(Number(limit) || 30, 80));
@@ -424,6 +488,73 @@ function makeProposal({ title, summary, actions }) {
     summary: String(summary || '').slice(0, 800),
     actions: Array.isArray(actions) ? actions : []
   });
+}
+
+/**
+ * Turn one model-authored order into the exact body POST /api/paper/orders expects.
+ * Closing orders are resolved against the snapshot's open lots so "close CARR" works
+ * without the model having to know the side or the share count.
+ * @returns {{ payload: object } | { error: string }}
+ */
+function buildOrderPayload(raw, ctx) {
+  const ticker = normalizeTicker(raw?.ticker);
+  if (!ticker) return { error: 'Each order needs a ticker' };
+
+  let action = normalizeAction(raw?.action);
+  if (!action) return { error: `Invalid action for ${ticker} — use BTO, STO, STC, or BTC` };
+
+  const orderType = String(raw?.order_type || raw?.orderType || 'market')
+    .trim()
+    .toLowerCase();
+  if (!VALID_ORDER_TYPES.has(orderType)) {
+    return { error: `Invalid order_type for ${ticker} — use market, limit, stop_market, or stop_limit` };
+  }
+  const limitPrice = Number(raw?.limit_price ?? raw?.limitPrice);
+  const stopPrice = Number(raw?.stop_price ?? raw?.stopPrice);
+  if ((orderType === 'limit' || orderType === 'stop_limit') && !(limitPrice > 0)) {
+    return { error: `${orderType} order for ${ticker} needs limit_price` };
+  }
+  if ((orderType === 'stop_market' || orderType === 'stop_limit') && !(stopPrice > 0)) {
+    return { error: `${orderType} order for ${ticker} needs stop_price` };
+  }
+
+  const closeAll = raw?.close_all === true || raw?.closeAll === true;
+  const isClose = action === 'STC' || action === 'BTC' || closeAll;
+  let qty = Number(raw?.qty);
+
+  if (isClose) {
+    const pos = (ctx.positions || []).find((p) => p.ticker === ticker);
+    const longQty = Number(pos?.long_qty) || 0;
+    const shortQty = Number(pos?.short_qty) || 0;
+    if (longQty <= 0 && shortQty <= 0) {
+      return { error: `No open ${ticker} position in this portfolio, so there is nothing to close.` };
+    }
+    // Snap the action to whichever side is actually open (model often guesses STC for shorts).
+    if (closeAll) action = longQty > 0 ? 'STC' : 'BTC';
+    else if (action === 'STC' && longQty <= 0) action = 'BTC';
+    else if (action === 'BTC' && shortQty <= 0) action = 'STC';
+
+    const available = action === 'STC' ? longQty : shortQty;
+    if (available <= 0) {
+      return { error: `No open ${action === 'STC' ? 'long' : 'short'} ${ticker} position to close.` };
+    }
+    qty = closeAll || !(qty > 0) ? available : Math.min(qty, available);
+  } else if (!(qty > 0)) {
+    return { error: `Order for ${ticker} needs a qty greater than 0` };
+  }
+
+  return {
+    payload: {
+      account_id: ctx.accountId,
+      ticker,
+      action,
+      qty: Math.round(qty * 1e6) / 1e6,
+      order_type: orderType,
+      limit_price: limitPrice > 0 ? limitPrice : null,
+      stop_price: stopPrice > 0 ? stopPrice : null,
+      source: 'assistant_chat'
+    }
+  };
 }
 
 function parseTickerList(args) {
@@ -548,6 +679,25 @@ const TOOL_DEFINITIONS = [
       parameters: {
         type: 'object',
         properties: { limit: { type: 'integer', minimum: 1, maximum: 40 } },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_index_universe',
+      description:
+        'Signal leaders for a whole index universe (Dow Jones, Nasdaq 100, or S&P 500), ranked strongest-first as longs and shorts. Use this to find a replacement or new candidate ticker — especially for AI-managed portfolios, which pick from the index in snapshot.ai_index_focus. Defaults to this portfolio’s own index when one is set.',
+      parameters: {
+        type: 'object',
+        properties: {
+          index: {
+            type: 'string',
+            description: 'dow | nasdaq | sp500. Defaults to the portfolio’s ai_index_focus.'
+          },
+          limit: { type: 'integer', minimum: 1, maximum: 40 }
+        },
         additionalProperties: false
       }
     }
@@ -680,6 +830,53 @@ const TOOL_DEFINITIONS = [
       name: 'get_portfolio_sectors',
       description: 'Sector allocation for this paper portfolio’s open positions.',
       parameters: { type: 'object', properties: {}, additionalProperties: false }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_place_order',
+      description:
+        'Propose placing one or more paper orders that execute IMMEDIATELY once the user confirms. Use this for any "do it now" trade — buy, sell, short, cover, close, exit, trim, or swap one holding for another. Works on every portfolio, including AI-managed ones and portfolios with no strategy. Never create strategy rules for an immediate trade. Market orders fill at the latest Odin daily close.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          summary: { type: 'string' },
+          orders: {
+            type: 'array',
+            maxItems: 6,
+            items: {
+              type: 'object',
+              properties: {
+                ticker: { type: 'string' },
+                action: {
+                  type: 'string',
+                  description:
+                    'BTO = buy to open, STO = short to open, STC = sell to close a long, BTC = buy to cover a short'
+                },
+                qty: {
+                  type: 'number',
+                  description: 'Share count. Omit when close_all is true.'
+                },
+                close_all: {
+                  type: 'boolean',
+                  description:
+                    'Close the entire open position for this ticker. The server resolves the side and share count from open lots.'
+                },
+                order_type: {
+                  type: 'string',
+                  description: 'market (default) | limit | stop_market | stop_limit'
+                },
+                limit_price: { type: 'number' },
+                stop_price: { type: 'number' }
+              },
+              required: ['ticker', 'action']
+            }
+          }
+        },
+        required: ['summary', 'orders']
+      }
     }
   },
   {
@@ -834,10 +1031,44 @@ const TOOL_DEFINITIONS = [
         required: ['summary']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_ai_rebalance',
+      description:
+        'Propose an on-demand rebalance for this AI-managed portfolio (user must confirm). The configured AI engine picks a fresh set of holdings within the same index/direction/criteria the portfolio was built with. If the portfolio is not due yet, this returns needs_user_confirmation with details of the last run instead of a proposal — report those details, ask the user if they want to rebalance anyway, and only then call again with force=true.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          summary: { type: 'string' },
+          force: {
+            type: 'boolean',
+            description:
+              'Set true ONLY after the user has explicitly confirmed they want to rebalance ahead of the normal cadence.'
+          }
+        },
+        required: ['summary']
+      }
+    }
   }
 ];
 
+/**
+ * A failing read tool must never abort the whole chat turn — hand the model the error as
+ * data so it can explain or route around it, the way the propose_* tools already do.
+ */
 async function executeReadTool(name, args, ctx) {
+  try {
+    return await runReadTool(name, args, ctx);
+  } catch (err) {
+    console.error(`[portfolio-assistant] read tool ${name} failed:`, err?.message || err);
+    return { error: err?.message || `Tool ${name} failed` };
+  }
+}
+
+async function runReadTool(name, args, ctx) {
   const { userId, accountId } = ctx;
   switch (name) {
     case 'get_portfolio_snapshot':
@@ -871,6 +1102,32 @@ async function executeReadTool(name, args, ctx) {
           leaders: [],
           note: err?.message || 'Could not load watchlist signals'
         };
+      }
+    }
+    case 'get_index_universe': {
+      const focus = String(args?.index || ctx.aiIndexFocus || '')
+        .trim()
+        .toLowerCase();
+      const key = AI_INDEX_WATCHLIST_KEYS[focus];
+      if (!key) {
+        return {
+          error: `Unknown index "${focus || '(none)'}". Use dow, nasdaq, or sp500.`,
+          available: Object.keys(AI_INDEX_WATCHLIST_KEYS)
+        };
+      }
+      try {
+        const limit = Math.min(Number(args?.limit) || 15, 40);
+        const { data } = await getWatchlistSignalLeaders(userId, key, { limit });
+        return {
+          index: focus,
+          index_label: AI_INDEX_LABELS[focus] || focus,
+          symbol_count: data?.watchlist?.symbolCount ?? null,
+          note: 'longs/shorts are ranked strongest-first by Odin signal bucket (L1/S1 strongest).',
+          longs: data?.longs || [],
+          shorts: data?.shorts || []
+        };
+      } catch (err) {
+        return { error: err?.message || 'Could not load index universe' };
       }
     }
     case 'get_ticker_prices': {
@@ -1230,6 +1487,58 @@ function executeProposeTool(name, args, ctx) {
       return { ok: true, proposal_id: proposal.id, proposal };
     }
 
+    if (name === 'propose_ai_rebalance') {
+      if (!ctx.aiManaged) {
+        return { error: 'This portfolio is not AI-managed, so there is nothing to rebalance via this tool.' };
+      }
+      const force = args?.force === true;
+      // Not due and not yet confirmed → hand the model the last run's detail so it can ask,
+      // instead of dead-ending the user with a refusal.
+      if (!ctx.aiRebalanceDue && !force) {
+        return {
+          ok: false,
+          needs_user_confirmation: true,
+          reason: 'not_due',
+          ai_rebalance_cadence: ctx.aiRebalanceCadence || 'daily',
+          ai_last_rebalanced_at: ctx.aiLastRebalancedAt || null,
+          last_rebalance: ctx.aiLastRebalance || null,
+          instruction:
+            'Do NOT refuse. Tell the user when this portfolio last rebalanced and exactly what changed (last_rebalance.added / last_rebalance.dropped; say no holdings changed if both are empty), then ask whether they want to run another rebalance anyway. If they confirm, call propose_ai_rebalance again with force=true.'
+        };
+      }
+      const proposal = makeProposal({
+        title: args?.title || (force ? 'Rebalance AI portfolio now (off-cadence)' : 'Rebalance AI portfolio now'),
+        summary:
+          args?.summary ||
+          `Ask ${ctx.aiEngineLabel || 'the configured AI engine'} to pick a fresh set of holdings for this portfolio right now, ahead of its normal ${ctx.aiRebalanceCadence || 'scheduled'} cadence.`,
+        actions: [{ type: 'ai_rebalance', payload: { account_id: ctx.accountId, force } }]
+      });
+      proposals.push(proposal);
+      return { ok: true, proposal_id: proposal.id, proposal };
+    }
+
+    if (name === 'propose_place_order') {
+      const raw = Array.isArray(args?.orders) ? args.orders.slice(0, MAX_ORDERS_PER_PROPOSAL) : [];
+      if (!raw.length) return { error: 'orders array required' };
+      const payloads = [];
+      for (const o of raw) {
+        const built = buildOrderPayload(o, ctx);
+        if (built.error) return { error: built.error };
+        payloads.push(built.payload);
+      }
+      const describe = (p) =>
+        `${p.action} ${p.qty} ${p.ticker}${p.order_type !== 'market' ? ` (${p.order_type})` : ''}`;
+      const proposal = makeProposal({
+        title: args?.title || (payloads.length === 1 ? describe(payloads[0]) : 'Place orders'),
+        summary:
+          args?.summary ||
+          `Place ${payloads.length} order(s) now: ${payloads.map(describe).join(', ')}. Market orders fill at the latest Odin daily close.`,
+        actions: payloads.map((payload) => ({ type: 'place_order', payload }))
+      });
+      proposals.push(proposal);
+      return { ok: true, proposal_id: proposal.id, proposal };
+    }
+
     return { error: `Unknown propose tool: ${name}` };
   } catch (err) {
     return { error: err?.message || 'Proposal failed' };
@@ -1286,7 +1595,15 @@ async function runPortfolioAssistantChat({ userId, accountId, messages }) {
     accountId: snapshot.account_id,
     accountName: snapshot.name || 'Portfolio',
     strategyId: bundle.strategy?.id || null,
-    rules: bundle.rules || []
+    rules: bundle.rules || [],
+    positions: snapshot.positions || [],
+    aiManaged: snapshot.ai_managed,
+    aiEngineLabel: snapshot.ai_engine_label,
+    aiIndexFocus: snapshot.ai_index_focus,
+    aiRebalanceCadence: snapshot.ai_rebalance_cadence,
+    aiRebalanceDue: snapshot.ai_rebalance_due,
+    aiLastRebalancedAt: snapshot.ai_last_rebalanced_at,
+    aiLastRebalance: snapshot.ai_last_rebalance
   };
 
   const bootstrap = {

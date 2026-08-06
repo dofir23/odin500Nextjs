@@ -589,10 +589,149 @@ export function renderServerPageBody(pathname: string, data: unknown): ReactNode
   if (path.startsWith('/ticker-report/') && d.report) {
     const report = d.report as Record<string, unknown>;
     const meta = (report.meta as Record<string, unknown>) || report;
+    const sym = String(meta.symbol || d.symbol || '').toUpperCase();
+
+    const takeaways = Array.isArray(report.takeaways) ? report.takeaways : [];
+    const recapParagraphs = Array.isArray(report.recapParagraphs) ? report.recapParagraphs : [];
+    const faqs = asRows(report.faqs);
+
+    // Same period/label/quarter/year fallback chain the client's MetricTable uses, normalized
+    // to a plain {label, value} row shape for SimpleTable.
+    const labelValueRows = (rows: unknown) =>
+      asRows(rows).map((r) => ({
+        label: r.period ?? r.label ?? r.quarter ?? r.year ?? '',
+        value: r.value
+      }));
+
+    const trailingReturnsRows = asRows(report.trailingReturns).map((r) => ({
+      period: r.period ?? r.label,
+      ticker_return: r.ticker,
+      spy_return: r.bench,
+      excess: r.excess
+    }));
+
+    const rankedRows = (rows: unknown) =>
+      asRows(rows).map((r) => ({ rank: `#${cell(r.rank)}`, label: r.label, value: r.value }));
+
+    const quartersRows = labelValueRows(report.quarters);
+    const calendarYearsRows = labelValueRows(report.calendarYears);
+    const drawdownRows = labelValueRows(report.drawdownMetrics);
+    const relativeStrengthRows = labelValueRows(report.relativeStrength);
+    const bestMonthsRows = rankedRows(report.bestMonths);
+    const worstMonthsRows = rankedRows(report.worstMonths);
+
     return (
       <article className="text-sm">
-        <h2>{cell(meta.title ?? `${d.symbol} monthly report`)}</h2>
+        <h2>{cell(meta.title ?? `${sym} monthly report`)}</h2>
         <p>{cell(meta.summary ?? meta.description ?? report.summary)}</p>
+
+        {takeaways.length ? (
+          <section>
+            <h3>Key takeaways</h3>
+            <ul>
+              {takeaways.map((t, i) => (
+                <li key={i}>{cell(t)}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {recapParagraphs.map((p, i) => (
+          <p key={i}>{cell(p)}</p>
+        ))}
+
+        {trailingReturnsRows.length ? (
+          <SimpleTable
+            caption={`${sym} trailing returns vs S&P 500`}
+            columns={[
+              { key: 'period', label: 'Period' },
+              { key: 'ticker_return', label: sym },
+              { key: 'spy_return', label: 'S&P 500 (SPY)' },
+              { key: 'excess', label: 'Excess return' }
+            ]}
+            rows={trailingReturnsRows}
+          />
+        ) : null}
+
+        {bestMonthsRows.length ? (
+          <SimpleTable
+            caption={`${sym} best months`}
+            columns={[
+              { key: 'rank', label: 'Rank' },
+              { key: 'label', label: 'Month' },
+              { key: 'value', label: 'Return' }
+            ]}
+            rows={bestMonthsRows}
+          />
+        ) : null}
+
+        {worstMonthsRows.length ? (
+          <SimpleTable
+            caption={`${sym} worst months`}
+            columns={[
+              { key: 'rank', label: 'Rank' },
+              { key: 'label', label: 'Month' },
+              { key: 'value', label: 'Return' }
+            ]}
+            rows={worstMonthsRows}
+          />
+        ) : null}
+
+        {quartersRows.length ? (
+          <SimpleTable
+            caption={`${sym} quarterly returns`}
+            columns={[
+              { key: 'label', label: 'Quarter' },
+              { key: 'value', label: 'Return' }
+            ]}
+            rows={quartersRows}
+          />
+        ) : null}
+
+        {calendarYearsRows.length ? (
+          <SimpleTable
+            caption={`${sym} calendar year returns`}
+            columns={[
+              { key: 'label', label: 'Year' },
+              { key: 'value', label: 'Return' }
+            ]}
+            rows={calendarYearsRows}
+          />
+        ) : null}
+
+        {drawdownRows.length ? (
+          <SimpleTable
+            caption={`${sym} drawdown metrics`}
+            columns={[
+              { key: 'label', label: 'Metric' },
+              { key: 'value', label: 'Value' }
+            ]}
+            rows={drawdownRows}
+          />
+        ) : null}
+
+        {relativeStrengthRows.length ? (
+          <SimpleTable
+            caption={`${sym} relative strength vs S&P 500`}
+            columns={[
+              { key: 'label', label: 'RS metric' },
+              { key: 'value', label: 'Value' }
+            ]}
+            rows={relativeStrengthRows}
+          />
+        ) : null}
+
+        {faqs.length ? (
+          <section>
+            <h3>Frequently asked questions</h3>
+            {faqs.map((f, i) => (
+              <div key={i}>
+                <h4>{cell(f.q)}</h4>
+                <p>{cell(f.a)}</p>
+              </div>
+            ))}
+          </section>
+        ) : null}
       </article>
     );
   }

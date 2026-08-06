@@ -468,7 +468,7 @@ function MarketMoversLeaderTables({ points }) {
       <tr key={`${tone}-${p.symbol}-${idx}`}>
         <td className="market-movers-page__td-ticker">
           <span className="market-movers-page__ticker-wrap" title={p.symbol}>
-            <Link className="market-movers-page__ticker-link" to={`/ticker/${encodeURIComponent(symRoute)}`}>
+            <Link className="market-movers-page__ticker-link" to={`/ticker/${encodeURIComponent(symRoute).toLowerCase()}`}>
               {p.symbol}
             </Link>
           </span>

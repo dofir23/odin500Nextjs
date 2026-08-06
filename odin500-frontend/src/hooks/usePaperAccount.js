@@ -205,6 +205,37 @@ export function usePaperAccount() {
     [loadAccounts]
   );
 
+  const rebalanceAiPortfolio = useCallback(
+    async (accountId, { force = false } = {}) => {
+      const id = String(accountId || usePaperSessionStore.getState().activeAccountId || '').trim();
+      if (!id) throw new Error('No account selected');
+      try {
+        const res = await fetchWithAuth(apiUrl(`/api/paper/accounts/${encodeURIComponent(id)}/ai-rebalance`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force: Boolean(force) })
+        });
+        const payload = await parseJson(res);
+        await loadAccounts();
+        if (id === usePaperSessionStore.getState().activeAccountId) {
+          await refetch(id);
+        }
+        const added = payload?.result?.added?.length || 0;
+        const dropped = payload?.result?.dropped?.length || 0;
+        toast.success(
+          added || dropped
+            ? `AI portfolio rebalanced — ${added} added, ${dropped} closed`
+            : 'AI portfolio rebalanced — no holdings changed'
+        );
+        return payload;
+      } catch (err) {
+        toast.error(err);
+        throw err;
+      }
+    },
+    [loadAccounts, refetch]
+  );
+
   return {
     account,
     accounts,
@@ -216,6 +247,7 @@ export function usePaperAccount() {
     resetPortfolio,
     createAccount,
     deleteAccount,
-    setPublished
+    setPublished,
+    rebalanceAiPortfolio
   };
 }

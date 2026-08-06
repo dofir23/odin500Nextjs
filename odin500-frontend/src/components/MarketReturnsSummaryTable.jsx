@@ -162,7 +162,7 @@ export function MarketReturnsSummaryTable({
             const tickerTo =
               indexTo ||
               (routeSym && ticker
-                ? `/ticker/${encodeURIComponent(routeSym)}?ticker=${encodeURIComponent(routeSym)}`
+                ? `/ticker/${encodeURIComponent(routeSym).toLowerCase()}?ticker=${encodeURIComponent(routeSym).toLowerCase()}`
                 : '');
             const rowTitle = indexTo ? `Open ${d.label} index page` : routeSym ? `Open ${routeSym}` : '';
             const cells = tfs.map((tf) => {

@@ -5947,12 +5947,55 @@ body.paper-assistant--resizing iframe {
   color: #b45309;
 }
 
+.paper-assistant__chips-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem 0.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+[data-theme='light'] .paper-assistant__chips-row {
+  border-bottom-color: #e2e8f0;
+}
+
+/* Base: wraps naturally. Used inline inside the message list by the AI portfolio creator,
+   where it is a column-flex child and must never grow to fill the free vertical space. */
 .paper-assistant__chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
+  align-self: flex-start;
   gap: 0.4rem;
-  padding: 0.65rem 1rem 0.35rem;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+}
+
+/* Collapsed: one scrollable row, so suggestions never steal height from the transcript. */
+.paper-assistant__chips-row > .paper-assistant__chips {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.paper-assistant__chips-row > .paper-assistant__chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fade the trailing edge so a half-clipped chip reads as "scroll for more". */
+.paper-assistant__chips-row > .paper-assistant__chips:not(.paper-assistant__chips--expanded) {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+}
+
+.paper-assistant__chips-row > .paper-assistant__chips--expanded {
+  flex-wrap: wrap;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 35vh;
 }
 
 .paper-assistant__chip {
@@ -5964,10 +6007,47 @@ body.paper-assistant--resizing iframe {
   font-weight: 600;
   padding: 0.28rem 0.55rem;
   cursor: pointer;
+  max-width: 100%;
+  text-align: left;
+}
+
+/* Only the single-row header variant keeps chips on one line. */
+.paper-assistant__chips-row .paper-assistant__chip {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .paper-assistant__chip:hover:not(:disabled) {
   border-color: rgba(59, 130, 246, 0.5);
+}
+
+.paper-assistant__chips-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--paper-border, rgba(148, 163, 184, 0.3));
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.08);
+  color: inherit;
+  cursor: pointer;
+}
+
+.paper-assistant__chips-toggle:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.paper-assistant__chips-toggle-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  transition: transform 0.15s ease;
+}
+
+.paper-assistant__chips-toggle--open .paper-assistant__chips-toggle-icon {
+  transform: rotate(180deg);
 }
 
 .paper-assistant__chip:disabled {
@@ -6145,6 +6225,23 @@ body.paper-assistant--resizing iframe {
 .ai-portfolio-creator__engine-dd {
   flex: 0 0 auto;
   max-width: 6.75rem;
+}
+
+.ai-portfolio-creator__template-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--paper-muted, #94a3b8);
+}
+
+.ai-portfolio-creator__template-link {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+[data-theme='light'] .ai-portfolio-creator__template-link {
+  color: #2563eb;
 }
 
 .ai-portfolio-creator__attach-btn {

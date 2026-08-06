@@ -141,56 +141,251 @@ function normalizeTicker(t) {
     .slice(0, 12);
 }
 
-/** Accepts "Long"/"BTO" for a long leg or "Short"/"STO" for a short leg (matches the export's own Holdings sheet). */
+/**
+ * Accepts a long leg as "Long"/"Long-only"/"BTO"/"Buy"/"L" and a short leg as
+ * "Short"/"Short-only"/"STO"/"Sell"/"S" (matches the export's own Holdings sheet, plus what
+ * people actually type). Anything else is ignored so stray rows can't become phantom holdings.
+ */
 function directionToAction(raw) {
-  const v = String(raw || '').trim().toUpperCase();
-  if (v === 'LONG' || v === 'BTO') return 'BTO';
-  if (v === 'SHORT' || v === 'STO') return 'STO';
+  const v = String(raw || '').trim();
+  if (!v) return null;
+  if (/^(long|bto|buy|l)\b/i.test(v)) return 'BTO';
+  if (/^(short|sto|sell|s)\b/i.test(v)) return 'STO';
   return null;
 }
 
+/** Cell values can be rich text / formula objects — reduce any of them to plain text. */
+function cellText(value) {
+  if (value == null) return '';
+  if (typeof value === 'object') {
+    if (Array.isArray(value.richText)) return value.richText.map((r) => r.text).join('');
+    if (value.text != null) return String(value.text);
+    if (value.result != null) return String(value.result);
+    return '';
+  }
+  return String(value);
+}
+
 /**
- * Parses an uploaded .xlsx buffer's "Holdings" sheet (same shape the export above produces:
- * Ticker + Direction columns) into the { ticker, action }[] shape the AI portfolio creator's
- * propose_create_ai_portfolio tool produces — so an imported file goes through the exact same
- * validateProposal() + confirm flow as a chat-derived proposal.
- * @param {Buffer} buffer
- * @returns {Promise<Array<{ ticker: string, action: string }>>}
+ * Ordered, forgiving matchers — a hand-typed spreadsheet cell is not a dropdown, so these
+ * tolerate typos, spacing, and partial labels ("dow jons" → dow, "no speciifc criteria" → none).
+ * Order matters: the most specific pattern for each field is tested first.
  */
+const SETTING_MATCHERS = {
+  index: [
+    { id: 'nasdaq', re: /nasdaq|ndx/ },
+    { id: 'dow', re: /dow|djia/ },
+    { id: 'sp500', re: /s\s*&?\s*p\s*-?\s*500|sp\s*500|standard\s*&?\s*poor/ }
+  ],
+  direction: [
+    { id: 'long_short', re: /long\s*[-_/&+]?\s*(and\s*)?short|both/ },
+    { id: 'short', re: /short/ },
+    { id: 'long', re: /long/ }
+  ],
+  criteria: [
+    { id: 'technical', re: /technical|signal/ },
+    { id: 'fundamental', re: /fundament/ },
+    { id: 'news_momentum', re: /news|momentum/ },
+    // Catch-all for "none" / "no preference" / "any" / typo'd "no speciifc criteria".
+    { id: 'none', re: /none|no\b|any|specif|prefer/ }
+  ],
+  cadence: [
+    { id: 'daily', re: /dai?ly|every\s*day/ },
+    { id: 'weekly', re: /week/ },
+    { id: 'monthly', re: /month/ }
+  ]
+};
+
+/** Maps a human-typed label ("S&P 500", "Long-Short", "Daily") or a raw id to the stored id. */
+function matchSetting(raw, field) {
+  const v = cellText(raw).trim().toLowerCase();
+  if (!v) return null;
+  for (const { id, re } of SETTING_MATCHERS[field] || []) {
+    if (id === v) return id;
+    if (re.test(v)) return id;
+  }
+  return null;
+}
+
+/** Which settings row label maps to which config key. */
+const SETTING_KEYS = [
+  { key: 'name', re: /^(portfolio\s*)?name$/i, raw: true },
+  { key: 'indexFocus', re: /^index(\s*(focus|universe))?$/i, field: 'index' },
+  { key: 'direction', re: /^direction$/i, field: 'direction' },
+  { key: 'criteria', re: /^(selection\s*)?criteria|picking\s*style$/i, field: 'criteria' },
+  { key: 'cadence', re: /^(rebalance\s*)?cadence|rebalance$/i, field: 'cadence' }
+];
+
+/** Reads an optional "Settings" sheet of Setting/Value rows into config ids. */
+function parseSettingsSheet(workbook) {
+  const sheet = workbook.worksheets.find((s) => /settings|config/i.test(s.name));
+  if (!sheet) return {};
+  const settings = {};
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const label = cellText(row.getCell(1).value).trim();
+    const value = row.getCell(2).value;
+    if (!label) return;
+    for (const spec of SETTING_KEYS) {
+      if (!spec.re.test(label)) continue;
+      if (spec.raw) {
+        const text = cellText(value).trim();
+        if (text) settings[spec.key] = text.slice(0, 120);
+      } else {
+        const id = matchSetting(value, spec.field);
+        if (id) settings[spec.key] = id;
+      }
+      break;
+    }
+  });
+  return settings;
+}
+
+/**
+ * Parses an uploaded .xlsx buffer into the { ticker, action }[] shape the AI portfolio creator's
+ * propose_create_ai_portfolio tool produces — so an imported file goes through the exact same
+ * validateProposal() + confirm flow as a chat-derived proposal. Reads the "Holdings" sheet
+ * (Ticker + Direction columns, same shape the export produces) plus an optional "Settings"
+ * sheet, so a template file can supply the whole wizard config without any chat.
+ * @param {Buffer} buffer
+ * @returns {Promise<{ holdings: Array<{ ticker: string, action: string }>, settings: object }>}
+ */
+const HEADER_SCAN_ROWS = 10;
+const TICKER_HEADER_RE = /^(ticker|symbol|stock)s?$/;
+const DIRECTION_HEADER_RE = /^(direction|action|side|position|long\s*\/?\s*short)$/;
+
+/** Reads one row as a dense array of trimmed lower-case strings, 1-indexed like ExcelJS cells. */
+function rowLabels(row) {
+  const labels = [];
+  row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    labels[colNumber] = cellText(cell.value).trim().toLowerCase();
+  });
+  return labels;
+}
+
+/**
+ * Locates the holdings table anywhere in the workbook: any sheet, and any of the first few rows
+ * (files get re-saved with renamed tabs, title rows, or the settings sheet first). Prefers a
+ * sheet actually named "Holdings" but never assumes it — falling back to worksheets[0] used to
+ * pick the Settings sheet and report a misleading "needs Ticker and Direction" error.
+ * @returns {{ sheet: object, headerRow: number, ticker: number, direction: number } | null}
+ */
+function findHoldingsLayout(workbook) {
+  const sheets = [...workbook.worksheets].sort((a, b) => {
+    const aNamed = /holding/i.test(a.name) ? 0 : 1;
+    const bNamed = /holding/i.test(b.name) ? 0 : 1;
+    return aNamed - bNamed;
+  });
+
+  for (const sheet of sheets) {
+    // Scan a fixed window rather than trusting rowCount — getRow() on a missing row is harmless.
+    for (let r = 1; r <= HEADER_SCAN_ROWS; r += 1) {
+      const labels = rowLabels(sheet.getRow(r));
+      let ticker = -1;
+      let direction = -1;
+      for (let c = 1; c < labels.length; c += 1) {
+        const label = labels[c];
+        if (!label) continue;
+        if (ticker < 0 && TICKER_HEADER_RE.test(label)) ticker = c;
+        else if (direction < 0 && DIRECTION_HEADER_RE.test(label)) direction = c;
+      }
+      if (ticker > 0 && direction > 0) {
+        return { sheet, headerRow: r, ticker, direction };
+      }
+    }
+  }
+  return null;
+}
+
 async function parseHoldingsWorkbook(buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
 
-  const sheet =
-    workbook.worksheets.find((s) => /holdings/i.test(s.name)) || workbook.worksheets[0];
-  if (!sheet) {
+  if (!workbook.worksheets.length) {
     const err = new Error('No sheet found in the uploaded file.');
     err.status = 400;
     throw err;
   }
 
-  const headerRow = sheet.getRow(1).values || [];
-  const colIndex = { ticker: -1, direction: -1 };
-  headerRow.forEach((cell, i) => {
-    const label = String(cell || '').trim().toLowerCase();
-    if (label === 'ticker' || label === 'symbol') colIndex.ticker = i;
-    if (label === 'direction' || label === 'action') colIndex.direction = i;
-  });
-  if (colIndex.ticker < 0 || colIndex.direction < 0) {
-    const err = new Error('The "Holdings" sheet needs "Ticker" and "Direction" columns.');
+  const layout = findHoldingsLayout(workbook);
+  if (!layout) {
+    // Tell the user what we actually saw — a silent "wrong columns" is impossible to debug.
+    const seen = workbook.worksheets
+      .map((s) => {
+        const labels = rowLabels(s.getRow(1)).filter(Boolean);
+        return `"${s.name}" (${labels.length ? labels.join(', ') : 'empty first row'})`;
+      })
+      .join('; ');
+    const err = new Error(
+      `Couldn't find a holdings table with "Ticker" and "Direction" columns. Sheets found: ${seen}.`
+    );
     err.status = 400;
     throw err;
   }
 
   const holdings = [];
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const ticker = normalizeTicker(row.getCell(colIndex.ticker).value);
-    const action = directionToAction(row.getCell(colIndex.direction).value);
+  layout.sheet.eachRow((row, rowNumber) => {
+    if (rowNumber <= layout.headerRow) return;
+    const ticker = normalizeTicker(cellText(row.getCell(layout.ticker).value));
+    const action = directionToAction(cellText(row.getCell(layout.direction).value));
     if (ticker && action) holdings.push({ ticker, action });
   });
 
-  return holdings;
+  return { holdings, settings: parseSettingsSheet(workbook) };
 }
 
-module.exports = { buildPortfolioExportWorkbook, parseHoldingsWorkbook };
+/**
+ * Blank, self-documenting template for the AI portfolio importer: a Settings sheet holding the
+ * wizard answers and a Holdings sheet pre-filled with the right row count for a Long-Short book.
+ * @returns {{ workbook: ExcelJS.Workbook, filename: string }}
+ */
+function buildAiPortfolioTemplateWorkbook() {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Odin500';
+  workbook.created = new Date();
+
+  const settings = workbook.addWorksheet('Settings');
+  settings.columns = [
+    { header: 'Setting', key: 'setting', width: 22 },
+    { header: 'Value', key: 'value', width: 26 },
+    { header: 'Allowed values', key: 'allowed', width: 52 }
+  ];
+  settings.getRow(1).font = { bold: true };
+  const settingRows = [
+    ['Portfolio Name', 'My AI Portfolio', 'Any text (max 120 characters)'],
+    ['Index', 'S&P 500', 'S&P 500 | Dow Jones | Nasdaq-100'],
+    ['Direction', 'Long-Short', 'Long-only (5 rows) | Short-only (5 rows) | Long-Short (10 rows)'],
+    ['Criteria', 'Technical analysis', 'No specific criteria | News / momentum | Fundamental analysis | Technical analysis'],
+    ['Cadence', 'Daily', 'Daily | Weekly | Monthly']
+  ];
+  for (const [setting, value, allowed] of settingRows) {
+    settings.addRow({ setting, value, allowed });
+  }
+  settings.getColumn('setting').font = { bold: true };
+  settings.getColumn('allowed').font = { italic: true, color: { argb: 'FF6B7280' } };
+
+  settings.addRow({});
+  const note = settings.addRow({
+    setting: 'Note',
+    value: 'Fill the Holdings sheet with tickers from the index above. Direction must be Long or Short.'
+  });
+  note.font = { italic: true, color: { argb: 'FF6B7280' } };
+
+  const holdings = workbook.addWorksheet('Holdings');
+  holdings.columns = [
+    { header: 'Ticker', key: 'ticker', width: 14 },
+    { header: 'Direction', key: 'direction', width: 14 }
+  ];
+  holdings.getRow(1).font = { bold: true };
+  // Long-Short shape (5 long + 5 short) — delete the rows you don't need for a single-leg book.
+  for (let i = 0; i < 5; i += 1) holdings.addRow({ ticker: '', direction: 'Long' });
+  for (let i = 0; i < 5; i += 1) holdings.addRow({ ticker: '', direction: 'Short' });
+
+  return { workbook, filename: 'odin500-ai-portfolio-template.xlsx' };
+}
+
+module.exports = {
+  buildPortfolioExportWorkbook,
+  parseHoldingsWorkbook,
+  buildAiPortfolioTemplateWorkbook
+};

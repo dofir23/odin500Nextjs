@@ -363,7 +363,7 @@ export function TickerQuarterlyReturnsChart({
 
   const onOpenQuarterlyPage = useCallback(() => {
     const symPart = String(symbol || '').trim() || DEFAULT_TICKER_ROUTE_SYMBOL;
-    navigate('/statistic/ticker-quarterly/' + encodeURIComponent(symPart));
+    navigate('/statistic/ticker-quarterly/' + encodeURIComponent(symPart).toLowerCase());
   }, [navigate, symbol]);
 
   const quarterlyRangeControls = toolbarControls ? (

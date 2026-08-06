@@ -12,7 +12,9 @@ const { STARTING_CAPITAL } = require('./dbSchema');
  * account/orders are created by the confirm step in routes/paper.js (`POST /ai-portfolios`).
  */
 
-const MAX_TOOL_ROUNDS = 6;
+const MAX_TOOL_ROUNDS = 10;
+/** Rounds left when we start pushing the model to stop researching and commit to a list. */
+const FINALIZE_NUDGE_AT = 3;
 
 const INDEX_WATCHLIST_KEYS = {
   dow: 'def:Dow Jones',
@@ -293,6 +295,7 @@ async function runToolLoop({ engine, systemPrompt, convo, ctx }) {
   const toolTraces = [];
   let proposal = null;
   let lastProposeError = '';
+  let nudged = false;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const result = await callAiProvider({ engine, systemPrompt, messages: convo, tools });
@@ -344,17 +347,81 @@ async function runToolLoop({ engine, systemPrompt, convo, ctx }) {
     }
 
     if (proposal) break;
+
+    // Running low on rounds — stop it researching forever and make it commit to a list.
+    if (!nudged && round === MAX_TOOL_ROUNDS - FINALIZE_NUDGE_AT) {
+      nudged = true;
+      convo.push({
+        role: 'user',
+        content:
+          'You are running out of research time. Stop calling data tools now and call propose_create_ai_portfolio with your best complete list, using the index universe data you already have.'
+      });
+    }
+  }
+
+  // Last resort: one more turn with the propose tool as the only option, so a turn that spent
+  // its whole budget researching still ends with something the user can confirm.
+  if (!proposal) {
+    const forced = await finalizeProposal({ engine, systemPrompt, convo, ctx, tools });
+    if (forced.proposal) {
+      proposal = forced.proposal;
+      toolTraces.push({ name: 'propose_create_ai_portfolio', ok: true });
+    } else if (forced.error) {
+      lastProposeError = forced.error;
+      toolTraces.push({ name: 'propose_create_ai_portfolio', ok: false, error: forced.error });
+    }
   }
 
   return {
     reply: proposal
       ? 'I put together a portfolio for you to review — confirm it below.'
       : lastProposeError
-        ? `I couldn't finalize that yet: ${lastProposeError}`
-        : "I gathered data but didn't finish picking within this turn — ask me to continue or finalize.",
+        ? `I couldn't finalize that yet: ${lastProposeError}. Ask me to try again and I'll pick a fresh list.`
+        : 'I ran out of research time before finalizing. Ask me to "finalize the portfolio now" and I\'ll commit to a list from the data I already gathered.',
     proposal,
     tool_traces: toolTraces.slice(0, 12)
   };
+}
+
+/**
+ * Forces one final model turn whose only available tool is propose_create_ai_portfolio, so a
+ * run that burned its rounds on research still produces a confirmable proposal.
+ */
+async function finalizeProposal({ engine, systemPrompt, convo, ctx, tools }) {
+  const proposeTool = tools.find((t) => t.function?.name === 'propose_create_ai_portfolio');
+  if (!proposeTool) return {};
+  const finalConvo = [
+    ...convo,
+    {
+      role: 'user',
+      content:
+        'Finalize now. Call propose_create_ai_portfolio with the complete holdings list, a short name, and a one-paragraph rationale. Do not call any other tool and do not ask any questions.'
+    }
+  ];
+  try {
+    const result = await callAiProvider({
+      engine,
+      systemPrompt,
+      messages: finalConvo,
+      tools: [proposeTool]
+    });
+    const call = (result.toolCalls || []).find((c) => c.name === 'propose_create_ai_portfolio');
+    if (!call) return {};
+    const outcome = await validateProposal(ctx, call.arguments);
+    if (!outcome.proposal) return { error: outcome.error };
+    return {
+      proposal: {
+        engine,
+        index_focus: ctx.indexFocus,
+        direction: ctx.direction,
+        criteria: ctx.criteria,
+        cadence: ctx.cadence,
+        ...outcome.proposal
+      }
+    };
+  } catch (err) {
+    return { error: err.message || 'Final proposal attempt failed' };
+  }
 }
 
 /**
@@ -411,6 +478,7 @@ module.exports = {
   validateProposal,
   buildDefaultPublishText,
   INDEX_LABELS,
+  INDEX_WATCHLIST_KEYS,
   DIRECTION_SPEC,
   CRITERIA_LABELS,
   CADENCE_LABELS,

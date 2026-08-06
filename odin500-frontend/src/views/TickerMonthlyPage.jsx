@@ -525,7 +525,7 @@ export default function TickerMonthlyPage({ periodMode = 'monthly', initialData 
   const onSymbolChange = useCallback((next) => {
     const s = sanitizeTickerPageInput(next) || 'AAPL';
     setSym(s);
-    navigate(`/statistic/ticker-${modeSlug}/` + encodeURIComponent(s));
+    navigate(`/statistic/ticker-${modeSlug}/` + encodeURIComponent(s).toLowerCase());
   }, [navigate, modeSlug]);
 
   useEffect(() => {
@@ -1553,7 +1553,7 @@ export default function TickerMonthlyPage({ periodMode = 'monthly', initialData 
                 <span className="ticker-kd-comp-label__links">
                   {competitors.length ? (
                     competitors.map((t) => (
-                      <Link key={t} to={`/ticker/${encodeURIComponent(t)}`} className="ticker-kd-comp__a">
+                      <Link key={t} to={`/ticker/${encodeURIComponent(t).toLowerCase()}`} className="ticker-kd-comp__a">
                         {t}
                       </Link>
                     ))
