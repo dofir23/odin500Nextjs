@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '@/lib/auth-cookies';
+import { hasValidAuthSession } from '@/lib/server-api';
 
 const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
 
@@ -12,12 +11,9 @@ function resolveAuthenticatedDest(next?: string | null, fallback = '/market') {
   return raw;
 }
 
-/** True when httpOnly session cookies are present (same check as GET /api/auth/session). */
+/** True when a usable auth session exists (access token or successful refresh). */
 export async function hasAuthSession(): Promise<boolean> {
-  const jar = await cookies();
-  return Boolean(
-    jar.get(ACCESS_TOKEN_COOKIE)?.value || jar.get(REFRESH_TOKEN_COOKIE)?.value
-  );
+  return hasValidAuthSession();
 }
 
 /** Server redirect — keep signed-in users off login/signup entry pages. */

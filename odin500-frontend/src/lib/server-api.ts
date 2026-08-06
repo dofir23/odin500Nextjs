@@ -69,6 +69,36 @@ export async function getRefreshTokenFromCookies() {
   return jar.get(REFRESH_TOKEN_COOKIE)?.value || '';
 }
 
+/**
+ * Access token for upstream API calls. Refreshes when the short-lived access cookie
+ * expired but a refresh cookie is still present (avoids "No token provided" 401s).
+ */
+export async function resolveAccessTokenForRequest(): Promise<string> {
+  let token = await getAccessTokenFromCookies();
+  if (token) return token;
+
+  const refresh = await getRefreshTokenFromCookies();
+  if (!refresh) return '';
+
+  const session = await refreshSessionOnServer();
+  return session?.access_token || '';
+}
+
+/**
+ * True when a valid access token exists (refreshing first if needed).
+ * Clears stale refresh cookies when refresh fails so clients stop treating the user as signed in.
+ */
+export async function hasValidAuthSession(): Promise<boolean> {
+  const token = await resolveAccessTokenForRequest();
+  if (token) return true;
+
+  const refresh = await getRefreshTokenFromCookies();
+  if (refresh) {
+    await clearSessionCookies();
+  }
+  return false;
+}
+
 export async function refreshSessionOnServer() {
   const refreshToken = await getRefreshTokenFromCookies();
   if (!refreshToken) return null;
@@ -89,11 +119,7 @@ export async function serverFetch(path: string, init: RequestInit = {}, auth = t
   const url = backendUrl(path);
   const headers = new Headers(init.headers || {});
   if (auth) {
-    let token = await getAccessTokenFromCookies();
-    if (!token) {
-      const refreshed = await refreshSessionOnServer();
-      token = refreshed?.access_token || '';
-    }
+    const token = await resolveAccessTokenForRequest();
     if (token) headers.set('Authorization', `Bearer ${token}`);
   }
   let response = await fetch(url, { ...init, headers, cache: 'no-store' });

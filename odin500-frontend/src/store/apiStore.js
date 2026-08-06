@@ -37,10 +37,26 @@ const REFRESH_RETRY_DELAYS_MS = [0, 2000, 8000];
 const REFRESH_HARD_FAIL_RECHECK_MS = 2500;
 /** Skip visibility-triggered refresh if we refreshed this recently (avoids load+focus races). */
 const VISIBILITY_REFRESH_COOLDOWN_MS = 20000;
+/** After hard refresh failure, block further refresh attempts to stop 401 storms. */
+const REFRESH_HARD_FAIL_COOLDOWN_MS = 60_000;
 
 let lastRefreshAttemptAt = 0;
+/** Epoch ms until which refresh attempts are skipped after a hard auth failure. */
+let refreshHardFailUntil = 0;
 let authHydrated = false;
 let authHydrationPromise = null;
+
+function markRefreshHardFail() {
+  refreshHardFailUntil = Date.now() + REFRESH_HARD_FAIL_COOLDOWN_MS;
+}
+
+function clearRefreshHardFail() {
+  refreshHardFailUntil = 0;
+}
+
+function isRefreshCoolingDown() {
+  return Date.now() < refreshHardFailUntil;
+}
 
 export function isAuthHydrated() {
   return authHydrated;
@@ -151,6 +167,7 @@ function getExpiresAtSec() {
 /** Persist session via httpOnly cookies (Next BFF) and sync client auth state. */
 export async function applyAuthSession(session, options = {}) {
   if (!session?.access_token) return false;
+  clearRefreshHardFail();
   memoryStore.token = 'cookie';
   if (typeof window === 'undefined') return true;
 
@@ -289,8 +306,8 @@ async function logoutOnlyIfSessionGone() {
 }
 
 /**
- * On app load: restore session from cookies. Renew access in the background without
- * clearing Remember me. Avoid aggressive multi-tab refresh races.
+ * On app load: restore session from cookies only after refresh confirms tokens work.
+ * Avoids optimistic "logged in" that fires profile/watchlist/notifications into 401 storms.
  */
 export async function initAuthSessionOnLoad() {
   if (typeof window === 'undefined') return;
@@ -302,14 +319,37 @@ export async function initAuthSessionOnLoad() {
 
     let sessionCheckFailed = false;
 
+    const adoptSession = () => {
+      memoryStore.token = 'cookie';
+      dispatchAuthUpdated();
+      scheduleProactiveRefresh();
+    };
+
+    const becomeGuest = () => {
+      memoryStore.token = '';
+      try {
+        localStorage.removeItem('market_api_email');
+        localStorage.removeItem('odin_login_remember');
+      } catch {
+        /* ignore */
+      }
+      dispatchAuthUpdated();
+    };
+
     try {
       const authenticated = await fetchSessionAuthenticated();
       if (authenticated) {
-        memoryStore.token = 'cookie';
-        dispatchAuthUpdated();
-        // Background renew — skip if another tab holds the refresh lock.
-        void refreshSessionOnce();
-        scheduleProactiveRefresh();
+        const ok = await refreshSessionOnce();
+        if (ok) {
+          adoptSession();
+          return;
+        }
+        // Refresh failed — only stay signed in if session is still validated.
+        if (await fetchSessionAuthenticated()) {
+          adoptSession();
+          return;
+        }
+        becomeGuest();
         return;
       }
     } catch {
@@ -321,11 +361,11 @@ export async function initAuthSessionOnLoad() {
       try {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         if (await fetchSessionAuthenticated()) {
-          memoryStore.token = 'cookie';
-          dispatchAuthUpdated();
-          void refreshSessionOnce();
-          scheduleProactiveRefresh();
-          return;
+          const ok = await refreshSessionOnce();
+          if (ok || (await fetchSessionAuthenticated())) {
+            adoptSession();
+            return;
+          }
         }
       } catch {
         // Still unreachable — leave UI as guest without clearing cookies / remember prefs.
@@ -336,10 +376,7 @@ export async function initAuthSessionOnLoad() {
     }
 
     // Explicit unauthenticated response — clear client prefs only (cookies already empty).
-    memoryStore.token = '';
-    localStorage.removeItem('market_api_email');
-    localStorage.removeItem('odin_login_remember');
-    dispatchAuthUpdated();
+    becomeGuest();
   })().finally(() => {
     markAuthHydrated();
   });
@@ -355,6 +392,10 @@ export async function initAuthSessionOnLoad() {
  */
 export async function refreshSessionOnce() {
   if (refreshInFlight) return refreshInFlight;
+
+  if (isRefreshCoolingDown()) {
+    return false;
+  }
 
   refreshInFlight = (async () => {
     lastRefreshAttemptAt = Date.now();
@@ -389,6 +430,7 @@ export async function refreshSessionOnce() {
 
           if (response.ok && payload.session?.access_token) {
             // Refresh route already set httpOnly cookies (and kept Remember me).
+            clearRefreshHardFail();
             memoryStore.token = 'cookie';
             dispatchAuthUpdated();
             return true;
@@ -412,7 +454,11 @@ export async function refreshSessionOnce() {
     if (sawHardAuthFailure) {
       // Another tab may have refreshed successfully; only logout if cookies are gone.
       const loggedOut = await logoutOnlyIfSessionGone();
-      return !loggedOut && Boolean(getAuthToken());
+      if (loggedOut) {
+        markRefreshHardFail();
+        return false;
+      }
+      return Boolean(getAuthToken());
     }
 
     // Transient failures: keep the user signed in; retry later via proactive timer.
@@ -528,6 +574,9 @@ export async function fetchWithAuth(url, init = {}) {
     throw new DOMException('Route navigation changed', 'AbortError');
   }
   if (response.status === 401 && auth) {
+    if (isRefreshCoolingDown()) {
+      return response;
+    }
     const refreshed = await refreshSessionOnce();
     if (signal?.aborted || isRouteNavigationStale(false, epochAtStart)) {
       throw new DOMException('Route navigation changed', 'AbortError');
@@ -737,10 +786,12 @@ export async function fetchJsonCached({
     let response = await fetch(apiUrl(path), fetchInit);
 
     if (response.status === 401 && auth) {
-      const refreshed = await refreshSessionOnce();
-      if (refreshed) {
-        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-        response = await fetch(apiUrl(path), fetchInit);
+      if (!isRefreshCoolingDown()) {
+        const refreshed = await refreshSessionOnce();
+        if (refreshed) {
+          if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+          response = await fetch(apiUrl(path), fetchInit);
+        }
       }
     }
 
