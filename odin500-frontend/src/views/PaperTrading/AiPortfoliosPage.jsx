@@ -1,15 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Filter } from 'lucide-react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
+import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
 import { AiPortfolioCreatorChat } from '../../components/paper/AiPortfolioCreatorChat.jsx';
 import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
-import { usePublicPortfolios } from '../../hooks/usePublicPortfolios.js';
+import { usePublicPortfoliosPaged } from '../../hooks/usePublicPortfolios.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
-import { sortPublicPortfolios } from '../../utils/paperPublicSort.js';
 import { ENGINE_PATTERNS, INDEX_PATTERNS, enrichPortfolioTags } from '../../utils/aiPortfolioTags.js';
 import '../../styles/paper-trading.css';
 
@@ -22,6 +22,8 @@ const DIRECTION_OPTIONS = [
   { id: 'long_short', label: 'Long-Short' }
 ];
 const INDEX_OPTIONS = [ALL_INDICES, ...INDEX_PATTERNS.map(({ id, label }) => ({ id, label }))];
+const PAGE_SIZE = 10;
+const TOP_PERFORMERS = 5;
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -51,44 +53,70 @@ function ownerInitials(label) {
 }
 
 function AiPortfoliosPageContent() {
-  const { portfolios, loading, error, refetch } = usePublicPortfolios();
   const [sortKey, setSortKey] = useState('avg_monthly_return_pct');
   const [sortDir, setSortDir] = useState('desc');
   const [engineFilter, setEngineFilter] = useState('__all__');
   const [indexFilter, setIndexFilter] = useState('__all__');
   const [directionFilter, setDirectionFilter] = useState('__all__');
+  const [page, setPage] = useState(1);
 
-  const tagged = useMemo(
-    () => portfolios.map(enrichPortfolioTags).filter((p) => p.ai_engine),
-    [portfolios]
-  );
+  // Table: one page of rows, filtered/sorted/paged by the API.
+  const { portfolios, pagination, facets, loading, error, refetch } = usePublicPortfoliosPaged({
+    page,
+    pageSize: PAGE_SIZE,
+    sort: sortKey,
+    dir: sortDir,
+    aiOnly: true,
+    engine: engineFilter,
+    index: indexFilter,
+    direction: directionFilter
+  });
+
+  // Top performers carousel: always the best few under the same filters, independent of page.
+  const {
+    portfolios: topRows,
+    loading: topLoading,
+    refetch: refetchTop
+  } = usePublicPortfoliosPaged({
+    page: 1,
+    pageSize: TOP_PERFORMERS,
+    sort: 'avg_monthly_return_pct',
+    dir: 'desc',
+    aiOnly: true,
+    engine: engineFilter,
+    index: indexFilter,
+    direction: directionFilter
+  });
+
+  const rows = useMemo(() => portfolios.map(enrichPortfolioTags), [portfolios]);
 
   const engineOptions = useMemo(() => {
-    const present = new Map();
-    for (const p of tagged) {
-      if (p.ai_engine && !present.has(p.ai_engine.id)) present.set(p.ai_engine.id, p.ai_engine);
-    }
+    const present = facets?.engines || [];
     // Keep known-engine ordering (Claude, ChatGPT, Gemini, ...) for the ones present.
-    const known = ENGINE_PATTERNS.filter((e) => present.has(e.id)).map(({ id, label }) => ({ id, label }));
-    const extra = [...present.values()].filter((e) => !known.some((k) => k.id === e.id));
+    const known = ENGINE_PATTERNS.filter((e) => present.some((p) => p.id === e.id)).map(
+      ({ id, label }) => ({ id, label })
+    );
+    const extra = present.filter((e) => !known.some((k) => k.id === e.id));
     return [ALL_ENGINES, ...known, ...extra];
-  }, [tagged]);
+  }, [facets]);
 
-  const filtered = useMemo(
-    () =>
-      tagged.filter(
-        (p) =>
-          (engineFilter === '__all__' || p.ai_engine?.id === engineFilter) &&
-          (indexFilter === '__all__' || p.index_focus?.id === indexFilter) &&
-          (directionFilter === '__all__' || p.direction?.id === directionFilter)
-      ),
-    [tagged, engineFilter, indexFilter, directionFilter]
-  );
+  // A narrower filter can drop the total below the page we're on.
+  useEffect(() => {
+    setPage(1);
+  }, [engineFilter, indexFilter, directionFilter, sortKey, sortDir]);
 
-  const sorted = useMemo(
-    () => sortPublicPortfolios(filtered, sortKey, sortDir),
-    [filtered, sortKey, sortDir]
-  );
+  const total = pagination?.total ?? 0;
+  const totalPages = pagination?.total_pages ?? 1;
+  const rangeStart = total ? (pagination.page - 1) * pagination.page_size + 1 : 0;
+  const rangeEnd = Math.min(pagination.page * pagination.page_size, total);
+
+  const hasActiveFilters =
+    engineFilter !== '__all__' || indexFilter !== '__all__' || directionFilter !== '__all__';
+
+  const reloadAll = () => {
+    void refetch();
+    void refetchTop();
+  };
 
   const onSort = (key) => {
     if (key === sortKey) {
@@ -169,10 +197,15 @@ function AiPortfoliosPageContent() {
 
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      <AiPortfolioCreatorChat onCreated={() => refetch()} />
+      <AiPortfolioCreatorChat onCreated={reloadAll} />
 
-      {loading || filtered.length > 0 ? (
-        <PublicPortfoliosTopSummary portfolios={filtered} loading={loading} limit={5} carousel />
+      {topLoading || topRows.length > 0 ? (
+        <PublicPortfoliosTopSummary
+          portfolios={topRows}
+          loading={topLoading}
+          limit={TOP_PERFORMERS}
+          carousel
+        />
       ) : null}
 
       {!loading ? (
@@ -224,31 +257,31 @@ function AiPortfoliosPageContent() {
         </div>
       ) : null}
 
-      {!loading && !tagged.length ? (
+      {!loading && !total ? (
         <div className="paper-empty paper-empty--public">
-          <p>No AI portfolios published yet</p>
-          <p className="paper-empty__hint">
-            Check back soon, or browse{' '}
-            <Link to="/paper-trading/public" className="paper-link">
-              all public portfolios
-            </Link>{' '}
-            in the meantime.
-          </p>
+          {hasActiveFilters ? (
+            <p>No AI portfolios match these filters yet</p>
+          ) : (
+            <>
+              <p>No AI portfolios published yet</p>
+              <p className="paper-empty__hint">
+                Check back soon, or browse{' '}
+                <Link to="/paper-trading/public" className="paper-link">
+                  all public portfolios
+                </Link>{' '}
+                in the meantime.
+              </p>
+            </>
+          )}
         </div>
       ) : null}
 
-      {!loading && tagged.length > 0 && !filtered.length ? (
-        <div className="paper-empty paper-empty--public">
-          <p>No AI portfolios match these filters yet</p>
-        </div>
-      ) : null}
-
-      {!loading && filtered.length > 0 ? (
+      {!loading && total > 0 ? (
         <div className="paper-table-wrap paper-public-table-wrap">
           <table className="paper-table paper-public-table">
             {tableHead}
             <tbody>
-              {sorted.map((p) => {
+              {rows.map((p) => {
                 const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
                 const avgTitle =
                   p.months_elapsed != null
@@ -308,6 +341,22 @@ function AiPortfoliosPageContent() {
               })}
             </tbody>
           </table>
+        </div>
+      ) : null}
+
+      {!loading && total > 0 ? (
+        <div className="paper-public-pager">
+          <p className="paper-public-pager__count">
+            Showing {rangeStart}–{rangeEnd} of {total} portfolio{total === 1 ? '' : 's'}
+          </p>
+          {totalPages > 1 ? (
+            <FigmaPagination
+              page={pagination.page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              ariaLabel="AI portfolios pagination"
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

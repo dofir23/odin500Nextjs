@@ -5,7 +5,8 @@ import {
   GOOGLE_SITE_VERIFICATION,
   SITE_ORIGIN
 } from '@/seo/siteConfig.js';
-import { defaultOgImages } from '@/seo/ogImages';
+
+import { defaultOgImages, hasGeneratedOgImage } from '@/seo/ogImages';
 import { absoluteSiteUrl } from '@/seo/sitemapRoutes.js';
 import { formatReturnPct, pickDynamicReturn } from '@/seo/performanceSnippet';
 
@@ -356,7 +357,6 @@ export function resolveRequestMetadata(pathname: string) {
 
 export function toNextMetadata(pathname: string): Metadata {
   const meta = resolveRequestMetadata(pathname);
-  const images = defaultOgImages();
   const noindex = shouldNoindexPath(pathname);
   return {
     title: meta.title,
@@ -372,15 +372,35 @@ export function toNextMetadata(pathname: string): Metadata {
       url: meta.canonical,
       type: 'website',
       siteName: 'Odin500',
-      images
+      ...ogImageFields(pathname)
     },
     twitter: {
       card: 'summary_large_image',
       title: meta.title,
       description: meta.description,
-      images: images.map((img) => img.url)
+      ...twitterImageFields(pathname)
     }
   };
+}
+
+/**
+ * Share images, split by whether the route generates its own card.
+ *
+ * - Routes WITH an `opengraph-image.tsx`: omit `images` entirely. An explicit value takes
+ *   precedence over Next's file convention, so setting it here would shadow the per-symbol
+ *   generator — which is what pinned all ~5,000 symbol URLs to one shared card.
+ * - Routes WITHOUT one: set the default explicitly. Defining `openGraph` at page level
+ *   *replaces* the inherited object, so the root `opengraph-image.png` would not carry over
+ *   on its own and these pages would end up with no share image at all.
+ */
+function ogImageFields(pathname: string | undefined) {
+  return hasGeneratedOgImage(pathname) ? {} : { images: defaultOgImages() };
+}
+
+function twitterImageFields(pathname: string | undefined) {
+  return hasGeneratedOgImage(pathname)
+    ? {}
+    : { images: defaultOgImages().map((img) => img.url) };
 }
 
 function pickReturnPct(performance: Record<string, unknown> | undefined, periodName: string) {
@@ -519,7 +539,6 @@ export function metadataFromResolved(
   },
   pathname?: string
 ): Metadata {
-  const images = defaultOgImages();
   const noindex = pathname ? shouldNoindexPath(pathname) : false;
   return {
     title: meta.title,
@@ -535,13 +554,13 @@ export function metadataFromResolved(
       url: meta.canonical,
       type: 'website',
       siteName: 'Odin500',
-      images
+      ...ogImageFields(pathname)
     },
     twitter: {
       card: 'summary_large_image',
       title: meta.title,
       description: meta.description,
-      images: images.map((img) => img.url)
+      ...twitterImageFields(pathname)
     }
   };
 }

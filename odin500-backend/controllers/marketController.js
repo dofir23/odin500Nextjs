@@ -35,7 +35,7 @@
 const bigquery = require('../config/bigquery');
 const tickersDb = require('../config/supabaseTickers');
 const analyticsData = require('../analyticsData');
-const { makeCacheKey, getCache, setCache } = require('../utils/cache');
+const { makeCacheKey, getCache, setCache, withInflight } = require('../utils/cache');
 const { warmTickerReturnsInBackground } = require('../services/tickerReturnsPrewarmer');
 const fs = require('fs');
 const path = require('path');
@@ -878,19 +878,24 @@ const getTickerDetailsByIndex = async (req, res) => {
             return res.status(200).json({ ...cached, cache_hit: true });
         }
 
-        const details = await analyticsData.getTickerDetailsByIndex(indexValue, periodValue);
-        const weighted = enrichRowsWithIndexWeights(indexValue, details);
-        const payload = {
-            success: true,
-            index: indexValue,
-            period: periodValue,
-            data: weighted,
-            cache_hit: false,
-            data_source: 'live',
-            snapshot_ts: null
-        };
-        await setCache(cacheKey, payload, TICKER_DETAILS_CACHE_TTL_SECS);
-        console.log(`[market:ticker-details] source=live index="${indexValue}" period="${periodValue}" rows=${weighted.length} ms=${Date.now() - startedAt}`);
+        // Coalesced: concurrent requests for the same index/period share one BigQuery scan
+        // instead of each running their own while the cache is still cold.
+        const payload = await withInflight(cacheKey, async () => {
+            const details = await analyticsData.getTickerDetailsByIndex(indexValue, periodValue);
+            const weighted = enrichRowsWithIndexWeights(indexValue, details);
+            const out = {
+                success: true,
+                index: indexValue,
+                period: periodValue,
+                data: weighted,
+                cache_hit: false,
+                data_source: 'live',
+                snapshot_ts: null
+            };
+            await setCache(cacheKey, out, TICKER_DETAILS_CACHE_TTL_SECS);
+            console.log(`[market:ticker-details] source=live index="${indexValue}" period="${periodValue}" rows=${weighted.length} ms=${Date.now() - startedAt}`);
+            return out;
+        });
         res.set('X-Cache-Hit', '0');
         res.set('X-Data-Source', 'live');
         res.status(200).json(payload);
@@ -1203,14 +1208,19 @@ const getIndexReturns = async (req, res) => {
             }
         }
 
-        const payload = await analyticsData.calculateIndexReturns(indexValue, customRange, 2000);
-        const liveOut = { ...payload, cache_hit: false, data_source: 'live', snapshot_ts: null };
-        await setCache(cacheKey, liveOut, TICKER_DETAILS_CACHE_TTL_SECS);
+        // Coalesced: this scan runs 20s+ for some indices, so concurrent callers must not each
+        // start their own — they await the first one instead.
+        const liveOut = await withInflight(cacheKey, async () => {
+            const payload = await analyticsData.calculateIndexReturns(indexValue, customRange, 2000);
+            const out = { ...payload, cache_hit: false, data_source: 'live', snapshot_ts: null };
+            await setCache(cacheKey, out, TICKER_DETAILS_CACHE_TTL_SECS);
+            console.log(
+                `[market:index-returns] source=live index="${indexValue}" ms=${Date.now() - startedAt}`
+            );
+            return out;
+        });
         res.set('X-Cache-Hit', '0');
         res.set('X-Data-Source', 'live');
-        console.log(
-            `[market:index-returns] source=live index="${indexValue}" ms=${Date.now() - startedAt}`
-        );
         res.status(200).json(liveOut);
     } catch (error) {
         console.error('Error calculating index returns:', error);

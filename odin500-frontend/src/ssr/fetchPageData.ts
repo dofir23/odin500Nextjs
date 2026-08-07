@@ -67,6 +67,8 @@ export type IndexPageInitialData = {
   indexPayload: Record<string, unknown> | null;
   fullChartSeries: Array<{ date: string; close: number }>;
   returnsSpy: Record<string, unknown> | null;
+  /** Raw /api/market/ticker-details rows so the constituents table has real content in SSR HTML. */
+  tickerDetails: unknown[];
 };
 
 export type TickerPageInitialData = {
@@ -353,10 +355,12 @@ export async function fetchIndexPageData(
   if (isSector) {
     const sectorKey = slug.toLowerCase();
     const ticker = SECTOR_TICKER_MAP[sectorKey] || 'XLK';
-    const [retRes, ohlcRes, spyRes] = await Promise.all([
+    // Sector pages list S&P 500 members filtered by sector client-side (IndexPage activeMeta).
+    const [retRes, ohlcRes, spyRes, detailsRes] = await Promise.all([
       postMarketJson('/api/market/ticker-returns', { ticker }),
       getMarketJson(`/api/market/ohlc?symbol=${encodeURIComponent(ticker)}&limit=4000`),
-      postMarketJson('/api/market/ticker-returns', { ticker: 'SPY' })
+      postMarketJson('/api/market/ticker-returns', { ticker: 'SPY' }),
+      postMarketJson('/api/market/ticker-details', { index: 'sp500', period: 'last-date' })
     ]);
     if (!retRes && !ohlcRes) return null;
 
@@ -388,7 +392,8 @@ export async function fetchIndexPageData(
       fullChartSeries,
       returnsSpy: spyRes
         ? ((spyRes.data as Record<string, unknown> | undefined) ?? spyRes)
-        : null
+        : null,
+      tickerDetails: Array.isArray(detailsRes?.data) ? (detailsRes.data as unknown[]) : []
     };
   }
 
@@ -409,7 +414,10 @@ export async function fetchIndexPageData(
     fullChartSeries = chartSeriesFromOhlcRows(ohlcRows);
   }
 
-  const spyRes = await postMarketJson('/api/market/ticker-returns', { ticker: 'SPY' });
+  const [spyRes, detailsRes] = await Promise.all([
+    postMarketJson('/api/market/ticker-returns', { ticker: 'SPY' }),
+    postMarketJson('/api/market/ticker-details', { index: route.apiIndex, period: 'last-date' })
+  ]);
 
   return {
     slug,
@@ -422,7 +430,8 @@ export async function fetchIndexPageData(
       syntheticCloseSeries: fullChartSeries
     },
     fullChartSeries,
-    returnsSpy: spyRes
+    returnsSpy: spyRes,
+    tickerDetails: Array.isArray(detailsRes?.data) ? (detailsRes.data as unknown[]) : []
   };
 }
 

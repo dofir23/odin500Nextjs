@@ -73,10 +73,44 @@ async function bumpVersion(namespace) {
   }
 }
 
+/** @type {Map<string, Promise<any>>} in-process work already running, keyed by cache key. */
+const inflight = new Map();
+
+/**
+ * Collapse concurrent identical work onto a single execution.
+ *
+ * The cache alone doesn't help while it is cold: every request that arrives before the first
+ * one finishes also misses, so N callers each run the same expensive BigQuery scan. That is
+ * what produced bursts of repeated `source=live` lines for one index/period within seconds of
+ * a deploy. Late callers now await the first computation instead of starting their own.
+ *
+ * Per-process only (each instance coalesces its own traffic), which is all that's needed to
+ * stop a single container stampeding the warehouse.
+ *
+ * @param {string} key cache key identifying the work
+ * @param {() => Promise<any>} fn the expensive computation
+ */
+function withInflight(key, fn) {
+  const running = inflight.get(key);
+  if (running) return running;
+
+  const promise = (async () => {
+    try {
+      return await fn();
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+
+  inflight.set(key, promise);
+  return promise;
+}
+
 module.exports = {
   makeCacheKey,
   getCache,
   setCache,
   getVersion,
-  bumpVersion
+  bumpVersion,
+  withInflight
 };

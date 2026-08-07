@@ -24,16 +24,14 @@ export function createBrandOgImage(title: string, subtitle: string) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
-          <div
-            style={{
-              width: 0,
-              height: 0,
-              borderLeft: '28px solid transparent',
-              borderRight: '28px solid transparent',
-              borderBottom: '48px solid #59A9FF'
-            }}
-          />
-          <div style={{ fontSize: 64, fontWeight: 700, letterSpacing: -1 }}>
+          {/* SVG, not the CSS border-triangle trick — Satori ignores transparent borders and
+              would render the mark as a solid square. */}
+          <svg width="56" height="48" viewBox="0 0 56 48" fill="none">
+            <polygon points="28,0 56,48 0,48" fill="#59A9FF" />
+          </svg>
+          {/* display:flex is required by Satori on any element with more than one child —
+              without it ImageResponse throws and the route returns no body at all. */}
+          <div style={{ display: 'flex', fontSize: 64, fontWeight: 700, letterSpacing: -1 }}>
             <span style={{ color: '#59A9FF' }}>odin</span>
             <span style={{ color: '#ffffff' }}>500</span>
           </div>
