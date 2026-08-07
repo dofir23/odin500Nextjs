@@ -84,7 +84,8 @@ async function getSplits(req, res) {
     const payload = {
       ticker: ticker ? String(ticker).toUpperCase() : null,
       index,
-      universe_size: tickers.length,
+      // `tickers` is null on a single-ticker lookup (line above) — there is no universe to size.
+      universe_size: tickers ? tickers.length : 0,
       count: splits.length,
       splits,
       cache_hit: false

@@ -39,10 +39,13 @@ async function validateAdjCloseAroundSplit(ticker, executionDate, ratioFactor) {
     return { ok: false, error: 'Invalid ticker, date, or ratio factor' };
   }
 
+  // Ticker, not Symbol: stock_all_data keys rows by `Ticker` (see analyticsController
+  // fetchPricesForOdin). `Symbol` lives on the separate TickerDetails table, so this query
+  // failed with "Unrecognized name: Symbol" on every call.
   const query = `
     SELECT Date AS market_date, Close, Adj_Close
     FROM ${TABLE_FQN}
-    WHERE UPPER(Symbol) = @ticker
+    WHERE UPPER(TRIM(CAST(Ticker AS STRING))) = @ticker
       AND Date BETWEEN DATE_SUB(DATE(@exec), INTERVAL 10 DAY) AND DATE_ADD(DATE(@exec), INTERVAL 10 DAY)
     ORDER BY Date ASC
   `;
