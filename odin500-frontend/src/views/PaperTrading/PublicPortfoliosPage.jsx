@@ -1,13 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
+import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
-import { usePublicPortfolios } from '../../hooks/usePublicPortfolios.js';
+import { usePublicPortfoliosPaged } from '../../hooks/usePublicPortfolios.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
-import { sortPublicPortfolios } from '../../utils/paperPublicSort.js';
 import '../../styles/paper-trading.css';
+
+const PAGE_SIZE = 10;
+const TOP_PERFORMERS = 3;
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -41,14 +44,34 @@ function ownerInitials(label) {
 }
 
 function PublicPortfoliosPageContent() {
-  const { portfolios, loading, error } = usePublicPortfolios();
   const [sortKey, setSortKey] = useState('avg_monthly_return_pct');
   const [sortDir, setSortDir] = useState('desc');
+  const [page, setPage] = useState(1);
 
-  const sorted = useMemo(
-    () => sortPublicPortfolios(portfolios, sortKey, sortDir),
-    [portfolios, sortKey, sortDir]
-  );
+  // Table: one page of rows, sorted and paged by the API.
+  const { portfolios, pagination, loading, error } = usePublicPortfoliosPaged({
+    page,
+    pageSize: PAGE_SIZE,
+    sort: sortKey,
+    dir: sortDir
+  });
+
+  // Top performers stay the best overall, independent of which page is showing.
+  const { portfolios: topRows, loading: topLoading } = usePublicPortfoliosPaged({
+    page: 1,
+    pageSize: TOP_PERFORMERS,
+    sort: 'avg_monthly_return_pct',
+    dir: 'desc'
+  });
+
+  useEffect(() => {
+    setPage(1);
+  }, [sortKey, sortDir]);
+
+  const total = pagination?.total ?? 0;
+  const totalPages = pagination?.total_pages ?? 1;
+  const rangeStart = total ? (pagination.page - 1) * pagination.page_size + 1 : 0;
+  const rangeEnd = Math.min(pagination.page * pagination.page_size, total);
 
   const onSort = (key) => {
     if (key === sortKey) {
@@ -129,8 +152,12 @@ function PublicPortfoliosPageContent() {
 
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
 
-      {loading || portfolios.length > 0 ? (
-        <PublicPortfoliosTopSummary portfolios={portfolios} loading={loading} />
+      {topLoading || topRows.length > 0 ? (
+        <PublicPortfoliosTopSummary
+          portfolios={topRows}
+          loading={topLoading}
+          limit={TOP_PERFORMERS}
+        />
       ) : null}
 
       {loading ? (
@@ -150,7 +177,7 @@ function PublicPortfoliosPageContent() {
         </div>
       ) : null}
 
-      {!loading && !portfolios.length ? (
+      {!loading && !total ? (
         <div className="paper-empty paper-empty--public">
           <p>No published portfolios yet</p>
           <p className="paper-empty__hint">
@@ -163,12 +190,12 @@ function PublicPortfoliosPageContent() {
         </div>
       ) : null}
 
-      {!loading && portfolios.length > 0 ? (
+      {!loading && total > 0 ? (
         <div className="paper-table-wrap paper-public-table-wrap">
           <table className="paper-table paper-public-table">
             {tableHead}
             <tbody>
-              {sorted.map((p) => {
+              {portfolios.map((p) => {
                 const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
                 const avgTitle =
                   p.months_elapsed != null
@@ -221,6 +248,22 @@ function PublicPortfoliosPageContent() {
               })}
             </tbody>
           </table>
+        </div>
+      ) : null}
+
+      {!loading && total > 0 ? (
+        <div className="paper-public-pager">
+          <p className="paper-public-pager__count">
+            Showing {rangeStart}–{rangeEnd} of {total} portfolio{total === 1 ? '' : 's'}
+          </p>
+          {totalPages > 1 ? (
+            <FigmaPagination
+              page={pagination.page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              ariaLabel="Public portfolios pagination"
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

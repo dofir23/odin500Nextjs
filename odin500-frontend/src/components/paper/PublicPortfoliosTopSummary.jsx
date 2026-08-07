@@ -247,6 +247,66 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
     el.scrollBy({ left: dir * step, behavior: 'smooth' });
   };
 
+  /**
+   * Drag-to-scroll across the whole strip. Without this the carousel only moved when the
+   * gesture started in the gap between cards — the cards' own vertically scrollable body
+   * captured the pointer everywhere else. Snapping is disabled mid-drag so the strip tracks
+   * the cursor smoothly, and the click that follows a real drag is swallowed so dragging
+   * across a card never navigates to it.
+   */
+  const dragRef = useRef(null);
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      dragging: false
+    };
+  };
+
+  const onPointerMove = (e) => {
+    const drag = dragRef.current;
+    const el = scrollerRef.current;
+    if (!drag || !el) return;
+    const dx = e.clientX - drag.startX;
+    if (!drag.dragging) {
+      if (Math.abs(dx) < 5) return;
+      drag.dragging = true;
+      el.style.scrollSnapType = 'none';
+      el.style.cursor = 'grabbing';
+      try {
+        el.setPointerCapture(drag.pointerId);
+      } catch {
+        /* capture is best-effort */
+      }
+    }
+    el.scrollLeft = drag.startScroll - dx;
+  };
+
+  const onPointerUp = () => {
+    const drag = dragRef.current;
+    const el = scrollerRef.current;
+    dragRef.current = null;
+    if (!drag || !el) return;
+    if (drag.dragging) {
+      try {
+        el.releasePointerCapture(drag.pointerId);
+      } catch {
+        /* ignore */
+      }
+      el.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); }, {
+        capture: true,
+        once: true
+      });
+    }
+    el.style.scrollSnapType = '';
+    el.style.cursor = '';
+  };
+
   if (loading) {
     return (
       <section className="mt-5" aria-labelledby="public-top-portfolios-title" aria-busy="true">
@@ -284,7 +344,14 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
 
     return (
       <article className={cardClass}>
-        <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* touch-pan-y in carousel mode: this body scrolls vertically, but horizontal
+            gestures must fall through to the carousel strip instead of dying here. */}
+        <div
+          className={
+            'flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' +
+            (carousel ? ' touch-pan-y' : '')
+          }
+        >
           <div className="flex items-center justify-between gap-2.5">
             <span
               className={`inline-flex min-w-[2.35rem] items-center justify-center rounded-full px-2.5 py-0.5 text-[0.68rem] font-extrabold uppercase tracking-wide ${rankClass}`}
@@ -450,7 +517,11 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
       {carousel ? (
         <ul
           ref={scrollerRef}
-          className="flex touch-pan-x list-none gap-3.5 overflow-x-auto p-0 pb-2 [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className="flex cursor-grab touch-pan-x list-none gap-3.5 overflow-x-auto p-0 pb-2 [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {top.map((p, index) => (
             <li

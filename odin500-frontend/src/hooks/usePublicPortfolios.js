@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../utils/apiOrigin.js';
 
 async function parseJson(res) {
@@ -41,6 +41,85 @@ export function usePublicPortfolios() {
   }, [load]);
 
   return { portfolios, loading, error, refetch: load };
+}
+
+const EMPTY_PAGINATION = {
+  page: 1,
+  page_size: 10,
+  total: 0,
+  total_pages: 1,
+  has_prev: false,
+  has_next: false
+};
+
+/**
+ * Server-paginated published portfolios. Filtering, sorting and paging all happen on the
+ * API (`?page=&page_size=&sort=&dir=&ai_only=&engine=&index=&direction=`) so the browser
+ * only ever holds one page of rows.
+ *
+ * @param {{ page?: number, pageSize?: number, sort?: string, dir?: 'asc'|'desc',
+ *           aiOnly?: boolean, engine?: string, index?: string, direction?: string,
+ *           enabled?: boolean }} params
+ */
+export function usePublicPortfoliosPaged(params = {}) {
+  const {
+    page = 1,
+    pageSize = 10,
+    sort = 'avg_monthly_return_pct',
+    dir = 'desc',
+    aiOnly = false,
+    engine = '',
+    index = '',
+    direction = '',
+    enabled = true
+  } = params;
+
+  const [portfolios, setPortfolios] = useState([]);
+  const [pagination, setPagination] = useState(EMPTY_PAGINATION);
+  const [facets, setFacets] = useState({ engines: [] });
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState('');
+
+  const query = useMemo(() => {
+    const qs = new URLSearchParams();
+    qs.set('page', String(page));
+    qs.set('page_size', String(pageSize));
+    qs.set('sort', sort);
+    qs.set('dir', dir);
+    if (aiOnly) qs.set('ai_only', '1');
+    if (engine && engine !== '__all__') qs.set('engine', engine);
+    if (index && index !== '__all__') qs.set('index', index);
+    if (direction && direction !== '__all__') qs.set('direction', direction);
+    return qs.toString();
+  }, [page, pageSize, sort, dir, aiOnly, engine, index, direction]);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(apiUrl(`/api/public/paper/portfolios?${query}`));
+      const payload = await parseJson(res);
+      setPortfolios(payload.portfolios || []);
+      setPagination(payload.pagination || EMPTY_PAGINATION);
+      setFacets(payload.facets || { engines: [] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load public portfolios');
+      setPortfolios([]);
+      setPagination(EMPTY_PAGINATION);
+    } finally {
+      setLoading(false);
+    }
+  }, [query, enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { portfolios, pagination, facets, loading, error, refetch: load };
 }
 
 export function usePublicPortfolio(accountId) {

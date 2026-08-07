@@ -48,9 +48,11 @@ export function SvgBarChart({
           const y = p.value >= 0 ? midY - h : midY;
           const fill = p.value >= 0 ? positiveColor : negativeColor;
           return (
-            <g key={`${p.label}-${i}`}>
+            // aria-label, not <title>: an SVG <title> is still a <title> element in the
+            // document, and with streamed metadata these landed *before* the page's real
+            // <title>, so raw-HTML parsers read "2003: 46.15%" as the page title.
+            <g key={`${p.label}-${i}`} role="img" aria-label={`${p.label}: ${p.value.toFixed(2)}%`}>
               <rect x={x} y={y} width={barW} height={Math.max(1, h)} fill={fill} rx="1" />
-              <title>{`${p.label}: ${p.value.toFixed(2)}%`}</title>
             </g>
           );
         })}

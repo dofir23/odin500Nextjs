@@ -9,20 +9,36 @@ const {
   getPublishedOrders,
   getPublishedStrategy
 } = require('../services/paper/publicPortfolio');
+const { queryPublishedPortfolios } = require('../services/paper/publicPortfolioQuery');
 const { generatePortfolioSummaries } = require('../services/paper/portfolioSummaryAi');
 const {
   buildPortfolioExportWorkbook,
   buildAiPortfolioTemplateWorkbook
 } = require('../services/paper/portfolioExport');
 
+/**
+ * Published portfolios. Supports server-side filter/sort/pagination via query params:
+ *   ?page=1&page_size=10&sort=avg_monthly_return_pct&dir=desc&ai_only=1&engine=claude&index=dow&direction=short
+ * Without any of those params it returns the full list unchanged, so existing callers
+ * (the public gallery, the homepage teaser) keep working as-is.
+ */
+const PAGINATION_PARAMS = ['page', 'page_size', 'sort', 'dir', 'ai_only', 'engine', 'index', 'direction'];
+
 router.get('/portfolios', async (req, res) => {
   try {
-    const portfolios = await listPublishedPortfolios();
+    const all = await listPublishedPortfolios();
     const ttl = Number(process.env.PUBLIC_PORTFOLIOS_CACHE_TTL_SECS || 300);
     if (ttl > 0) {
       res.set('Cache-Control', `public, max-age=${Math.min(ttl, 60)}, s-maxage=${ttl}`);
     }
-    res.status(200).json({ success: true, portfolios });
+
+    const wantsPaged = PAGINATION_PARAMS.some((k) => req.query[k] != null);
+    if (!wantsPaged) {
+      return res.status(200).json({ success: true, portfolios: all });
+    }
+
+    const { portfolios, pagination, facets } = queryPublishedPortfolios(all, req.query);
+    res.status(200).json({ success: true, portfolios, pagination, facets });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Failed to load portfolios' });
   }

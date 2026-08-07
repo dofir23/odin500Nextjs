@@ -7,10 +7,57 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const API_ORIGIN = resolveApiOrigin();
 
+/**
+ * Bots that must get a *blocking* render so metadata lands inside <head>.
+ *
+ * Next.js 15.2+ streams metadata by default: for any UA not matched here, <title>/description/
+ * canonical/og:* are emitted late in the body and rely on the client hoisting them into <head>.
+ * Next's built-in list covers social unfurlers and Bing/DDG but NOT the SEO audit crawlers, so
+ * SEMrush/Ahrefs/Screaming Frog were reading pages as having no metadata at all — and on
+ * /ticker/* they picked up an SVG chart tooltip as the page title.
+ *
+ * Googlebot is deliberately excluded by Next (it executes JS and hoists metadata itself); it is
+ * listed here anyway so the raw HTML is correct on the first pass rather than after render.
+ *
+ * NOTE: this REPLACES Next's default regex rather than extending it, so the default pattern is
+ * inlined below. Keep in sync when upgrading Next
+ * (source: next/dist/shared/lib/router/utils/html-bots.js).
+ */
+const NEXT_DEFAULT_HTML_LIMITED_BOTS =
+  '[\\w-]+-Google|Google-[\\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight';
+
+const SEO_CRAWLER_BOTS = [
+  'Googlebot',
+  'SemrushBot',
+  'AhrefsBot',
+  'AhrefsSiteAudit',
+  'Screaming Frog',
+  'rogerbot',
+  'dotbot',
+  'MJ12bot',
+  'PetalBot',
+  'DataForSeoBot',
+  'SiteAuditBot',
+  'Barkrowler',
+  'SerpstatBot',
+  'ZoominfoBot',
+  'Sitebulb',
+  'seokicks',
+  'BLEXBot',
+  'Neevabot',
+  'CCBot',
+  'GPTBot',
+  'ChatGPT-User',
+  'PerplexityBot',
+  'ClaudeBot',
+  'Applebot-Extended'
+].join('|');
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['lucide-react'],
   outputFileTracingRoot: path.join(__dirname),
+  htmlLimitedBots: new RegExp(`${NEXT_DEFAULT_HTML_LIMITED_BOTS}|${SEO_CRAWLER_BOTS}`, 'i'),
   experimental: {
     staleTimes: {
       dynamic: 30,

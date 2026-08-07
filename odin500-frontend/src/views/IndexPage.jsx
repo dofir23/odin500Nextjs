@@ -697,6 +697,25 @@ function pctClass(n) {
 }
 
 /**
+ * Raw /api/market/ticker-details rows → constituents table rows. Shared by the SSR seed and the
+ * client refetch so server HTML and hydrated HTML agree.
+ */
+function mapConstituentRows(raw, isSectorRoute, sector) {
+  const rows = dedupeTickerDetailRows(Array.isArray(raw) ? raw : []);
+  const filtered =
+    isSectorRoute && sector
+      ? rows.filter((r) => rowMatchesSectorEtf(sector.key, r.Sector || r.sector))
+      : rows;
+  return filtered
+    .map((r) => ({
+      symbol: String(r.symbol || r.Symbol || '').toUpperCase().trim(),
+      close: Number(r.price),
+      ret1d: Number(r.totalReturnPercentage)
+    }))
+    .filter((r) => r.symbol);
+}
+
+/**
  * @param {object} props
  * @param {import('../ssr/fetchPageData').IndexPageInitialData | null} [props.initialData]
  */
@@ -783,7 +802,11 @@ export default function IndexPage({ initialData = null }) {
   const [relativeBusy, setRelativeBusy] = useState(false);
   const [relativeLeftKey, setRelativeLeftKey] = useState(`IDX:${slug}`);
   const [relativeRightKey, setRelativeRightKey] = useState(`IDX:${slug}`);
-  const [indexTickersRows, setIndexTickersRows] = useState([]);
+  // Seeded from SSR so the constituents table has real rows in the server HTML instead of
+  // "No constituents found." — the client effect below still refetches for live values.
+  const [indexTickersRows, setIndexTickersRows] = useState(() =>
+    ssrMatchesRoute ? mapConstituentRows(initialData?.tickerDetails, isSectorDataRoute, activeSector) : []
+  );
   const [indexTickersBusy, setIndexTickersBusy] = useState(false);
   const [indexTickersPage, setIndexTickersPage] = useState(1);
   const [indexConstituentsSort, setIndexConstituentsSort] = useState(
@@ -1734,19 +1757,9 @@ export default function IndexPage({ initialData = null }) {
           period: 'last-date'
         });
         if (stale()) return;
-        const rows = dedupeTickerDetailRows(Array.isArray(data?.data) ? data.data : []);
-        const filtered =
-          isSectorDataRoute && activeSector
-            ? rows.filter((r) => rowMatchesSectorEtf(activeSector.key, r.Sector || r.sector))
-            : rows;
-        const mapped = filtered
-          .map((r) => ({
-            symbol: String(r.symbol || r.Symbol || '').toUpperCase().trim(),
-            close: Number(r.price),
-            ret1d: Number(r.totalReturnPercentage)
-          }))
-          .filter((r) => r.symbol);
-        setIndexTickersRows(mapped);
+        setIndexTickersRows(
+          mapConstituentRows(data?.data, isSectorDataRoute, activeSector)
+        );
       } catch {
         if (!stale()) setIndexTickersRows([]);
       } finally {

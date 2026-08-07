@@ -98,15 +98,8 @@ const COMPANY_OVERVIEW_BASE = 'https://www.alphavantage.co/query';
 const COMPANY_PROFILE_DATA_KEY = companyProfileDataKey();
 const companyOverviewCache = new Map();
 const companyOverviewInflight = new Map();
-const FALLBACK_TICKER_NEWS = [
-  {
-    id: 'ticker-news-fallback-1',
-    title: 'Company-specific headline feed unavailable; showing placeholder item.',
-    source: 'Odin Ticker Desk',
-    time: 'sample',
-    url: ''
-  }
-];
+/* No placeholder news item: an empty feed renders the "No ticker headlines yet." state
+   below instead of shipping fake filler that crawlers index as page content. */
 
 const PERF_COLS = [
   { label: '1M', period: 'Last Month' },
@@ -729,10 +722,7 @@ export default function TickerPage({ initialData = null }) {
   const [companyOverviewExpanded, setCompanyOverviewExpanded] = useState(false);
   const [splitSummary, setSplitSummary] = useState(null);
   const [chartSplits, setChartSplits] = useState([]);
-  const liveNews = useMemo(
-    () => (tickerNewsItems.length ? tickerNewsItems.slice(0, MAX_NEWS_ITEMS) : FALLBACK_TICKER_NEWS),
-    [tickerNewsItems]
-  );
+  const liveNews = useMemo(() => tickerNewsItems.slice(0, MAX_NEWS_ITEMS), [tickerNewsItems]);
   const [appliedCustomRange, setAppliedCustomRange] = useState(null);
   const [draftChartStart, setDraftChartStart] = useState('');
   const [draftChartEnd, setDraftChartEnd] = useState('');
@@ -1317,11 +1307,11 @@ export default function TickerPage({ initialData = null }) {
       try {
         const rows = await fetchTickerNews(symbol, 10);
         if (stale()) return;
-        setTickerNewsItems(rows.length ? rows : FALLBACK_TICKER_NEWS);
+        setTickerNewsItems(rows);
       } catch (e) {
         if (!stale()) {
           setTickerNewsError(e?.message || 'Failed to load ticker headlines.');
-          setTickerNewsItems(FALLBACK_TICKER_NEWS);
+          setTickerNewsItems([]);
         }
       } finally {
         if (!stale()) setTickerNewsBusy(false);
@@ -1374,6 +1364,29 @@ export default function TickerPage({ initialData = null }) {
   const companyOverviewSector = String(companyOverview?.Sector || '').trim();
   const companyOverviewIndustry = String(companyOverview?.Industry || '').trim();
   const companyOverviewExchange = String(companyOverview?.Exchange || '').trim();
+  /** Only the profile fields that actually have a value — missing ones are dropped, not em-dashed. */
+  const companyOverviewFields = useMemo(() => {
+    const stripUrl = (u) => u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return [
+      { label: 'Sector', value: companyOverviewSector },
+      { label: 'Industry', value: companyOverviewIndustry },
+      { label: 'Headquarters', value: companyOverviewAddress },
+      { label: 'Exchange', value: companyOverviewExchange },
+      companyOverviewWebsite
+        ? { label: 'Website', value: stripUrl(companyOverviewWebsite), href: companyOverviewWebsite }
+        : null,
+      companyOverviewIrWebsite
+        ? { label: 'IR Website', value: stripUrl(companyOverviewIrWebsite), href: companyOverviewIrWebsite }
+        : null
+    ].filter((f) => f && f.value);
+  }, [
+    companyOverviewSector,
+    companyOverviewIndustry,
+    companyOverviewAddress,
+    companyOverviewExchange,
+    companyOverviewWebsite,
+    companyOverviewIrWebsite
+  ]);
   const companyOverviewDescriptionPreview = useMemo(() => {
     if (!companyOverviewDescription) return '';
     if (companyOverviewExpanded) return companyOverviewDescription;
@@ -2538,50 +2551,30 @@ export default function TickerPage({ initialData = null }) {
                       </span>
                     </button>
                   ) : null}
-                  <div className="ticker-company-overview__grid">
-                    <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">Sector</p>
-                      <p className="ticker-company-overview__metric-v">
-                        {companyOverviewSector || '—'}
-                      </p>
-                    </article>
-                    <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">Industry</p>
-                      <p className="ticker-company-overview__metric-v">
-                        {companyOverviewIndustry || '—'}
-                      </p>
-                    </article>
-                    <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">Headquarters</p>
-                      <p className="ticker-company-overview__metric-v">{companyOverviewAddress || '—'}</p>
-                    </article>
-                    <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">Exchange</p>
-                      <p className="ticker-company-overview__metric-v">{companyOverviewExchange || '—'}</p>
-                    </article>
-                    <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">Website</p>
-                      {companyOverviewWebsite ? (
-                        <a className="ticker-company-overview__metric-link" href={companyOverviewWebsite} target="_blank" rel="noopener noreferrer">
-                          {companyOverviewWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                          <span aria-hidden>↗</span>
-                        </a>
-                      ) : (
-                        <p className="ticker-company-overview__metric-v">—</p>
-                      )}
-                    </article>
-                    <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">IR Website</p>
-                      {companyOverviewIrWebsite ? (
-                        <a className="ticker-company-overview__metric-link" href={companyOverviewIrWebsite} target="_blank" rel="noopener noreferrer">
-                          {companyOverviewIrWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                          <span aria-hidden>↗</span>
-                        </a>
-                      ) : (
-                        <p className="ticker-company-overview__metric-v">—</p>
-                      )}
-                    </article>
-                  </div>
+                  {/* Only fields the profile source actually returned — an em-dash grid is
+                      thin content to a crawler and tells the reader nothing. */}
+                  {companyOverviewFields.length ? (
+                    <div className="ticker-company-overview__grid">
+                      {companyOverviewFields.map((f) => (
+                        <article className="ticker-company-overview__metric" key={f.label}>
+                          <p className="ticker-company-overview__metric-k">{f.label}</p>
+                          {f.href ? (
+                            <a
+                              className="ticker-company-overview__metric-link"
+                              href={f.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {f.value}
+                              <span aria-hidden>↗</span>
+                            </a>
+                          ) : (
+                            <p className="ticker-company-overview__metric-v">{f.value}</p>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </div>
