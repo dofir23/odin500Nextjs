@@ -7,7 +7,7 @@ export const HOME_HERO = {
     'Research stocks and ETFs, analyze index and sector performance, screen Odin trading signals, and track AI-built virtual portfolios for major indices — all in one place.',
   primaryCta: { href: '/signup', label: 'Sign up for free' },
   secondaryCta: { href: '/market', label: 'Explore market dashboard' },
-  tertiaryCta: { href: '/paper-trading/public', label: 'Public Portfolios' }
+  tertiaryCta: { href: '/paper-trading/ai', label: 'Ai Portfolios' }
 };
 
 export const HOME_PILLARS = [
@@ -207,10 +207,10 @@ export const HOME_FOOTER_CTA = {
 };
 
 export const HOME_NAV_PRODUCT = [
+  { href: '/paper-trading/ai', label: 'AI portfolios' },
   { href: '/market', label: 'Market dashboard' },
   { href: '/heatmap', label: 'Heatmaps' },
   { href: '/paper-trading', label: 'Virtual portfolio' },
-  { href: '/paper-trading/ai', label: 'AI portfolios' },
   { href: '/premium', label: 'Pricing' },
   { href: '/methodology', label: 'Methodology' },
   { href: '/about', label: 'About' }
