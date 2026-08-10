@@ -323,6 +323,91 @@ function tickerServerBlock(d: Record<string, unknown>, path: string) {
   );
 }
 
+const ENGINE_LABELS: Record<string, string> = {
+  claude: 'Claude',
+  chatgpt: 'ChatGPT',
+  gemini: 'Gemini'
+};
+const INDEX_LABELS: Record<string, string> = {
+  sp500: 'S&P 500',
+  nasdaq: 'Nasdaq-100',
+  dow: 'Dow Jones'
+};
+const DIRECTION_LABELS: Record<string, string> = {
+  long: 'Long',
+  short: 'Short',
+  long_short: 'Long-Short'
+};
+
+function labelOf(map: Record<string, string>, v: unknown) {
+  const k = String(v ?? '').toLowerCase();
+  return map[k] || (k ? k : '—');
+}
+
+function pct(v: unknown) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  return `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
+}
+
+/** "4.8 days" / "3.2 months" — track record length, so a return figure is never shown bare. */
+function ageLabel(months: unknown, days: unknown) {
+  const m = Number(months);
+  const d = Number(days);
+  if (Number.isFinite(m) && m >= 1) return `${m.toFixed(1)} mo`;
+  if (Number.isFinite(d)) return `${d.toFixed(1)} d`;
+  return '—';
+}
+
+/**
+ * Server-rendered AI portfolio leaderboard.
+ * Track record length sits next to every return column on purpose: average monthly return is
+ * extrapolated, so a days-old book can post a headline number that is arithmetically true and
+ * practically meaningless. Showing age inline keeps the table honest to readers and crawlers.
+ */
+export function AiPortfolioLeaderboard({ data, limit }: { data: unknown; limit: number }) {
+  const d = data as { rows?: unknown[] } | null;
+  const rows = asRows(d?.rows).slice(0, limit);
+  if (!rows.length) return null;
+
+  return (
+    <section className="text-sm">
+      <SimpleTable
+        caption={`AI stock portfolios ranked by average monthly return (top ${rows.length})`}
+        columns={[
+          { key: 'rank', label: '#' },
+          { key: 'name', label: 'Portfolio' },
+          { key: 'engine', label: 'AI model' },
+          { key: 'index', label: 'Index' },
+          { key: 'direction', label: 'Direction' },
+          { key: 'cadence', label: 'Rebalance' },
+          { key: 'total', label: 'Total return' },
+          { key: 'avg', label: 'Avg monthly' },
+          { key: 'age', label: 'Track record' },
+          { key: 'positions', label: 'Positions' }
+        ]}
+        rows={rows.map((r, i) => ({
+          rank: i + 1,
+          name: r.name,
+          engine: labelOf(ENGINE_LABELS, r.ai_engine),
+          index: labelOf(INDEX_LABELS, r.ai_index_focus),
+          direction: labelOf(DIRECTION_LABELS, r.ai_direction),
+          cadence: String(r.ai_rebalance_cadence ?? '—'),
+          total: pct(r.total_return_pct),
+          avg: pct(r.avg_monthly_return_pct),
+          age: ageLabel(r.months_elapsed, r.days_elapsed),
+          positions: r.positions_count ?? '—'
+        }))}
+      />
+      <p className="mt-2 text-xs opacity-80">
+        Average monthly return is annualised from each book&apos;s track record, so portfolios
+        running only a few days can show outsized figures. Compare the track record column
+        alongside any return. Simulated paper trading — not investment advice.
+      </p>
+    </section>
+  );
+}
+
 function StaticPageSection({ path }: { path: string }) {
   const staticCopy = STATIC_PAGE_SEO[path];
   if (!staticCopy) return null;
@@ -332,6 +417,25 @@ function StaticPageSection({ path }: { path: string }) {
       {staticCopy.paragraphs.map((p, i) => (
         <p key={i}>{p}</p>
       ))}
+      {staticCopy.sections?.map((s) => (
+        <section key={s.heading}>
+          <h3>{s.heading}</h3>
+          <p>{s.body}</p>
+        </section>
+      ))}
+      {staticCopy.faqs?.length ? (
+        <section>
+          <h3>Frequently asked questions</h3>
+          <dl>
+            {staticCopy.faqs.map((f) => (
+              <div key={f.q}>
+                <dt>{f.q}</dt>
+                <dd>{f.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
       {staticCopy.links?.length ? (
         <ul className="list-disc pl-5">
           {staticCopy.links.map((l) => (
@@ -421,6 +525,18 @@ function routeFallbackBody(path: string): ReactNode {
 
 export function renderServerPageBody(pathname: string, data: unknown): ReactNode {
   const path = pathname.split('?')[0];
+
+  // Static copy plus the live leaderboard. The homepage renders its own top-5 preview via
+  // HomePageServer (it does not route through here), which is what keeps the two from
+  // reading as duplicates.
+  if (path === '/paper-trading/ai') {
+    return (
+      <>
+        <StaticPageSection path={path} />
+        <AiPortfolioLeaderboard data={data} limit={25} />
+      </>
+    );
+  }
 
   if (STATIC_PAGE_SEO[path]) {
     return <StaticPageSection path={path} />;

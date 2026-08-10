@@ -3,17 +3,24 @@
 export type StaticPageSeoBlock = {
   heading: string;
   paragraphs: string[];
+  /** Optional h3 sub-sections, for pages that need more depth than a few paragraphs. */
+  sections?: Array<{ heading: string; body: string }>;
+  /** Optional Q&A. Wire the path into faqJsonLdForPath to also emit FAQPage schema. */
+  faqs?: Array<{ q: string; a: string }>;
   links?: Array<{ href: string; label: string }>;
 };
 
 export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
   '/': {
-    heading: 'Odin500 — U.S. stock market data and analytics platform',
+    heading: 'AI stock portfolios — Claude, ChatGPT and Gemini trading U.S. equities',
     paragraphs: [
-      'Odin500 provides U.S. equity market dashboards, sector heatmaps, OHLC historical prices, index and ETF return analytics, Odin trading signals, market news, statistic tables, stock split calendars, ticker research reports, premium data plans, and a virtual portfolio simulator.',
-      'Sign up free to access charts and basic signals, or explore the market dashboard, indices, sectors, and ticker pages without an account on many public routes.'
+      'Odin500 runs virtual stock portfolios in which large language models make every trading decision. Each book picks its own tickers and rebalances on a set cadence across the S&P 500, Nasdaq-100, and Dow Jones, going long, short, or both — and every position, rebalance, and closed trade is published so you can compare how the models actually perform.',
+      'Launch your own AI-managed portfolio with Claude, ChatGPT, or Gemini: choose the index, the direction, the selection criteria, and how often it rebalances, then leave it to trade unattended and track it against every other published book.',
+      'The same platform carries the market data the models trade on — dashboards, sector heatmaps, OHLC historical prices, index and ETF return analytics, Odin trading signals, market news, statistic tables, stock split calendars, and per-ticker research reports.',
+      'All portfolios are simulated paper trading for research and comparison. Nothing here is investment advice.'
     ],
     links: [
+      { href: '/paper-trading/ai', label: 'Full AI portfolio leaderboard' },
       { href: '/market', label: 'Market dashboard' },
       { href: '/odin-signals', label: 'Odin Signals' },
       { href: '/signup', label: 'Create free account' },
@@ -81,15 +88,66 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
     ]
   },
   '/paper-trading/ai': {
-    heading: 'AI stock portfolios — Claude, ChatGPT & Gemini',
+    heading: 'AI stock portfolios — Claude, ChatGPT & Gemini trading performance',
     paragraphs: [
-      'Odin500 hosts virtual portfolios built and rebalanced by AI models — Claude and ChatGPT today, with Gemini and more on the way — trading long and short on the S&P 500, Nasdaq-100, and Dow Jones.',
-      'Each AI portfolio picks its own tickers, sizes positions equally, and rebalances on a set cadence. Portfolios are ranked by average monthly return so books of different ages compare fairly, with full holdings, equity curves, and closed-trade history published for every book.',
-      'Simulated paper trading only — not investment advice.'
+      'Odin500 runs virtual investment portfolios in which large language models make every trading decision. Claude and ChatGPT each manage their own book of stocks today, with Gemini next, going long and short across the S&P 500, Nasdaq-100, and Dow Jones. Every position, rebalance, and closed trade is published so you can compare how different AI models handle the same stock market.',
+      'Each portfolio runs to a fixed trading plan set when it is created: an index universe, a direction (long, short, or long-short), selection criteria, and a daily, weekly, or monthly rebalance cadence. From then on the model is trading stocks unattended — no human overrides the picks.',
+      'Portfolios are ranked by average monthly return rather than total return, so a book opened last week can be compared fairly against one running for months. The table shows portfolio value, total return, average monthly return, and open position count for every AI-powered portfolio.',
+      'These are simulated paper-trading portfolios for research and comparison. Nothing here is investment advice.'
+    ],
+    sections: [
+      {
+        heading: 'How the AI models make trading decisions',
+        body:
+          'At each rebalance the model is given tools rather than opinions. It pulls the full index universe with each constituent’s current Odin signal bucket, and can request recent market news, company news, and latest daily close prices before committing to a set of target holdings. It is instructed to rank long candidates by the strongest bullish buckets (L1, then L2, then L3) and short candidates by the strongest bearish buckets (S1, then S2, then S3), and it may never invent a ticker, price, or signal that did not come back from a tool call.'
+      },
+      {
+        heading: 'Signals come from price data, not fundamentals',
+        body:
+          'The Odin signal buckets driving candidate selection are derived from daily OHLC price history, which puts these books closer to systematic technical analysis than to fundamental valuation. The financial data each model sees is identical, so differences in trading performance reflect how each model reasons over the same inputs — which candidates it takes, how it balances long and short exposure, and how quickly it rotates as market conditions change.'
+      },
+      {
+        heading: 'Risk management and position sizes',
+        body:
+          'Position sizes are spread across the book rather than concentrated in single high-conviction bets, and the configured direction caps how much short exposure a portfolio may carry. Managing risk is visible rather than assumed: open positions, sector concentration, and the full closed-trade history are published for every portfolio, so drawdowns and losing streaks are on the record alongside the wins.'
+      },
+      {
+        heading: 'Judging results over the short and long term',
+        body:
+          'A few strong weeks say very little about automated trading strategies. Closed-trade analytics report win rate and profit statistics per portfolio, which separates books that are genuinely working from books carried by one outsized position. Ranking noise over the short term fades as sample size grows, so treat average monthly return over a longer track record — across both trending and choppy market conditions — as the meaningful comparison.'
+      }
+    ],
+    faqs: [
+      {
+        q: 'Which AI models trade these portfolios?',
+        a: 'Claude and ChatGPT run books today, with Gemini support next. Each runs as a general-purpose large language model called through its provider API — the models are not fine-tuned on market data, so what you are comparing is out-of-the-box reasoning over identical financial data.'
+      },
+      {
+        q: 'Do the AI models trade with real money?',
+        a: 'No. Every AI portfolio is a simulated paper-trading account. Fills are priced against Odin daily close data, and no broker connection or real capital is involved.'
+      },
+      {
+        q: 'How often do the portfolios rebalance?',
+        a: 'Each portfolio is configured with a daily, weekly, or monthly cadence when it is created. Rebalances run automatically on that schedule — the model closes dropped picks and opens new ones without manual intervention.'
+      },
+      {
+        q: 'Can the AI portfolios short stocks?',
+        a: 'Yes. A portfolio can be configured long-only, short-only, or long-short. Short candidates are ranked by bearish Odin signal buckets (S1 to S3), the mirror of how long candidates are ranked.'
+      },
+      {
+        q: 'Why rank by average monthly return instead of total return?',
+        a: 'Total return rewards whichever portfolio has simply been running longest. Average monthly return normalises for age, so a book opened recently and one opened months ago can be compared on the same footing.'
+      },
+      {
+        q: 'Can I build my own portfolio alongside these?',
+        a: 'Yes. Virtual portfolios are free with an Odin500 account. You can trade manually, automate entries and exits from Odin signal rules, set position limits, and publish the result to the public gallery.'
+      }
     ],
     links: [
       { href: '/paper-trading/public', label: 'All public portfolios' },
       { href: '/paper-trading', label: 'Your portfolio' },
+      { href: '/odin-signals', label: 'Odin trading signals' },
+      { href: '/methodology', label: 'Signal methodology' },
       { href: '/market', label: 'Market dashboard' }
     ]
   },

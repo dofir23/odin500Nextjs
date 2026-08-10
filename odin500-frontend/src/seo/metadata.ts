@@ -15,9 +15,9 @@ export const ROUTE_METADATA: Record<
   { title: string; description: string; canonical?: string }
 > = {
   '/': {
-    title: 'Odin500 – U.S. Stock Market Data, Charts, Signals & Virtual Portfolio',
+    title: 'AI Stock Portfolios by Claude, ChatGPT & Gemini – Odin500',
     description:
-      'Free U.S. stock market platform with live dashboards, sector heatmaps, OHLC historical data, index and ETF analytics, Odin trading signals, news, return tables, and virtual portfolio trading.',
+      'See live AI-managed stock portfolios trading the S&P 500, Nasdaq-100 and Dow Jones, ranked by return — then launch your own with Claude, ChatGPT or Gemini. Free market data, charts and signals included.',
     canonical: `${SITE_ORIGIN}/`
   },
   '/market': {
@@ -117,9 +117,9 @@ export const ROUTE_METADATA: Record<
     canonical: `${SITE_ORIGIN}/paper-trading/public`
   },
   '/paper-trading/ai': {
-    title: 'AI Stock Portfolios – Claude & ChatGPT Trading Performance',
+    title: 'AI Portfolio Leaderboard – Claude vs ChatGPT vs Gemini Trading',
     description:
-      'Compare AI-run virtual portfolios trading the S&P 500, Nasdaq-100, and Dow Jones long and short, ranked by real performance.',
+      'Full leaderboard of AI-managed stock portfolios: every book by Claude, ChatGPT and Gemini with holdings, rebalance cadence, win rate, drawdown and trade history. Filter by model, index and direction.',
     canonical: `${SITE_ORIGIN}/paper-trading/ai`
   },
   '/login': {

@@ -50,6 +50,44 @@ export function HomePageBody() {
           />
         </section>
 
+        <section className="home-ai-portfolios" aria-labelledby="home-ai-portfolios-title">
+          <h2 id="home-ai-portfolios-title" className="home-section-title home-section-title--center">
+            {HOME_AI_PORTFOLIOS.title}
+          </h2>
+          <p className="home-section-lead home-section-lead--center">{HOME_AI_PORTFOLIOS.lead}</p>
+
+          <p className="home-ai-portfolios__indices-label">{HOME_AI_PORTFOLIOS.indicesLabel}</p>
+          <ul className="home-ai-portfolios__indices">
+            {HOME_AI_PORTFOLIOS.indices.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+
+          <div className="home-ai-portfolios__engines">
+            {HOME_AI_PORTFOLIOS.engines.map((engine) => (
+              <article key={engine.id} className="home-ai-engine">
+                <h3 className="home-ai-engine__title">{engine.label}</h3>
+                <p className="home-ai-engine__blurb">{engine.blurb}</p>
+              </article>
+            ))}
+          </div>
+
+          <p className="home-ai-portfolios__summary">{HOME_AI_PORTFOLIOS.summary}</p>
+
+          <HomeAiPortfoliosLive />
+
+          <p className="home-ai-portfolios__disclaimer">{HOME_AI_PORTFOLIOS.disclaimer}</p>
+
+          <div className="home-ai-portfolios__ctas">
+            <a href={HOME_AI_PORTFOLIOS.primaryCta.href} className="home-btn home-btn--primary">
+              {HOME_AI_PORTFOLIOS.primaryCta.label}
+            </a>
+            <a href={HOME_AI_PORTFOLIOS.secondaryCta.href} className="home-btn home-btn--ghost">
+              {HOME_AI_PORTFOLIOS.secondaryCta.label}
+            </a>
+          </div>
+        </section>
+
         <section className="home-pillars" aria-labelledby="home-pillars-title">
           <h2 id="home-pillars-title" className="home-section-title home-section-title--center">
             Built for investors, by market-data practitioners
@@ -93,43 +131,6 @@ export function HomePageBody() {
           ))}
         </section>
 
-        <section className="home-ai-portfolios" aria-labelledby="home-ai-portfolios-title">
-          <h2 id="home-ai-portfolios-title" className="home-section-title home-section-title--center">
-            {HOME_AI_PORTFOLIOS.title}
-          </h2>
-          <p className="home-section-lead home-section-lead--center">{HOME_AI_PORTFOLIOS.lead}</p>
-
-          <p className="home-ai-portfolios__indices-label">{HOME_AI_PORTFOLIOS.indicesLabel}</p>
-          <ul className="home-ai-portfolios__indices">
-            {HOME_AI_PORTFOLIOS.indices.map((label) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-
-          <div className="home-ai-portfolios__engines">
-            {HOME_AI_PORTFOLIOS.engines.map((engine) => (
-              <article key={engine.id} className="home-ai-engine">
-                <h3 className="home-ai-engine__title">{engine.label}</h3>
-                <p className="home-ai-engine__blurb">{engine.blurb}</p>
-              </article>
-            ))}
-          </div>
-
-          <p className="home-ai-portfolios__summary">{HOME_AI_PORTFOLIOS.summary}</p>
-
-          <HomeAiPortfoliosLive />
-
-          <p className="home-ai-portfolios__disclaimer">{HOME_AI_PORTFOLIOS.disclaimer}</p>
-
-          <div className="home-ai-portfolios__ctas">
-            <a href={HOME_AI_PORTFOLIOS.primaryCta.href} className="home-btn home-btn--primary">
-              {HOME_AI_PORTFOLIOS.primaryCta.label}
-            </a>
-            <a href={HOME_AI_PORTFOLIOS.secondaryCta.href} className="home-btn home-btn--ghost">
-              {HOME_AI_PORTFOLIOS.secondaryCta.label}
-            </a>
-          </div>
-        </section>
 
         <section className="home-use-cases" aria-labelledby="home-use-cases-title">
           <h2 id="home-use-cases-title" className="home-section-title">

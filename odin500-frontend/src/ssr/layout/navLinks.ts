@@ -6,6 +6,7 @@ export type ServerNavLink = {
 };
 
 export const SERVER_NAV_LINKS: ServerNavLink[] = [
+  { href: '/paper-trading/ai', label: 'AI Portfolios' },
   { href: '/market', label: 'Markets' },
   { href: '/indices/dow-jones', label: 'Indices' },
   { href: '/ticker/AAPL', label: 'Tickers' },

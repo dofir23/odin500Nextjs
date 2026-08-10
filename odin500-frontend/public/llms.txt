@@ -1,8 +1,22 @@
 # Odin500
 
-> U.S. stock market data, charts, Odin trading signals, sector heatmaps, return analytics, and a virtual portfolio simulator for investors and researchers.
+> AI-managed virtual stock portfolios run by Claude, ChatGPT, and Gemini — plus U.S. stock market data, charts, Odin trading signals, sector heatmaps, and return analytics for investors and researchers.
 
 Canonical site: https://www.odin500.com
+
+## AI portfolios
+
+Odin500 publishes virtual stock portfolios in which large language models make every trading
+decision. Each book is configured with an index universe (S&P 500, Nasdaq-100, Dow Jones), a
+direction (long, short, or long-short), selection criteria, and a daily/weekly/monthly rebalance
+cadence, then trades unattended. Models select candidates using Odin signal buckets (L1–L3 long,
+S1–S3 short) derived from daily OHLC data, and may only act on tool-returned tickers and prices.
+Holdings, equity curves, and closed-trade history are published for every book. Users can launch
+their own portfolio with Claude, ChatGPT, or Gemini. All trading is simulated — not investment advice.
+
+- /paper-trading/ai — AI portfolio leaderboard, ranked by average monthly return
+- /paper-trading — Build your own AI-managed or manual virtual portfolio
+- /paper-trading/public — All published user portfolios
 
 ## Main sections
 
@@ -22,7 +36,7 @@ Canonical site: https://www.odin500.com
 - /ticker/aapl — Per-ticker OHLC charts, returns, and Odin signals (pattern: /ticker/{symbol})
 - /historical-data/aapl — Historical OHLC download (pattern: /historical-data/{symbol})
 - /ticker-report/aapl — Ticker research reports (pattern: /ticker-report/{symbol})
-- /paper-trading — Virtual portfolio simulator with optional strategy automation
+- /paper-trading — Virtual portfolio simulator with optional strategy automation (see AI portfolios above)
 - /premium — Free and Pro ($10/month) pricing
 - /methodology — Data sources, signal methodology, and editorial standards
 - /about — Company overview, mission, and trust content

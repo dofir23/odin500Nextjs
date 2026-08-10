@@ -44,19 +44,24 @@ function toSitemapEntries(
     return {
       url: `${SITE_ORIGIN}${path === '/' ? '' : path}`,
       lastModified: safeDate(publishedAt),
-      changeFrequency: path.startsWith('/newsletter/')
-        ? 'weekly'
-        : path.includes('/ticker/') || path.includes('/historical-data/')
+      changeFrequency:
+        path === '/paper-trading/ai'
           ? 'daily'
-          : 'weekly',
-      priority:
-        path === '/' || path === '/market'
-          ? 1
           : path.startsWith('/newsletter/')
-            ? 0.75
-            : path.includes('/ticker/')
-              ? 0.8
-              : 0.6
+            ? 'weekly'
+            : path.includes('/ticker/') || path.includes('/historical-data/')
+              ? 'daily'
+              : 'weekly',
+      priority:
+        path === '/' || path === '/paper-trading/ai'
+          ? 1
+          : path === '/market'
+            ? 0.9
+            : path.startsWith('/newsletter/')
+              ? 0.75
+              : path.includes('/ticker/')
+                ? 0.8
+                : 0.6
     } as MetadataRoute.Sitemap[number];
   });
 }
