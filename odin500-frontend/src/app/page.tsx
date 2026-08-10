@@ -1,7 +1,6 @@
 import { toNextMetadata } from '@/seo/metadata';
 import { PageJsonLd } from '@/seo/JsonLd';
 import { SeoCrawlerSummary } from '@/seo/SeoCrawlerSummary';
-import { SeoInternalLinks } from '@/seo/SeoInternalLinks';
 import { HomePageServer } from '@/ssr/pages/HomePageServer';
 import { fetchAiPortfoliosPageData } from '@/ssr/fetchPageData';
 import { FullSsrPage } from '@/ssr/enhance/FullSsrPage';
@@ -29,7 +28,6 @@ export default async function HomePageRoute() {
     <>
       <PageJsonLd pathname="/" breadcrumbItems={[]} seoData={aiPortfolios} />
       <SeoCrawlerSummary pathname="/" data={null} />
-      <SeoInternalLinks pathname="/" />
       <FullSsrPage server={<HomePageServer aiPortfolios={aiPortfolios} />} client={<HomePage />} />
     </>
   );

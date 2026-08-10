@@ -251,6 +251,7 @@ export const HOME_IMAGES = {
     dark: '/og-default.png',
     light: `${HOME_LIGHT_DIR}/hero-preview.png`
   },
+  aiportfolio: homeScreenshot('Ai-portfolio.png'),
   dashboard: homeScreenshot('dashboard-preview.png'),
   signals: homeScreenshot('signals-preview.png'),
   ticker: homeScreenshot('ticker-preview.png'),
@@ -289,6 +290,17 @@ export type HomeShowcaseItem = {
 
 /** Alternating image + copy rows — image flips left/right by index. */
 export const HOME_SHOWCASE: HomeShowcaseItem[] = [
+  {
+    id: 'aiportfolio',
+    title: 'AI portfolios by Claude, ChatGPT & Gemini',
+    description:
+      'Virtual books where the model makes every call — picking constituents across the S&P 500, Nasdaq-100, and Dow Jones, going long or short, and rebalancing on its own cadence. Ranked by average monthly return, with holdings, equity curves, and closed trades published for each one.',
+    href: '/paper-trading/ai',
+    linkLabel: 'View the AI portfolio leaderboard',
+    imageKey: 'aiportfolio',
+    imageAlt:
+      'Odin500 AI portfolio leaderboard ranking Claude and ChatGPT portfolios by total return and average monthly return'
+  },
   {
     id: 'dashboard',
     title: 'Market dashboard at a glance',
