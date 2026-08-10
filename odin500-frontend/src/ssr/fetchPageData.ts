@@ -78,6 +78,34 @@ export type TickerPageInitialData = {
   asOfDate: string;
   ohlcRows?: unknown[];
   ohlcSignalRows?: unknown[];
+  /**
+   * Only the row matching `symbol` — not the full ticker-details list. The page heading needs
+   * the company name in SSR HTML (crawlers were served "AAPL — N/A"); shipping all ~500 rows
+   * would bloat an already-heavy document.
+   */
+  tickerDetail?: Record<string, unknown> | null;
+};
+
+export type AiPortfolioRow = {
+  id: string;
+  name: string;
+  ai_engine: string | null;
+  ai_index_focus: string | null;
+  ai_direction: string | null;
+  ai_rebalance_cadence: string | null;
+  total_return_pct: number | null;
+  avg_monthly_return_pct: number | null;
+  months_elapsed: number | null;
+  days_elapsed: number | null;
+  positions_count: number | null;
+  equity: number | null;
+  publish_description: string | null;
+};
+
+export type AiPortfoliosInitialData = {
+  rows: AiPortfolioRow[];
+  /** Total published AI-managed books, so the page can say "top 5 of N". */
+  total: number;
 };
 
 export type OdinSignalsInitialData = {
@@ -263,6 +291,24 @@ function rowsFromTickerDetails(payload: Record<string, unknown> | null) {
   return dedupeTickerDetailRows(Array.isArray(data) ? data : []);
 }
 
+/** Single ticker-details row for `symbol`, matching TickerPage's own Symbol/symbol lookup. */
+function findTickerDetailRow(
+  payload: Record<string, unknown> | null,
+  symbol: string
+): Record<string, unknown> | null {
+  const want = String(symbol || '').toUpperCase().trim();
+  if (!want) return null;
+  const data = payload?.data;
+  if (!Array.isArray(data)) return null;
+  for (const row of data) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const s = String(r.Symbol || r.symbol || '').toUpperCase().trim();
+    if (s === want) return r;
+  }
+  return null;
+}
+
 export async function fetchHeatmapPageData(
   index = 'Dow Jones',
   period = 'last-date'
@@ -443,18 +489,20 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
   oneYearStart.setFullYear(oneYearStart.getFullYear() - 1);
   const ohlcStart = oneYearStart.toISOString().slice(0, 10);
 
-  const [coreRes, spyRes, annualRes, quarterlyRes, monthlyRes, signalRes] = await Promise.all([
-    postMarketJson('/api/market/ticker-core-returns', body),
-    postMarketJson('/api/market/ticker-core-returns', { ...body, ticker: BENCHMARK }),
-    postMarketJson('/api/market/ticker-annual-returns', body),
-    postMarketJson('/api/market/ticker-quarterly-returns', body),
-    postMarketJson('/api/market/ticker-monthly-returns', body),
-    postMarketJson('/api/market/ohlc-signals-indicator', {
-      ticker: sym,
-      start_date: ohlcStart,
-      end_date: end
-    })
-  ]);
+  const [coreRes, spyRes, annualRes, quarterlyRes, monthlyRes, signalRes, detailsRes] =
+    await Promise.all([
+      postMarketJson('/api/market/ticker-core-returns', body),
+      postMarketJson('/api/market/ticker-core-returns', { ...body, ticker: BENCHMARK }),
+      postMarketJson('/api/market/ticker-annual-returns', body),
+      postMarketJson('/api/market/ticker-quarterly-returns', body),
+      postMarketJson('/api/market/ticker-monthly-returns', body),
+      postMarketJson('/api/market/ohlc-signals-indicator', {
+        ticker: sym,
+        start_date: ohlcStart,
+        end_date: end
+      }),
+      postMarketJson('/api/market/ticker-details', { index: 'sp500', period: 'last-date' })
+    ]);
 
   if (!coreRes && !spyRes) return null;
 
@@ -471,7 +519,8 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
     returnsSpy: spyRes,
     asOfDate: String(returnsSym?.asOfDate || coreRes?.asOfDate || end).slice(0, 10),
     ohlcRows: signalRows,
-    ohlcSignalRows: signalRows
+    ohlcSignalRows: signalRows,
+    tickerDetail: findTickerDetailRow(detailsRes, sym)
   };
 }
 
@@ -543,6 +592,54 @@ export async function fetchStockSplitsPageData(
     days,
     indexId
   };
+}
+
+function num(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Published AI-managed portfolios for SSR. Uses the public paper endpoint (no auth), so the
+ * leaderboard lands in crawlable HTML instead of only appearing after client fetch.
+ *
+ * `ai_only=1` still returns hand-run books, so filter on `ai_managed` rather than trusting the
+ * flag — `strategy_mode` reads "manual" even on AI-managed rows and cannot be used for this.
+ */
+export async function fetchAiPortfoliosPageData(
+  limit = 25
+): Promise<AiPortfoliosInitialData | null> {
+  const capped = Math.max(1, Math.min(50, Math.trunc(limit) || 25));
+  const payload = await getMarketJson(
+    `/api/public/paper/portfolios?page=1&page_size=50&ai_only=1` +
+      `&sort=avg_monthly_return_pct&dir=desc`
+  );
+
+  const list = Array.isArray(payload?.portfolios) ? payload.portfolios : [];
+  const rows: AiPortfolioRow[] = list
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+    .filter((r) => r.ai_managed === true)
+    .slice(0, capped)
+    .map((r) => ({
+      id: String(r.id || ''),
+      name: String(r.name || '').trim() || 'Untitled portfolio',
+      ai_engine: r.ai_engine == null ? null : String(r.ai_engine),
+      ai_index_focus: r.ai_index_focus == null ? null : String(r.ai_index_focus),
+      ai_direction: r.ai_direction == null ? null : String(r.ai_direction),
+      ai_rebalance_cadence:
+        r.ai_rebalance_cadence == null ? null : String(r.ai_rebalance_cadence),
+      total_return_pct: num(r.total_return_pct),
+      avg_monthly_return_pct: num(r.avg_monthly_return_pct),
+      months_elapsed: num(r.months_elapsed),
+      days_elapsed: num(r.days_elapsed),
+      positions_count: num(r.positions_count),
+      equity: num(r.equity),
+      publish_description:
+        r.publish_description == null ? null : String(r.publish_description)
+    }));
+
+  if (!rows.length) return null;
+  return { rows, total: rows.length };
 }
 
 export async function fetchTickerReportPageData(

@@ -3,6 +3,14 @@ import { Link } from '@/navigation/appRouterCompat.jsx';
 
 const FOOTER_SECTIONS = [
   {
+    title: 'AI portfolios',
+    links: [
+      { to: '/paper-trading/ai', label: 'AI Portfolio Leaderboard' },
+      { to: '/paper-trading', label: 'Build Your Own' },
+      { to: '/paper-trading/public', label: 'Public Portfolios' }
+    ]
+  },
+  {
     title: 'Markets',
     links: [
       { to: '/market', label: 'Market Dashboard' },

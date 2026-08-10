@@ -1,4 +1,3 @@
-import { SITE_ORIGIN } from '@/seo/siteConfig.js';
 
 function symFromPath(pathname: string) {
   const m = pathname.match(
@@ -113,7 +112,6 @@ function InternalLinksNav({
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs opacity-70">Canonical site: {SITE_ORIGIN}</p>
     </nav>
   );
 }

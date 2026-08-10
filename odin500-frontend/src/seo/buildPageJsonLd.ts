@@ -6,6 +6,7 @@ import { PREMIUM_FAQS, premiumFaqPlainText } from '@/content/premiumFaqs';
 import { ABOUT_FAQS } from '@/content/aboutPageContent';
 import { METHODOLOGY_FAQS } from '@/content/methodologyPageContent';
 import { PAPER_TRADING_FAQS } from '@/content/paperTradingPageContent';
+import { STATIC_PAGE_SEO } from '@/seo/staticPageSeoCopy';
 import { resolveVisiblePageH1 } from '@/seo/resolveVisiblePageH1';
 
 export type BreadcrumbItem = { name: string; path: string };
@@ -42,6 +43,9 @@ function faqJsonLdForPath(pathname: string, seoData: unknown) {
   if (path === '/paper-trading') {
     return buildFaqPageJsonLd([...PAPER_TRADING_FAQS]);
   }
+  if (path === '/paper-trading/ai') {
+    return buildFaqPageJsonLd([...(STATIC_PAGE_SEO['/paper-trading/ai'].faqs || [])]);
+  }
   if (path.startsWith('/ticker-report/')) {
     const report = (seoData as { report?: { faqs?: Array<{ q?: string; a?: string }> } } | null)?.report;
     const faqs = Array.isArray(report?.faqs)
@@ -63,7 +67,7 @@ export function buildSitewideJsonLd() {
       url: SITE_ORIGIN,
       logo: `${SITE_ORIGIN}/og-default.png`,
       description:
-        'Odin500 is a U.S. stock market data and analytics platform with dashboards, OHLC history, Odin trading signals, and virtual portfolio simulation.',
+        'Odin500 publishes AI-managed virtual stock portfolios run by Claude, ChatGPT, and Gemini, alongside U.S. market dashboards, OHLC history, and Odin trading signals.',
       sameAs: [`${SITE_ORIGIN}/about`]
     },
     {
@@ -73,6 +77,36 @@ export function buildSitewideJsonLd() {
       url: SITE_ORIGIN
     }
   ];
+}
+
+/**
+ * ItemList for the AI portfolio leaderboard, so the ranking is machine-readable rather than
+ * only visible as a table. Emitted on `/` and `/paper-trading/ai`, both of which SSR the board.
+ */
+function aiPortfolioListJsonLd(pathname: string, seoData: unknown) {
+  const path = pathname.split('?')[0].replace(/\/+$/, '') || '/';
+  if (path !== '/' && path !== '/paper-trading/ai') return null;
+
+  const rows = (seoData as { rows?: Array<Record<string, unknown>> } | null)?.rows;
+  if (!Array.isArray(rows) || !rows.length) return null;
+
+  const pageUrl = path === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/paper-trading/ai`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'AI stock portfolios ranked by average monthly return',
+    description:
+      'Virtual stock portfolios managed by large language models, ranked by average monthly return.',
+    url: pageUrl,
+    numberOfItems: rows.length,
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    itemListElement: rows.slice(0, 25).map((r, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: String(r.name || 'Untitled portfolio'),
+      url: r.id ? `${SITE_ORIGIN}/paper-trading/public/${String(r.id)}` : pageUrl
+    }))
+  };
 }
 
 function tickerSymbolFromPath(pathname: string) {
@@ -147,6 +181,9 @@ export function buildPageJsonLd(
 
   const faqLd = faqJsonLdForPath(pathname, seoData);
   if (faqLd) graph.push(faqLd);
+
+  const aiListLd = aiPortfolioListJsonLd(pathname, seoData);
+  if (aiListLd) graph.push(aiListLd);
 
   return graph;
 }

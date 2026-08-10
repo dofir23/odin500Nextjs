@@ -42,10 +42,14 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/newsletter'
 ];
 
+function isPublicContentPath(pathname: string) {
+  return PUBLIC_CONTENT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 function isPublicPath(pathname: string) {
   if (pathname === '/') return true;
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) return true;
-  return PUBLIC_CONTENT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return isPublicContentPath(pathname);
 }
 
 function isGuestAuthEntryPath(pathname: string) {
@@ -103,6 +107,19 @@ function canonicalLowercaseRedirect(request: NextRequest): NextResponse | null {
     if (canonicalPath === pathname) continue;
     const url = request.nextUrl.clone();
     url.pathname = canonicalPath;
+    return NextResponse.redirect(url, 308);
+  }
+
+  /**
+   * Routes without a dynamic segment (/MARKET, /Newsletter/x) match no rule above. They then
+   * failed the case-sensitive isPublicPath check and fell through to the auth guard, so every
+   * uppercase content URL 307'd to /login — Googlebot saw a login redirect, not the page.
+   * Every sitemap URL is lowercase, so folding to lowercase is always the canonical target.
+   */
+  const lowercased = pathname.toLowerCase();
+  if (lowercased !== pathname && isPublicContentPath(lowercased)) {
+    const url = request.nextUrl.clone();
+    url.pathname = lowercased;
     return NextResponse.redirect(url, 308);
   }
 

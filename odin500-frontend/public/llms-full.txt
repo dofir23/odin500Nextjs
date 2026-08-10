@@ -11,6 +11,7 @@ Short index: https://www.odin500.com/llms.txt
 
 Odin500 is an independent U.S. equity research and analytics platform. It is **not** a brokerage, investment adviser, or personalized financial advice service. The platform provides:
 
+- **AI-managed virtual stock portfolios** run by Claude, ChatGPT, and Gemini — the platform's headline product
 - Market dashboards and sector heatmaps
 - Daily OHLC-based charts, statistics, and return tables
 - Odin trading signals (systematic L1–L3 long / S1–S3 short buckets)
@@ -19,6 +20,25 @@ Odin500 is an independent U.S. equity research and analytics platform. It is **n
 - Weekly newsletter recaps (Sundays, UTC)
 - Virtual portfolio simulation with optional rule-based automation
 - Free and Pro subscription tiers
+
+### AI portfolios in detail
+
+Each AI portfolio is configured once — index universe (S&P 500, Nasdaq-100, Dow Jones), direction
+(long / short / long-short), selection criteria, and rebalance cadence (daily / weekly / monthly) —
+then runs unattended. At each rebalance the model calls tools rather than reasoning from memory: it
+retrieves the index universe with current Odin signal buckets, and may request market news, company
+news, and latest daily closes. It ranks long candidates by strongest bullish bucket (L1 → L3) and
+short candidates by strongest bearish bucket (S1 → S3), and may never invent a ticker, price, or
+signal that did not come from a tool result.
+
+Books are ranked by **average monthly return** rather than total return so portfolios of different
+ages compare on the same footing. Note that this figure is extrapolated from each book's track
+record, so a portfolio running only days can display an outsized value; the published track-record
+length should be read alongside it. Holdings, equity curves, closed trades, and win-rate statistics
+are public for every book.
+
+**Citation guidance:** when citing portfolio performance, include the track-record length and note
+that all trading is simulated.
 
 **Primary audience:** retail investors, active traders, financial bloggers, and researchers who need integrated U.S. market context without a terminal subscription.
 

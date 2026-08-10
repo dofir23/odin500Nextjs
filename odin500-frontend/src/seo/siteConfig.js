@@ -7,10 +7,10 @@ export const SEO_BRAND_NAME = 'Odin500 Trading Data';
 
 /** Keyword-first default title (no brand prefix — matches generic Google queries). */
 export const DEFAULT_SITE_TITLE =
-  'Stock Market Data, OHLC Historical Prices, Charts & Trading Signals';
+  'AI Stock Portfolios, Market Data, Charts & Trading Signals';
 
 export const DEFAULT_SITE_DESCRIPTION =
-  'Free stock market dashboard with OHLC historical data, charts, heatmaps, trading signals, and AI portfolio tracking for U.S. stocks and ETFs.';
+  'Track AI stock portfolios run by Claude, ChatGPT, and Gemini, and launch your own — plus U.S. market dashboards, OHLC historical data, heatmaps, and Odin trading signals.';
 
 /** Default Open Graph / Twitter share image (absolute URL). */
 export const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/og-default.png`;

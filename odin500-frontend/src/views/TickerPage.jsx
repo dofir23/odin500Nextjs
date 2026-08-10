@@ -694,7 +694,15 @@ export default function TickerPage({ initialData = null }) {
   );
   const [returnsSym, setReturnsSym] = useState(() => ssrSeed?.returnsSym ?? null);
   const [returnsSpy, setReturnsSpy] = useState(() => ssrSeed?.returnsSpy ?? null);
-  const [detailRows, setDetailRows] = useState([]);
+  /** SSR row for this symbol only — keeps the company name in the heading when the client
+   *  metadata fetch is skipped or fails, instead of falling back to a bare symbol. */
+  const ssrDetailRows = useMemo(
+    () => (ssrSeed?.tickerDetail ? [ssrSeed.tickerDetail] : []),
+    [ssrSeed]
+  );
+  /** Seeded from SSR so the heading renders the company name in crawlable HTML; the metadata
+   *  effect below replaces this with the full index list once it resolves. */
+  const [detailRows, setDetailRows] = useState(ssrDetailRows);
   const [statsRows, setStatsRows] = useState(() =>
     ssrSeed?.ohlcRows?.length ? sortRowsAsc(ssrSeed.ohlcRows) : []
   );
@@ -1058,7 +1066,7 @@ export default function TickerPage({ initialData = null }) {
     const epochAtStart = getRouteNavigationEpoch();
     const stale = () => isRouteNavigationStale(cancelled, epochAtStart);
     if (!canFetchMarketData()) {
-      setDetailRows([]);
+      setDetailRows(ssrDetailRows);
       return () => {
         cancelled = true;
       };
@@ -1072,10 +1080,10 @@ export default function TickerPage({ initialData = null }) {
             { staleTime: 30 * 60 * 1000 }
           );
           if (stale()) return;
-          setDetailRows(Array.isArray(d?.data) ? d.data : []);
+          setDetailRows(Array.isArray(d?.data) && d.data.length ? d.data : ssrDetailRows);
           setApiTimings((prev) => ({ ...prev, metaMs: Math.round(performance.now() - metaStartedAt) }));
         } catch {
-          if (!stale()) setDetailRows([]);
+          if (!stale()) setDetailRows(ssrDetailRows);
         }
       })();
     }, 350);
@@ -1083,7 +1091,7 @@ export default function TickerPage({ initialData = null }) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [sym, authVersion, symbolRefreshToken]);
+  }, [sym, authVersion, symbolRefreshToken, ssrDetailRows]);
 
   /** Second (and final) ticker-returns request on load: long table window for page symbol + active section benchmark. */
   useEffect(() => {
@@ -1343,8 +1351,8 @@ export default function TickerPage({ initialData = null }) {
     return null;
   }, [detailRows, sym]);
 
-  const company =
-    String(myDetail?.Security || myDetail?.security || '').trim() || `${sym} — N/A`;
+  // Bare symbol when the name is unknown — "SYM — N/A" was being served to crawlers as the h1.
+  const company = String(myDetail?.Security || myDetail?.security || '').trim() || sym;
   const sector = String(myDetail?.Sector || myDetail?.sector || '').trim();
   const sectorDataSlug = useMemo(() => sectorFieldToEtfSlug(sector), [sector]);
   const industry = String(myDetail?.Industry || myDetail?.industry || '').trim();
