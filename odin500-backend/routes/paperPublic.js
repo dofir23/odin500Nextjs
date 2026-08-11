@@ -10,6 +10,7 @@ const {
   getPublishedStrategy
 } = require('../services/paper/publicPortfolio');
 const { queryPublishedPortfolios } = require('../services/paper/publicPortfolioQuery');
+const { buildCopyPreview } = require('../services/paper/copyPortfolio');
 const { generatePortfolioSummaries } = require('../services/paper/portfolioSummaryAi');
 const {
   buildPortfolioExportWorkbook,
@@ -138,6 +139,26 @@ router.get('/portfolios/:accountId/export.xlsx', async (req, res) => {
   } catch (error) {
     const status = error.status || 500;
     res.status(status).json({ success: false, error: error.message || 'Failed to export portfolio' });
+  }
+});
+
+/**
+ * What a visitor would receive if they copied this portfolio right now.
+ *
+ * Deliberately unauthenticated: an anonymous visitor should see the concrete share counts
+ * before being asked to sign up. Reads published data only and creates nothing.
+ */
+router.get('/portfolios/:accountId/copy-preview', async (req, res) => {
+  try {
+    const preview = await buildCopyPreview({ accountId: req.params.accountId });
+    res.status(200).json({ success: true, ...preview });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      error: error.message || 'Failed to build copy preview',
+      code: error.code || undefined
+    });
   }
 });
 

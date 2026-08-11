@@ -108,7 +108,9 @@ function publicMetaFields(account) {
     ai_index_focus: account.ai_index_focus || null,
     ai_direction: account.ai_direction || null,
     ai_criteria: account.ai_criteria || null,
-    ai_rebalance_cadence: account.ai_rebalance_cadence || null
+    ai_rebalance_cadence: account.ai_rebalance_cadence || null,
+    // Missing column (migration not yet run) means copying stays available.
+    allow_copy: account.allow_copy !== false
   };
 }
 
@@ -170,6 +172,7 @@ async function loadPublishedAccountSnapshot(account) {
   const metrics = summarizeAccountMetrics(account, positions, closedTrades || []);
   const ownerLabel = await resolveOwnerLabel(account.user_id);
   const strategyLabel = await getBoundStrategyLabel(account.id);
+  const copyCount = await getCopyCount(account.id);
 
   return {
     id: account.id,
@@ -183,8 +186,23 @@ async function loadPublishedAccountSnapshot(account) {
     ...metrics,
     cash_balance: Number(account.cash_balance) || metrics.cash || 0,
     positions_count: positions.length,
+    copy_count: copyCount,
     positions
   };
+}
+
+/** Copies made from this portfolio. Returns 0 if the lineage migration has not been run. */
+async function getCopyCount(accountId) {
+  try {
+    const { count, error } = await supabaseService
+      .from('paper_accounts')
+      .select('id', { count: 'exact', head: true })
+      .eq('copied_from_account_id', accountId);
+    if (error) return 0;
+    return Number(count) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 const PUBLIC_LIST_CACHE_KEY = 'public:paper:portfolios:list:v2';
