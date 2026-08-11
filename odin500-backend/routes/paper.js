@@ -43,7 +43,12 @@ const {
 } = require('../services/paper/aiPortfolioCreator');
 const { parseHoldingsWorkbook } = require('../services/paper/portfolioExport');
 const { listEngines } = require('../services/paper/aiProviders');
-const { paperAssistantLimiter, aiPortfolioChatLimiter } = require('../middleware/rateLimitMiddleware');
+const { executeCopy } = require('../services/paper/copyPortfolio');
+const {
+  paperAssistantLimiter,
+  aiPortfolioChatLimiter,
+  copyPortfolioLimiter
+} = require('../middleware/rateLimitMiddleware');
 
 const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 function uploadSingleImportFile(req, res, next) {
@@ -971,6 +976,31 @@ router.post('/ai-portfolios', async (req, res) => {
     res.status(error.status || 500).json({
       success: false,
       error: error.message || 'Failed to create AI portfolio',
+      code: error.code || undefined
+    });
+  }
+});
+
+/**
+ * Snapshot-copy a published portfolio into a new account for the caller.
+ *
+ * Replicates target weights at today's prices — not the source's share counts or entry
+ * prices — so the copy's performance starts flat and diverges from the source immediately.
+ */
+router.post('/portfolios/:accountId/copy', copyPortfolioLimiter, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const result = await executeCopy({
+      userId: req.user.id,
+      accountId: req.params.accountId,
+      name: body.name,
+      copyAiStrategy: body.copy_ai_strategy === true || body.copyAiStrategy === true
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    res.status(error.status || 500).json({
+      success: false,
+      error: error.message || 'Failed to copy portfolio',
       code: error.code || undefined
     });
   }

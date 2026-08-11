@@ -7,6 +7,7 @@ import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
 import { AiPortfolioCreatorChat } from '../../components/paper/AiPortfolioCreatorChat.jsx';
+import { CopyPortfolioModal } from '../../components/paper/CopyPortfolioModal.jsx';
 import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
 import { usePublicPortfoliosPaged } from '../../hooks/usePublicPortfolios.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
@@ -59,6 +60,7 @@ function AiPortfoliosPageContent() {
   const [indexFilter, setIndexFilter] = useState('__all__');
   const [directionFilter, setDirectionFilter] = useState('__all__');
   const [page, setPage] = useState(1);
+  const [copyTarget, setCopyTarget] = useState(null);
 
   // Table: one page of rows, filtered/sorted/paged by the API.
   const { portfolios, pagination, facets, loading, error, refetch } = usePublicPortfoliosPaged({
@@ -335,6 +337,15 @@ function AiPortfoliosPageContent() {
                       <Link to={href} className="paper-public-table__cta">
                         View portfolio
                       </Link>
+                      {(p.positions_count ?? 0) > 0 ? (
+                        <button
+                          type="button"
+                          className="paper-public-table__cta paper-public-table__cta--copy"
+                          onClick={() => setCopyTarget({ id: p.id, name: p.name })}
+                        >
+                          Copy
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 );
@@ -359,6 +370,12 @@ function AiPortfoliosPageContent() {
           ) : null}
         </div>
       ) : null}
+
+      <CopyPortfolioModal
+        open={Boolean(copyTarget)}
+        portfolio={copyTarget}
+        onClose={() => setCopyTarget(null)}
+      />
     </div>
   );
 }

@@ -6320,3 +6320,74 @@ body.paper-assistant--resizing iframe {
   }
 }
 
+
+/* ---------- Copy portfolio ---------- */
+
+/* Defined in admin.css too, but this stylesheet is what the public portfolio pages load. */
+.paper-alert--warn {
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.1);
+  color: #fde68a;
+  margin-bottom: 1rem;
+}
+
+.paper-copy-modal {
+  max-width: 640px;
+}
+
+.paper-copy-modal .paper-table-wrap {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.paper-copy-modal__skipped {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--paper-border);
+  border-radius: 10px;
+}
+
+.paper-copy-modal__skipped ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.paper-copy-modal__ai-optin {
+  margin-top: 1rem;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.paper-copy-modal__ai-optin input[type='checkbox'] {
+  margin-top: 0.25rem;
+  flex: 0 0 auto;
+}
+
+[data-theme='light'] .paper-alert--warn {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+/* Secondary "Copy" action sits beside "View portfolio" in the public/AI table rows. */
+.paper-public-table__cta--copy {
+  margin-left: 0.85rem;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--paper-muted);
+}
+
+.paper-public-table__cta--copy:hover {
+  color: #93c5fd;
+}
+
+[data-theme='light'] .paper-public-table__cta--copy:hover {
+  color: #1d4ed8;
+}

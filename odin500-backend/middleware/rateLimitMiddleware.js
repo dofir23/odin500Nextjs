@@ -31,4 +31,20 @@ const aiPortfolioChatLimiter = rateLimit({
   validate: { keyGeneratorIpFallback: false }
 });
 
-module.exports = { loginLimiter, paperAssistantLimiter, aiPortfolioChatLimiter };
+/** Copying a portfolio creates an account and places a burst of orders — keep it deliberate. */
+const copyPortfolioLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.PAPER_COPY_RATE_MAX || 10),
+  message: { error: 'Too many portfolio copies. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `copy-portfolio:${req.user?.id || req.ip || 'anon'}`,
+  validate: { keyGeneratorIpFallback: false }
+});
+
+module.exports = {
+  loginLimiter,
+  paperAssistantLimiter,
+  aiPortfolioChatLimiter,
+  copyPortfolioLimiter
+};

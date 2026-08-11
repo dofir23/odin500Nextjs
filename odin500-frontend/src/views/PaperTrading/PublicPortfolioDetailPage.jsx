@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from '@/navigation/appRouterCompat.jsx';
 import { apiUrl } from '../../utils/apiOrigin.js';
 import { usePublicPortfolio } from '../../hooks/usePublicPortfolios.js';
+import { CopyPortfolioModal } from '../../components/paper/CopyPortfolioModal.jsx';
 import { AccountSummary } from '../../components/paper/AccountSummary.jsx';
 import { PaperPerformanceChart } from '../../components/paper/PaperPerformanceChart.jsx';
 import { PortfolioInsightsPanel } from '../../components/paper/PortfolioInsightsPanel.jsx';
@@ -32,6 +33,7 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
   const params = useParams();
   const accountId = accountIdProp || String(params?.accountId || '').trim();
   const [tab, setTab] = useState('positions');
+  const [copyOpen, setCopyOpen] = useState(false);
   const {
     portfolio,
     history,
@@ -52,6 +54,8 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
 
   const positions = portfolio?.positions || [];
   const isAutomated = portfolio?.strategy_mode && portfolio.strategy_mode !== 'manual';
+  const copyAllowed = Boolean(portfolio) && portfolio.allow_copy !== false && positions.length > 0;
+  const copyCount = Number(portfolio?.copy_count) || 0;
   const description = String(portfolio?.publish_description || '').trim();
   const strategyText = String(portfolio?.publish_strategy || '').trim();
   const strategyLabel = String(portfolio?.strategy_label || '').trim();
@@ -122,12 +126,22 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
               {ownerLine}
               {portfolio.published_at ? ` · Published ${fmtDate(portfolio.published_at)}` : ''}
               {isAutomated ? ' · Automated strategy' : ''}
+              {copyCount > 0 ? ` · Copied ${copyCount} time${copyCount === 1 ? '' : 's'}` : ''}
             </p>
           ) : (
             <p className="paper-header__sub">Loading published portfolio…</p>
           )}
         </div>
         <div className="paper-header__actions">
+          {copyAllowed ? (
+            <button
+              type="button"
+              className="paper-btn paper-btn--submit-entry"
+              onClick={() => setCopyOpen(true)}
+            >
+              Copy portfolio
+            </button>
+          ) : null}
           {portfolio ? (
             <a
               href={apiUrl(`/api/public/paper/portfolios/${encodeURIComponent(accountId)}/export.xlsx`)}
@@ -292,6 +306,12 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
           )}
         </div>
       </section>
+
+      <CopyPortfolioModal
+        open={copyOpen}
+        portfolio={portfolio}
+        onClose={() => setCopyOpen(false)}
+      />
     </div>
   );
 }
