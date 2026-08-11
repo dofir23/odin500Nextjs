@@ -7,7 +7,7 @@ export const HOME_HERO = {
     'Research stocks and ETFs, analyze index and sector performance, screen Odin trading signals, and track AI-built virtual portfolios for major indices — all in one place.',
   primaryCta: { href: '/signup', label: 'Sign up for free' },
   secondaryCta: { href: '/market', label: 'Explore market dashboard' },
-  tertiaryCta: { href: '/paper-trading/public', label: 'Public Portfolios' }
+  tertiaryCta: { href: '/paper-trading/ai', label: 'Ai Portfolios' }
 };
 
 export const HOME_PILLARS = [
@@ -207,10 +207,10 @@ export const HOME_FOOTER_CTA = {
 };
 
 export const HOME_NAV_PRODUCT = [
+  { href: '/paper-trading/ai', label: 'AI portfolios' },
   { href: '/market', label: 'Market dashboard' },
   { href: '/heatmap', label: 'Heatmaps' },
   { href: '/paper-trading', label: 'Virtual portfolio' },
-  { href: '/paper-trading/ai', label: 'AI portfolios' },
   { href: '/premium', label: 'Pricing' },
   { href: '/methodology', label: 'Methodology' },
   { href: '/about', label: 'About' }
@@ -251,6 +251,7 @@ export const HOME_IMAGES = {
     dark: '/og-default.png',
     light: `${HOME_LIGHT_DIR}/hero-preview.png`
   },
+  aiportfolio: homeScreenshot('Ai-portfolio.png'),
   dashboard: homeScreenshot('dashboard-preview.png'),
   signals: homeScreenshot('signals-preview.png'),
   ticker: homeScreenshot('ticker-preview.png'),
@@ -289,6 +290,17 @@ export type HomeShowcaseItem = {
 
 /** Alternating image + copy rows — image flips left/right by index. */
 export const HOME_SHOWCASE: HomeShowcaseItem[] = [
+  {
+    id: 'aiportfolio',
+    title: 'AI portfolios by Claude, ChatGPT & Gemini',
+    description:
+      'Virtual books where the model makes every call — picking constituents across the S&P 500, Nasdaq-100, and Dow Jones, going long or short, and rebalancing on its own cadence. Ranked by average monthly return, with holdings, equity curves, and closed trades published for each one.',
+    href: '/paper-trading/ai',
+    linkLabel: 'View the AI portfolio leaderboard',
+    imageKey: 'aiportfolio',
+    imageAlt:
+      'Odin500 AI portfolio leaderboard ranking Claude and ChatGPT portfolios by total return and average monthly return'
+  },
   {
     id: 'dashboard',
     title: 'Market dashboard at a glance',

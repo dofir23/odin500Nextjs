@@ -16,7 +16,6 @@ import { MarketMoversRailFlyout } from './MarketMoversRailFlyout.jsx';
 import { notifyChartFullscreenLayout } from '../utils/chartFullscreenLayout.js';
 import { RouteNavigationGate } from './RouteNavigationGate.jsx';
 import { RouteErrorBoundary } from './RouteErrorBoundary.jsx';
-import { SeoSiteFooter } from './SeoSiteFooter.jsx';
 
 function ProtectedLayoutShell({ children, serverNav = null }) {
   const location = useLocation();
@@ -134,9 +133,6 @@ function ProtectedLayoutShell({ children, serverNav = null }) {
                   </RouteErrorBoundary>
                 </RouteNavigationGate>
               </main>
-              {/* Visible sitemap links for readers and crawlers alike — replaces the
-                  crawler-only .ssr-app-chrome nav on content routes. */}
-              <SeoSiteFooter />
             </div>
             {isDockOpen && isMobile ? (
               <button

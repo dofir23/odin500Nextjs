@@ -3,7 +3,6 @@ import { FullSsrPage } from '@/ssr/enhance/FullSsrPage';
 import { ServerPageBody } from '@/ssr/pages/ServerPageBody';
 import { PageJsonLd } from './JsonLd';
 import { SeoCrawlerSummary } from './SeoCrawlerSummary';
-import { SeoInternalLinks } from './SeoInternalLinks';
 import { ServerPageContent } from './ServerPageContent';
 import type { BreadcrumbItem } from './buildPageJsonLd';
 
@@ -36,7 +35,6 @@ export function PageServerShell({
     <>
       <PageJsonLd pathname={pathname} breadcrumbItems={breadcrumbItems} seoData={seoData} />
       <SeoCrawlerSummary pathname={pathname} data={seoData} />
-      <SeoInternalLinks pathname={pathname} />
       {ssrMode === 'ssr-primary' ? (
         <FullSsrPage server={server} client={children} />
       ) : (
