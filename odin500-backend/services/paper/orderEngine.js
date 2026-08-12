@@ -281,6 +281,18 @@ async function deleteAccountForUser(userId, accountId) {
     .eq('user_id', userId);
 
   if (error) throw error;
+
+  // A published book lives on in the cached public list (5 min TTL) until the cache is dropped,
+  // so the AI Portfolios / Public Portfolios tabs would keep showing it after deletion.
+  if (account.is_published) {
+    try {
+      const { invalidatePublicPortfoliosListCache } = require('./publicPortfolio');
+      await invalidatePublicPortfoliosListCache();
+    } catch {
+      /* ignore cache invalidation errors */
+    }
+  }
+
   return { success: true, id, name: account.name };
 }
 

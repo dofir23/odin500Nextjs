@@ -64,6 +64,17 @@ const nextConfig: NextConfig = {
       static: 180
     }
   },
+  async headers() {
+    return [
+      {
+        // robots.txt deliberately blocks nothing (see src/app/robots.ts) so Googlebot's renderer
+        // can fetch the data each page needs. These JSON endpoints are still never index
+        // candidates — noindex says so in the one way a crawler can actually read.
+        source: '/api/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }]
+      }
+    ];
+  },
   async rewrites() {
     return [
       {
