@@ -14,14 +14,21 @@ import { SITE_ORIGIN } from '@/seo/siteConfig.js';
  * shouldNoindexPath() (metadata.ts) already returns `noindex, follow`, and each private
  * route is separately gated by middleware, so allowing the crawl exposes nothing.
  *
- * /api/ stays blocked: those return JSON with no meta tag to read, and nothing links to them.
+ * The same reasoning is why NOTHING is disallowed here, /api/ included. apiUrl()
+ * (utils/apiOrigin.js) routes every browser-side call through same-origin /api/proxy/*, and
+ * /api/auth/session is fetched on every page load, so a Disallow on /api/ stopped Googlebot's
+ * renderer from fetching each page's own data: Search Console rendered pages carrying a visible
+ * "Request failed (499)" banner and listed every XHR as "blocked by robots.txt", while the same
+ * pages loaded fine in a browser.
+ *
+ * Keeping JSON out of the index is the job of the `X-Robots-Tag: noindex` header that
+ * next.config.ts applies to /api/:path* — a header Google can only read if it may fetch the URL.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: '/',
-      disallow: ['/api/']
+      allow: '/'
     },
     sitemap: `${SITE_ORIGIN}/sitemap.xml`
   };
