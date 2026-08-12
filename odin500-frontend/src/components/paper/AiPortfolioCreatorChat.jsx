@@ -141,9 +141,13 @@ const TICKER_STOPWORDS = new Set([
   'AI', 'OK', 'ETF', 'ETFS', 'CEO', 'CFO', 'USD', 'EPS', 'IPO', 'NYSE', 'SEC', 'GDP', 'US', 'USA', 'FAQ', 'API'
 ]);
 
-/** Two or more ticker-looking tokens (AAPL, BRK.B, ...) means the user named exact holdings. */
+/** Index names tokenize into ticker-looking fragments ("S&P 500" -> S, P) — drop them first. */
+const INDEX_PHRASE_RE = /s\s*&\s*p(\s*500)?|dow\s*jones|nasdaq(\s*-?\s*100)?/gi;
+
+/** Two or more ticker-looking tokens (AAPL, BRK.B, ...) means the user named exact holdings.
+ *  Single letters are excluded — they're far more often stray capitals than real tickers. */
 function mentionsExplicitTickers(text) {
-  const matches = text.match(/\b[A-Z]{1,5}(?:\.[A-Z])?\b/g) || [];
+  const matches = String(text).replace(INDEX_PHRASE_RE, ' ').match(/\b[A-Z]{2,5}(?:\.[A-Z])?\b/g) || [];
   const tickers = matches.filter((m) => !TICKER_STOPWORDS.has(m));
   return tickers.length >= 2;
 }

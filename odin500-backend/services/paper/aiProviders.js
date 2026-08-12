@@ -39,7 +39,8 @@ const ENGINES = {
     apiKeyEnv: 'GEMINI_API_KEY',
     modelEnvVars: ['GEMINI_PORTFOLIO_MODEL'],
     // Verify against Google's current model list before relying on this default in production.
-    defaultModel: 'gemini-2.0-flash',
+    // Google retires older models (2.0-flash, 2.5-flash both 404 now), so keep this current.
+    defaultModel: 'gemini-3.6-flash',
     call: callGemini
   }
 };
@@ -253,7 +254,11 @@ function toGeminiContents(messages) {
       const parts = [];
       if (m.content) parts.push({ text: m.content });
       for (const tc of m.tool_calls || []) {
-        parts.push({ functionCall: { name: tc.name, args: tc.arguments || {} } });
+        const part = { functionCall: { name: tc.name, args: tc.arguments || {} } };
+        // Gemini 3+ rejects a follow-up turn whose functionCall parts don't echo back the
+        // thought signature it issued with them (400 "missing a thought_signature").
+        if (tc.thoughtSignature) part.thoughtSignature = tc.thoughtSignature;
+        parts.push(part);
       }
       out.push({ role: 'model', parts: parts.length ? parts : [{ text: '' }] });
     } else if (m.role === 'tool') {
@@ -306,7 +311,10 @@ async function callGemini({ apiKey, model, timeoutMs, systemPrompt, messages, to
       .map((p, i) => ({
         id: `gemini_${p.functionCall.name}_${i}_${Date.now()}`,
         name: p.functionCall.name,
-        arguments: p.functionCall.args || {}
+        arguments: p.functionCall.args || {},
+        // Replayed verbatim by toGeminiContents on the next round; the tool loop pushes these
+        // objects straight back into the convo, and the other providers ignore the extra field.
+        thoughtSignature: p.thoughtSignature
       }));
     return { content: textPart?.text || null, toolCalls, raw: payload };
   } finally {
