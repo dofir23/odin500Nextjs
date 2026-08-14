@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Filter } from 'lucide-react';
-import { Link } from '@/navigation/appRouterCompat.jsx';
+import { Link, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
@@ -25,6 +25,43 @@ const DIRECTION_OPTIONS = [
 const INDEX_OPTIONS = [ALL_INDICES, ...INDEX_PATTERNS.map(({ id, label }) => ({ id, label }))];
 const PAGE_SIZE = 10;
 const TOP_PERFORMERS = 5;
+
+const DEFAULT_ENGINE = '__all__';
+const DEFAULT_INDEX = '__all__';
+const DEFAULT_DIRECTION = '__all__';
+const DEFAULT_SORT = 'avg_monthly_return_pct';
+const DEFAULT_DIR = 'desc';
+
+const ALLOWED_ENGINES = new Set(['__all__', 'ai', ...ENGINE_PATTERNS.map((e) => e.id)]);
+const ALLOWED_INDICES = new Set(['__all__', ...INDEX_PATTERNS.map((i) => i.id)]);
+const ALLOWED_DIRECTIONS = new Set(DIRECTION_OPTIONS.map((d) => d.id));
+const ALLOWED_SORTS = new Set([
+  'equity',
+  'total_return_pct',
+  'avg_monthly_return_pct',
+  'positions_count',
+  'published_at'
+]);
+const ALLOWED_DIRS = new Set(['asc', 'desc']);
+
+function parseParam(raw, allowed, fallback) {
+  const v = String(raw || '').trim();
+  return allowed.has(v) ? v : fallback;
+}
+
+/** Engines may include facet ids beyond the known Claude/ChatGPT/Gemini set. */
+function parseEngineParam(raw) {
+  const v = String(raw || '').trim().toLowerCase();
+  if (!v || v === DEFAULT_ENGINE) return DEFAULT_ENGINE;
+  if (ALLOWED_ENGINES.has(v)) return v;
+  if (/^[a-z0-9_-]{1,32}$/.test(v)) return v;
+  return DEFAULT_ENGINE;
+}
+
+function parsePage(raw) {
+  const n = Number.parseInt(String(raw || ''), 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -54,13 +91,87 @@ function ownerInitials(label) {
 }
 
 function AiPortfoliosPageContent() {
-  const [sortKey, setSortKey] = useState('avg_monthly_return_pct');
-  const [sortDir, setSortDir] = useState('desc');
-  const [engineFilter, setEngineFilter] = useState('__all__');
-  const [indexFilter, setIndexFilter] = useState('__all__');
-  const [directionFilter, setDirectionFilter] = useState('__all__');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [copyTarget, setCopyTarget] = useState(null);
+
+  const engineFilter = parseEngineParam(searchParams.get('engine'));
+  const indexFilter = parseParam(searchParams.get('index'), ALLOWED_INDICES, DEFAULT_INDEX);
+  const directionFilter = parseParam(searchParams.get('direction'), ALLOWED_DIRECTIONS, DEFAULT_DIRECTION);
+  const sortKey = parseParam(searchParams.get('sort'), ALLOWED_SORTS, DEFAULT_SORT);
+  const sortDir = parseParam(searchParams.get('dir'), ALLOWED_DIRS, DEFAULT_DIR);
+  const page = parsePage(searchParams.get('page'));
+
+  const patchParams = useCallback(
+    (mutate) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          mutate(next);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const setEngineFilter = useCallback(
+    (id) => {
+      patchParams((next) => {
+        if (id === DEFAULT_ENGINE) next.delete('engine');
+        else next.set('engine', id);
+        next.delete('page');
+      });
+    },
+    [patchParams]
+  );
+
+  const setIndexFilter = useCallback(
+    (id) => {
+      patchParams((next) => {
+        if (id === DEFAULT_INDEX) next.delete('index');
+        else next.set('index', id);
+        next.delete('page');
+      });
+    },
+    [patchParams]
+  );
+
+  const setDirectionFilter = useCallback(
+    (id) => {
+      patchParams((next) => {
+        if (id === DEFAULT_DIRECTION) next.delete('direction');
+        else next.set('direction', id);
+        next.delete('page');
+      });
+    },
+    [patchParams]
+  );
+
+  const setPage = useCallback(
+    (nextPage) => {
+      patchParams((next) => {
+        if (nextPage <= 1) next.delete('page');
+        else next.set('page', String(nextPage));
+      });
+    },
+    [patchParams]
+  );
+
+  const onSort = useCallback(
+    (key) => {
+      patchParams((next) => {
+        const effectiveSort = key;
+        const effectiveDir = key === sortKey ? (sortDir === 'desc' ? 'asc' : 'desc') : 'desc';
+        if (effectiveSort === DEFAULT_SORT) next.delete('sort');
+        else next.set('sort', effectiveSort);
+        if (effectiveDir === DEFAULT_DIR) next.delete('dir');
+        else next.set('dir', effectiveDir);
+        next.delete('page');
+      });
+    },
+    [patchParams, sortDir, sortKey]
+  );
 
   // Table: one page of rows, filtered/sorted/paged by the API.
   const { portfolios, pagination, facets, loading, error, refetch } = usePublicPortfoliosPaged({
@@ -102,31 +213,17 @@ function AiPortfoliosPageContent() {
     return [ALL_ENGINES, ...known, ...extra];
   }, [facets]);
 
-  // A narrower filter can drop the total below the page we're on.
-  useEffect(() => {
-    setPage(1);
-  }, [engineFilter, indexFilter, directionFilter, sortKey, sortDir]);
-
   const total = pagination?.total ?? 0;
   const totalPages = pagination?.total_pages ?? 1;
   const rangeStart = total ? (pagination.page - 1) * pagination.page_size + 1 : 0;
   const rangeEnd = Math.min(pagination.page * pagination.page_size, total);
 
   const hasActiveFilters =
-    engineFilter !== '__all__' || indexFilter !== '__all__' || directionFilter !== '__all__';
+    engineFilter !== DEFAULT_ENGINE || indexFilter !== DEFAULT_INDEX || directionFilter !== DEFAULT_DIRECTION;
 
   const reloadAll = () => {
     void refetch();
     void refetchTop();
-  };
-
-  const onSort = (key) => {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
-      return;
-    }
-    setSortKey(key);
-    setSortDir('desc');
   };
 
   const tableHead = (
@@ -192,7 +289,7 @@ function AiPortfoliosPageContent() {
         </div>
         <div className="paper-header__actions">
           <Link to="/paper-trading/public" className="paper-btn paper-btn--ghost">
-            All Public Portfolios
+            All Published Portfolios
           </Link>
         </div>
       </header>
@@ -269,7 +366,7 @@ function AiPortfoliosPageContent() {
               <p className="paper-empty__hint">
                 Check back soon, or browse{' '}
                 <Link to="/paper-trading/public" className="paper-link">
-                  all public portfolios
+                  all published portfolios
                 </Link>{' '}
                 in the meantime.
               </p>

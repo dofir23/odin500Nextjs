@@ -72,7 +72,9 @@ function isGuestAuthEntryPath(pathname: string) {
 function redirectAuthenticatedFromGuestPage(request: NextRequest) {
   const next = request.nextUrl.searchParams.get('next');
   const dest =
-    next && next.startsWith('/') && !isGuestAuthEntryPath(next.split('?')[0]) ? next : '/market';
+    next && next.startsWith('/') && !isGuestAuthEntryPath(next.split('?')[0])
+      ? next
+      : '/paper-trading/ai';
   return NextResponse.redirect(new URL(dest, request.url));
 }
 

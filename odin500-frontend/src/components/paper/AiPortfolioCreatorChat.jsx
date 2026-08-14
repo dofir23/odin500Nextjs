@@ -88,6 +88,7 @@ const BUILD_INTENT_RE =
 const TEMPLATE_URL = apiUrl('/api/public/paper/ai-portfolio-template.xlsx');
 
 const SIZE_STORAGE_KEY = 'odin_ai_portfolio_creator_size_v1';
+const ENGINE_STORAGE_KEY = 'odin_ai_portfolio_creator_engine_v1';
 const DEFAULT_SIZE = { width: 440, height: 640 };
 const MIN_W = 320;
 const MIN_H = 380;
@@ -122,6 +123,24 @@ function readStoredSize() {
     return clampSize(JSON.parse(raw));
   } catch {
     return DEFAULT_SIZE;
+  }
+}
+
+function readStoredEngine() {
+  try {
+    const raw = String(localStorage.getItem(ENGINE_STORAGE_KEY) || '').trim().toLowerCase();
+    return ENGINE_ORDER.includes(raw) ? raw : '';
+  } catch {
+    return '';
+  }
+}
+
+function persistEngine(id) {
+  try {
+    const clean = String(id || '').trim().toLowerCase();
+    if (ENGINE_ORDER.includes(clean)) localStorage.setItem(ENGINE_STORAGE_KEY, clean);
+  } catch {
+    /* ignore */
   }
 }
 
@@ -304,10 +323,17 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     setWizardLog((prev) => [...prev, { id: `${role}-${Date.now()}-${Math.random()}`, role, content }]);
   }, []);
 
-  // Default to the first configured engine as soon as the engine list loads.
+  // Prefer the user's last model choice; otherwise default to the first configured engine.
   useEffect(() => {
-    if (config.engine || !engines.length) return;
-    const firstConfigured = ENGINE_ORDER.find((id) => engines.find((e) => e.id === id)?.configured);
+    if (!engines.length) return;
+    const isConfigured = (id) => Boolean(id && engines.find((e) => e.id === id)?.configured);
+    const stored = readStoredEngine();
+    if (isConfigured(stored)) {
+      if (config.engine !== stored) setConfig((prev) => ({ ...prev, engine: stored }));
+      return;
+    }
+    if (isConfigured(config.engine)) return;
+    const firstConfigured = ENGINE_ORDER.find((id) => isConfigured(id));
     if (firstConfigured) setConfig((prev) => ({ ...prev, engine: firstConfigured }));
   }, [config.engine, engines]);
 
@@ -484,7 +510,14 @@ export function AiPortfolioCreatorChat({ onCreated }) {
   function resetAll() {
     clearThread();
     setWizardLog([]);
-    setConfig({ engine: '', indexFocus: '', direction: '', criteria: '', cadence: '' });
+    const keptEngine = readStoredEngine();
+    setConfig({
+      engine: keptEngine,
+      indexFocus: '',
+      direction: '',
+      criteria: '',
+      cadence: ''
+    });
     setAwaitingSlotKey(null);
     autoStartedRef.current = false;
     userNotesRef.current = [];
@@ -514,13 +547,17 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     // off a fresh AI run that would overwrite the proposal we just got back.
     autoStartedRef.current = true;
     setAwaitingSlotKey(null);
-    setConfig((prev) => ({
-      engine: imported.engine || prev.engine,
-      indexFocus: imported.index_focus || prev.indexFocus,
-      direction: imported.direction || prev.direction,
-      criteria: imported.criteria || prev.criteria,
-      cadence: imported.cadence || prev.cadence
-    }));
+    setConfig((prev) => {
+      const next = {
+        engine: imported.engine || prev.engine,
+        indexFocus: imported.index_focus || prev.indexFocus,
+        direction: imported.direction || prev.direction,
+        criteria: imported.criteria || prev.criteria,
+        cadence: imported.cadence || prev.cadence
+      };
+      if (next.engine) persistEngine(next.engine);
+      return next;
+    });
   }
 
   async function handleConfirm() {
@@ -754,7 +791,10 @@ export function AiPortfolioCreatorChat({ onCreated }) {
               className="ai-portfolio-creator__engine-dd"
               value={config.engine}
               options={engineOptions}
-              onChange={(id) => setConfig((prev) => ({ ...prev, engine: id }))}
+              onChange={(id) => {
+                persistEngine(id);
+                setConfig((prev) => ({ ...prev, engine: id }));
+              }}
               title="AI model"
               ariaLabelPrefix="AI model"
               labelFallback="Model"

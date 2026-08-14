@@ -92,7 +92,7 @@ function UsernameBody() {
         } catch {
           /* ignore */
         }
-        navigate('/market', { replace: true });
+        navigate('/paper-trading/ai', { replace: true });
       } catch (err) {
         setError(err.message || 'Could not save display name');
       } finally {

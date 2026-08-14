@@ -73,7 +73,7 @@ function LoginForm() {
       }
       const dest = payload?.isAdmin
         ? '/admin'
-        : resolvePostLoginPath(searchParams, '/market');
+        : resolvePostLoginPath(searchParams);
       hardNavigate(dest);
     } catch (err) {
       const msg = err.message || 'Login failed';

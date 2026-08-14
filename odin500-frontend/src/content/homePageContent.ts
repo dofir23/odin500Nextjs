@@ -6,8 +6,7 @@ export const HOME_HERO = {
   subtitle:
     'Research stocks and ETFs, analyze index and sector performance, screen Odin trading signals, and track AI-built virtual portfolios for major indices — all in one place.',
   primaryCta: { href: '/signup', label: 'Sign up for free' },
-  secondaryCta: { href: '/market', label: 'Explore market dashboard' },
-  tertiaryCta: { href: '/paper-trading/ai', label: 'Ai Portfolios' }
+  tertiaryCta: { href: '/paper-trading/ai', label: 'Explore Ai Portfolios' }
 };
 
 export const HOME_PILLARS = [
@@ -427,7 +426,6 @@ export type HomeAiPortfoliosContent = {
   summary: string;
   disclaimer: string;
   primaryCta: { href: string; label: string };
-  secondaryCta: { href: string; label: string };
   liveTitle: string;
   liveEmpty: string;
 };
@@ -461,7 +459,6 @@ export const HOME_AI_PORTFOLIOS: HomeAiPortfoliosContent = {
   disclaimer:
     'AI portfolios are simulated and educational. They are not investment advice. Fills use Odin daily closes; past performance does not guarantee future results.',
   primaryCta: { href: '/paper-trading/public', label: 'Browse AI & public portfolios' },
-  secondaryCta: { href: '/paper-trading', label: 'Start your own portfolio' },
   liveTitle: 'Live performance tracking',
   liveEmpty:
     'Published AI portfolios will appear here as they go live. Meanwhile, browse public virtual portfolios or create your own.'
@@ -477,7 +474,6 @@ export function getHomePagePrefetchRoutes(): string[] {
   };
 
   add(HOME_HERO.primaryCta.href);
-  add(HOME_HERO.secondaryCta.href);
   add(HOME_HERO.tertiaryCta.href);
   add(HOME_PRICING_TEASER.href);
   add(HOME_FOOTER_CTA.href);
@@ -489,7 +485,6 @@ export function getHomePagePrefetchRoutes(): string[] {
   for (const item of HOME_FEATURES) add(item.href);
   for (const item of HOME_SHOWCASE) add(item.href);
   add(HOME_AI_PORTFOLIOS.primaryCta.href);
-  add(HOME_AI_PORTFOLIOS.secondaryCta.href);
 
   add('/login');
   add('/about');
