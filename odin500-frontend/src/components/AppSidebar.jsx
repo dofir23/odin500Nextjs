@@ -238,7 +238,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   const accountWrapRef = useRef(null);
 
   const requirePaperLogin = useCallback(
-    (returnTo = '/paper-trading/public') => (e) => {
+    (returnTo = '/paper-trading/ai') => (e) => {
       if (loggedIn) return;
       e.preventDefault();
       loginGate?.showLoginRequired({ returnTo });
@@ -442,6 +442,87 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
 
           <div className="app-sidebar__scroll" onClick={handleScrollNavClick}>
             <nav className="app-sidebar__nav" aria-label="Markets">
+              <div
+                className={
+                  'app-sidebar__row app-sidebar__row--indices app-sidebar__row--indices-split' +
+                  (isPaperRoute ? ' app-sidebar__row--active' : '')
+                }
+                role="group"
+                aria-label="Virtual portfolio"
+                onMouseEnter={() => {
+                  warmRoute('/paper-trading/ai');
+                  warmRoute('/paper-trading/public');
+                  warmRoute('/paper-trading');
+                }}
+              >
+                <NavLink
+                  to="/paper-trading/ai"
+                  className="app-sidebar__indices-main"
+                  onClick={() => {
+                    setPaperOpen(true);
+                    closeMobileSidebar();
+                  }}
+                  onFocus={() => {
+                    warmRoute('/paper-trading/ai');
+                    warmRoute('/paper-trading/public');
+                    warmRoute('/paper-trading');
+                  }}
+                  title="AI portfolio (opens menu)"
+                >
+                  <span className="app-sidebar__row-icon">
+                    <IconWallet />
+                  </span>
+                  <span className="app-sidebar__row-label">Virtual portfolio</span>
+                </NavLink>
+                <button
+                  type="button"
+                  className="app-sidebar__indices-chevron-btn"
+                  aria-expanded={paperOpen}
+                  aria-controls="app-sidebar-paper-options"
+                  aria-label={paperOpen ? 'Collapse virtual portfolio submenu' : 'Expand virtual portfolio submenu'}
+                  onClick={() => {
+                    setPaperOpen((wasOpen) => {
+                      const nextOpen = !wasOpen;
+                      if (nextOpen) {
+                        navigate('/paper-trading/ai');
+                        closeMobileSidebar();
+                      }
+                      return nextOpen;
+                    });
+                  }}
+                >
+                  <span
+                    className={'app-sidebar__indices-chevron' + (paperOpen ? ' app-sidebar__indices-chevron--open' : '')}
+                    aria-hidden
+                  >
+                    <IconChevronRight />
+                  </span>
+                </button>
+              </div>
+              {paperOpen ? (
+                <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Virtual portfolio options">
+                  <NavRow
+                    to="/paper-trading/ai"
+                    icon={IconAnalyst}
+                    label="AI Portfolio"
+                    active={isPaperAiRoute}
+                  />
+                  <NavRow
+                    to="/paper-trading/public"
+                    icon={IconPeople}
+                    label="Published Portfolio"
+                    active={isPaperPublicRoute}
+                  />
+                  <NavRow
+                    to="/paper-trading"
+                    icon={IconWallet}
+                    label="Your Portfolio"
+                    active={isPaperYourRoute}
+                    end
+                    onClick={requirePaperLogin('/paper-trading')}
+                  />
+                </div>
+              ) : null}
               <NavRow to="/market" icon={IconGlobe} label="Markets" />
               <div
                 className={
@@ -498,87 +579,6 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 active={isMainTickerRoutePath(location.pathname)}
               />
             </nav>
-              <div
-                className={
-                  'app-sidebar__row app-sidebar__row--indices app-sidebar__row--indices-split' +
-                  (isPaperRoute ? ' app-sidebar__row--active' : '')
-                }
-                role="group"
-                aria-label="Virtual portfolio"
-                onMouseEnter={() => {
-                  warmRoute('/paper-trading');
-                  warmRoute('/paper-trading/public');
-                  warmRoute('/paper-trading/ai');
-                }}
-              >
-                <NavLink
-                  to="/paper-trading/public"
-                  className="app-sidebar__indices-main"
-                  onClick={() => {
-                    setPaperOpen(true);
-                    closeMobileSidebar();
-                  }}
-                  onFocus={() => {
-                    warmRoute('/paper-trading');
-                    warmRoute('/paper-trading/public');
-                    warmRoute('/paper-trading/ai');
-                  }}
-                  title="Public virtual portfolios (opens menu)"
-                >
-                  <span className="app-sidebar__row-icon">
-                    <IconWallet />
-                  </span>
-                  <span className="app-sidebar__row-label">Virtual portfolio</span>
-                </NavLink>
-                <button
-                  type="button"
-                  className="app-sidebar__indices-chevron-btn"
-                  aria-expanded={paperOpen}
-                  aria-controls="app-sidebar-paper-options"
-                  aria-label={paperOpen ? 'Collapse virtual portfolio submenu' : 'Expand virtual portfolio submenu'}
-                  onClick={() => {
-                    setPaperOpen((wasOpen) => {
-                      const nextOpen = !wasOpen;
-                      if (nextOpen) {
-                        navigate('/paper-trading/public');
-                        closeMobileSidebar();
-                      }
-                      return nextOpen;
-                    });
-                  }}
-                >
-                  <span
-                    className={'app-sidebar__indices-chevron' + (paperOpen ? ' app-sidebar__indices-chevron--open' : '')}
-                    aria-hidden
-                  >
-                    <IconChevronRight />
-                  </span>
-                </button>
-              </div>
-              {paperOpen ? (
-                <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Virtual portfolio options">
-                  <NavRow
-                    to="/paper-trading/public"
-                    icon={IconPeople}
-                    label="Public Portfolios"
-                    active={isPaperPublicRoute}
-                  />
-                  <NavRow
-                    to="/paper-trading/ai"
-                    icon={IconAnalyst}
-                    label="AI Portfolios"
-                    active={isPaperAiRoute}
-                  />
-                  <NavRow
-                    to="/paper-trading"
-                    icon={IconWallet}
-                    label="Your Portfolio"
-                    active={isPaperYourRoute}
-                    end
-                    onClick={requirePaperLogin('/paper-trading')}
-                  />
-                </div>
-              ) : null}
               <NavRow to="/market-movers" icon={IconFlame} label="Market Movers" />
               
               <NavRow to="/heatmap" icon={IconGrid} label="Heatmaps" />

@@ -43,12 +43,12 @@ export const useUiStore = create((set, get) => ({
   resolveReturnTo: () => {
     const explicit = get()._loginReturnTo;
     if (explicit && explicit.startsWith('/')) return explicit;
-    if (typeof window === 'undefined') return '/market';
+    if (typeof window === 'undefined') return '/paper-trading/ai';
     const current = window.location.pathname + window.location.search;
     if (current.startsWith('/') && !GUEST_AUTH_ENTRY_PATHS.has(current.split('?')[0])) {
       return current;
     }
-    return '/market';
+    return '/paper-trading/ai';
   },
 
   /** @param {{ onDismiss?: () => void, returnTo?: string }} [opts] */

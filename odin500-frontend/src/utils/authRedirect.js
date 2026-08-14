@@ -1,7 +1,10 @@
 export const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
 
+/** Default destination after login when no safe `?next=` is provided. */
+export const DEFAULT_POST_LOGIN_PATH = '/paper-trading/ai';
+
 /** Safe post-login destination from `?next=` (client or URLSearchParams). */
-export function resolvePostLoginPath(searchParams, fallback = '/market') {
+export function resolvePostLoginPath(searchParams, fallback = DEFAULT_POST_LOGIN_PATH) {
   const next =
     typeof searchParams?.get === 'function'
       ? searchParams.get('next')
@@ -16,7 +19,7 @@ export function resolvePostLoginPath(searchParams, fallback = '/market') {
 }
 
 /** Build `/login?next=...` or `/signup?next=...` for auth entry navigation. */
-export function buildAuthEntryUrl(entryPath, returnTo, fallback = '/market') {
+export function buildAuthEntryUrl(entryPath, returnTo, fallback = DEFAULT_POST_LOGIN_PATH) {
   const base = entryPath === '/signup' ? '/signup' : '/login';
   const raw = String(returnTo || '').trim();
   const dest =

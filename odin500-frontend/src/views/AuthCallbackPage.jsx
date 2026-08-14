@@ -45,7 +45,7 @@ export default function AuthCallbackPage() {
       } catch {
         /* ignore */
       }
-      let dest = resolvePostLoginPath(searchParams, '/market');
+      let dest = resolvePostLoginPath(searchParams);
       try {
         const res = await fetchWithAuth(apiUrl('/api/admin/me'), { method: 'GET' });
         if (res.ok) {

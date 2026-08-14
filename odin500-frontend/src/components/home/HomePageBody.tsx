@@ -32,9 +32,7 @@ export function HomePageBody() {
               <a href={HOME_HERO.primaryCta.href} className="home-btn home-btn--primary">
                 {HOME_HERO.primaryCta.label}
               </a>
-              <a href={HOME_HERO.secondaryCta.href} className="home-btn home-btn--ghost">
-                {HOME_HERO.secondaryCta.label}
-              </a>
+  
               <a href={HOME_HERO.tertiaryCta.href} className="home-btn home-btn--ghost">
                 {HOME_HERO.tertiaryCta.label}
               </a>
@@ -82,9 +80,7 @@ export function HomePageBody() {
             <a href={HOME_AI_PORTFOLIOS.primaryCta.href} className="home-btn home-btn--primary">
               {HOME_AI_PORTFOLIOS.primaryCta.label}
             </a>
-            <a href={HOME_AI_PORTFOLIOS.secondaryCta.href} className="home-btn home-btn--ghost">
-              {HOME_AI_PORTFOLIOS.secondaryCta.label}
-            </a>
+           
           </div>
         </section>
 

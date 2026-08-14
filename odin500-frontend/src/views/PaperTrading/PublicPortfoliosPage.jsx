@@ -136,7 +136,7 @@ function PublicPortfoliosPageContent() {
     <div className="paper-page odin-content-page paper-page--public">
       <header className="paper-header">
         <div>
-          <h1 className="paper-header__title">Public Portfolios</h1>
+          <h1 className="paper-header__title">Published Portfolios</h1>
           <p className="paper-header__sub">
             Browse virtual portfolios published by Odin500 users — including AI-built books for major
             indices (Claude, ChatGPT, Gemini). Ranked by average monthly return so portfolios of

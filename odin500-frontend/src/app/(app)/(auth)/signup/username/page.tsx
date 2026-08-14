@@ -1,8 +1,8 @@
 import { toNextMetadata } from '@/seo/metadata';
-
-export const metadata = toNextMetadata('/signup/username');
 import { PageServerShell } from '@/seo/PageServerShell';
 import SignupUsernamePage from '@/views/SignupUsernamePage.jsx';
+
+export const metadata = toNextMetadata('/signup/username');
 
 export default function Page() {
   return (
