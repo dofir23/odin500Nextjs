@@ -1,5 +1,7 @@
 'use client';
-import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
+import { fmtPct, fmtPctSigned } from '../../utils/formatDisplayNumber.js';
+import { computeClosedTradesAnalytics } from '../../utils/closedTradesAnalytics.js';
+import { avgMonthlyUnavailableReason, computeAvgMonthlyReturn } from '../../utils/portfolioAgeMetrics.js';
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -14,11 +16,16 @@ function toneClass(v) {
   return '';
 }
 
-export function AccountSummary({ account, loading }) {
+/**
+ * @param {{ account?: object, loading?: boolean, closedTrades?: object[] }} props
+ *   `closedTrades` drives the win rate — pass the same array the Closed trades tab renders so the
+ *   two surfaces can never report different numbers.
+ */
+export function AccountSummary({ account, loading, closedTrades = [] }) {
   if (loading && !account) {
     return (
       <section className="paper-stats" aria-busy="true">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <article key={i} className="paper-stat" aria-hidden>
             <div className="paper-skeleton" style={{ minHeight: '4.5rem' }} />
           </article>
@@ -41,6 +48,17 @@ export function AccountSummary({ account, loading }) {
       : Number(account?.total_return_pct ?? 0);
   const openPnl = account?.unrealized_pnl_total ?? 0;
   const closedPnl = account?.realized_pnl_total ?? 0;
+
+  // Dated from creation, not publication: an owner who traded for months before publishing has a
+  // track record that long, and measuring from published_at would overstate the monthly rate.
+  const { avgMonthlyReturnPct, daysElapsed } = computeAvgMonthlyReturn(
+    totalReturnPct,
+    account?.created_at
+  );
+
+  // Win rate counts closed trades only — an open position has no realized result to judge yet.
+  const tradeStats = computeClosedTradesAnalytics(closedTrades);
+
   return (
     <section className="paper-stats" aria-label="Portfolio summary">
       <article className="paper-stat paper-stat--highlight">
@@ -69,6 +87,33 @@ export function AccountSummary({ account, loading }) {
       <article className="paper-stat">
         <span className="paper-stat__label">Closed trades P&amp;L</span>
         <strong className={`paper-stat__value ${toneClass(closedPnl)}`}>{money(closedPnl)}</strong>
+      </article>
+      <article className="paper-stat">
+        <span className="paper-stat__label">Avg monthly return</span>
+        {avgMonthlyReturnPct != null ? (
+          <strong className={`paper-stat__value ${toneClass(avgMonthlyReturnPct)}`}>
+            {fmtPctSigned(avgMonthlyReturnPct, { decimals: 2 })}
+          </strong>
+        ) : (
+          <strong className="paper-stat__value paper-stat__value--na" title={avgMonthlyUnavailableReason(daysElapsed)}>
+            N/A
+          </strong>
+        )}
+      </article>
+      <article className="paper-stat">
+        <span className="paper-stat__label">Win rate</span>
+        {tradeStats.totalTrades > 0 ? (
+          <strong className="paper-stat__value">
+            {fmtPct(tradeStats.winRate, { decimals: 1 })}
+            <span>
+              {tradeStats.wins}W / {tradeStats.losses}L
+            </span>
+          </strong>
+        ) : (
+          <strong className="paper-stat__value paper-stat__value--na" title="No closed trades yet">
+            N/A
+          </strong>
+        )}
       </article>
     </section>
   );

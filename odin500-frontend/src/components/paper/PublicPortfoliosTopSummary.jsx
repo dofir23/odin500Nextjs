@@ -43,6 +43,15 @@ function enrichPortfolio(p) {
   };
 }
 
+/** Human track-record length for the card's third stat tile — "12 d", "3.4 mo". */
+export function trackRecordLabel(p) {
+  const days = Number(p?.days_elapsed);
+  const months = Number(p?.months_elapsed);
+  if (Number.isFinite(days) && days < 30) return `${Math.max(1, Math.round(days))} d`;
+  if (Number.isFinite(months) && months >= 1) return `${months.toFixed(1)} mo`;
+  return '—';
+}
+
 /**
  * Prefer publisher text; otherwise synthesize a short blurb from tags + performance.
  */
@@ -56,7 +65,6 @@ export function buildPortfolioSummary(p) {
   const engine = p?.ai_engine?.label;
   const index = p?.index_focus?.label;
   const auto = p?.strategy_mode && p.strategy_mode !== 'manual';
-  const avg = p?.avg_monthly_return_pct;
   const total = p?.total_return_pct;
   const months = p?.months_elapsed;
   const days = p?.days_elapsed;
@@ -79,9 +87,7 @@ export function buildPortfolioSummary(p) {
   }
 
   const daysN = Number(days);
-  if (avg != null && Number.isFinite(Number(avg)) && Number.isFinite(daysN) && daysN >= 14) {
-    bits.push(`(${fmtPctSigned(avg, { decimals: 2 })} average monthly)`);
-  } else if (Number.isFinite(daysN) && daysN < 30) {
+  if (Number.isFinite(daysN) && daysN < 30) {
     const d = Math.max(1, Math.round(daysN));
     bits.push(`tracked for about ${d} day${d === 1 ? '' : 's'}`);
   } else if (months != null && Number(months) >= 1) {
@@ -91,14 +97,13 @@ export function buildPortfolioSummary(p) {
   return `${bits.join(' ')}.`;
 }
 
+/** Ranked on total return — see SORT_KEYS in the backend's publicPortfolioQuery.js. */
 export function pickTopPublicPortfolios(portfolios, limit = 3) {
   return [...(portfolios || [])]
     .sort((a, b) => {
-      const av = a.avg_monthly_return_pct;
-      const bv = b.avg_monthly_return_pct;
-      if (av == null && bv == null) {
-        return Number(b.total_return_pct || 0) - Number(a.total_return_pct || 0);
-      }
+      const av = a.total_return_pct;
+      const bv = b.total_return_pct;
+      if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
       return Number(bv) - Number(av);
@@ -113,7 +118,7 @@ const CARD_BASE =
   'flex h-full max-h-[26rem] min-h-[14rem] flex-col gap-3 rounded-[14px] border px-4 pb-3.5 pt-4 transition duration-150 ease-out hover:-translate-y-0.5';
 
 const CARD_BASE_COMPACT =
-  'flex h-full max-h-[21rem] min-h-[11.5rem] flex-col gap-2.5 rounded-[12px] border px-3 pb-3 pt-3 transition duration-150 ease-out hover:-translate-y-0.5';
+  'flex h-full max-h-[24rem] min-h-[11.5rem] flex-col gap-2.5 rounded-[12px] border px-3 pb-3 pt-3 transition duration-150 ease-out hover:-translate-y-0.5';
 
 const CARD_BY_RANK = [
   // 1st
@@ -182,7 +187,6 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
       index_focus_label: p.index_focus?.label || null,
       equity: p.equity,
       total_return_pct: p.total_return_pct,
-      avg_monthly_return_pct: p.avg_monthly_return_pct,
       months_elapsed: p.months_elapsed,
       days_elapsed: p.days_elapsed,
       positions_count: p.positions_count
@@ -336,7 +340,7 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
   if (!top.length) return null;
 
   const renderCard = (p, index) => {
-    const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
+    const href = `/virtual-portfolio/public/${encodeURIComponent(p.id)}`;
     const rank = RANK_LABELS[index] || `${index + 1}th`;
     const summary = aiSummaries[p.id] || (!summaryLoading ? buildPortfolioSummary(p) : '');
     const rankClass = RANK_PILL[index] || RANK_PILL[1];
@@ -423,20 +427,6 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
           >
             <div>
               <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Avg / mo
-              </dt>
-              <dd
-                className={`m-0 mt-0.5 font-bold tabular-nums ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'} ${toneClass(
-                  p.avg_monthly_return_pct ?? p.total_return_pct
-                )}`}
-              >
-                {p.avg_monthly_return_pct == null
-                  ? fmtPctSigned(p.total_return_pct, { decimals: 2 })
-                  : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
-              </dd>
-            </div>
-            <div>
-              <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Total
               </dt>
               <dd
@@ -455,6 +445,17 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
                 className={`m-0 mt-0.5 font-bold tabular-nums text-slate-900 dark:text-slate-100 ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'}`}
               >
                 {money(p.equity)}
+              </dd>
+            </div>
+            {/* Total return rewards whichever book has run longest, so age sits right next to it. */}
+            <div>
+              <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Running
+              </dt>
+              <dd
+                className={`m-0 mt-0.5 font-bold tabular-nums text-slate-900 dark:text-slate-100 ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'}`}
+              >
+                {trackRecordLabel(p)}
               </dd>
             </div>
           </dl>
@@ -490,7 +491,7 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
             Top performers
           </h2>
           <p className="mt-1.5 m-0 text-[0.86rem] leading-snug text-slate-500 dark:text-slate-400">
-            Highest average monthly return among published virtual portfolios.
+            Highest total return among published virtual portfolios.
           </p>
         </div>
         {carousel && top.length > 1 ? (

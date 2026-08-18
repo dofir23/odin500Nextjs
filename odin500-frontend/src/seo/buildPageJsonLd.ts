@@ -40,11 +40,11 @@ function faqJsonLdForPath(pathname: string, seoData: unknown) {
   if (path === '/about') {
     return buildFaqPageJsonLd([...ABOUT_FAQS]);
   }
-  if (path === '/paper-trading') {
+  if (path === '/virtual-portfolio') {
     return buildFaqPageJsonLd([...PAPER_TRADING_FAQS]);
   }
-  if (path === '/paper-trading/ai') {
-    return buildFaqPageJsonLd([...(STATIC_PAGE_SEO['/paper-trading/ai'].faqs || [])]);
+  if (path === '/virtual-portfolio/ai') {
+    return buildFaqPageJsonLd([...(STATIC_PAGE_SEO['/virtual-portfolio/ai'].faqs || [])]);
   }
   if (path.startsWith('/ticker-report/')) {
     const report = (seoData as { report?: { faqs?: Array<{ q?: string; a?: string }> } } | null)?.report;
@@ -81,22 +81,22 @@ export function buildSitewideJsonLd() {
 
 /**
  * ItemList for the AI portfolio leaderboard, so the ranking is machine-readable rather than
- * only visible as a table. Emitted on `/` and `/paper-trading/ai`, both of which SSR the board.
+ * only visible as a table. Emitted on `/` and `/virtual-portfolio/ai`, both of which SSR the board.
  */
 function aiPortfolioListJsonLd(pathname: string, seoData: unknown) {
   const path = pathname.split('?')[0].replace(/\/+$/, '') || '/';
-  if (path !== '/' && path !== '/paper-trading/ai') return null;
+  if (path !== '/' && path !== '/virtual-portfolio/ai') return null;
 
   const rows = (seoData as { rows?: Array<Record<string, unknown>> } | null)?.rows;
   if (!Array.isArray(rows) || !rows.length) return null;
 
-  const pageUrl = path === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/paper-trading/ai`;
+  const pageUrl = path === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/virtual-portfolio/ai`;
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'AI stock portfolios ranked by average monthly return',
+    name: 'AI stock portfolios ranked by total return',
     description:
-      'Virtual stock portfolios managed by large language models, ranked by average monthly return.',
+      'Virtual stock portfolios managed by large language models, ranked by total return since publication.',
     url: pageUrl,
     numberOfItems: rows.length,
     itemListOrder: 'https://schema.org/ItemListOrderDescending',
@@ -104,7 +104,7 @@ function aiPortfolioListJsonLd(pathname: string, seoData: unknown) {
       '@type': 'ListItem',
       position: i + 1,
       name: String(r.name || 'Untitled portfolio'),
-      url: r.id ? `${SITE_ORIGIN}/paper-trading/public/${String(r.id)}` : pageUrl
+      url: r.id ? `${SITE_ORIGIN}/virtual-portfolio/public/${String(r.id)}` : pageUrl
     }))
   };
 }

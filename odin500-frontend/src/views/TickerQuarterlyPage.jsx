@@ -22,7 +22,6 @@ import { alignComparisonRows, filterRowsByYearRange, normalizePeriodReturnsRows 
 import { formatRelativePerfPct } from '../utils/marketCalculations.js';
 import { fmtPctSigned, fmtPrice, fmtVolumeCompact } from '../utils/formatDisplayNumber.js';
 import {
-  alphaProfileIrlink,
   fetchCompanyOverviewCached,
   fmtCompact,
   getCompanyProfileApiKeyPresent,
@@ -732,7 +731,12 @@ export default function TickerQuarterlyPage({ initialData = null }) {
   const companyOverviewDescription = String(companyOverview?.Description || '').trim();
   const companyOverviewAddress = String(companyOverview?.Address || '').trim();
   const companyOverviewWebsite = String(companyOverview?.OfficialSite || '').trim();
-  const companyOverviewIrWebsite = alphaProfileIrlink(companyOverviewWebsite) || companyOverviewWebsite;
+  /**
+   * Replaces the old IR Website tile, which was a guessed `investor.{host}` URL rather than API
+   * data — it 404s for any company without that subdomain and fell back to repeating the Website
+   * tile. Fiscal year end matters most here: Apple's "Q3" is Apr–Jun, not Jul–Sep.
+   */
+  const companyOverviewFiscalYearEnd = String(companyOverview?.FiscalYearEnd || '').trim();
   const companyOverviewDividendYield = numOrNull(companyOverview?.DividendYield);
   const companyOverviewBeta = numOrNull(companyOverview?.Beta);
   const companyOverview52Low = numOrNull(companyOverview?.['52WeekLow']);
@@ -1182,15 +1186,8 @@ export default function TickerQuarterlyPage({ initialData = null }) {
                       )}
                     </article>
                     <article className="ticker-company-overview__metric">
-                      <p className="ticker-company-overview__metric-k">IR Website</p>
-                      {companyOverviewIrWebsite ? (
-                        <a className="ticker-company-overview__metric-link" href={companyOverviewIrWebsite} target="_blank" rel="noopener noreferrer">
-                          {companyOverviewIrWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                          <span aria-hidden>↗</span>
-                        </a>
-                      ) : (
-                        <p className="ticker-company-overview__metric-v">—</p>
-                      )}
+                      <p className="ticker-company-overview__metric-k">Fiscal year end</p>
+                      <p className="ticker-company-overview__metric-v">{companyOverviewFiscalYearEnd || '—'}</p>
                     </article>
                   </div>
                 </>

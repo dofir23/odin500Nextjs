@@ -8,7 +8,10 @@ export const MARKET_STALE = {
   tickerCoreReturns: 5 * 60 * 1000,
   indexMovers: 90 * 1000,
   railSnapshot: 2 * 60 * 1000,
-  ohlcSignals: 5 * 60 * 1000
+  ohlcSignals: 5 * 60 * 1000,
+  // Recomputed at most once per market day server-side, so refetching sooner only costs a
+  // round trip that returns the identical BigQuery row.
+  tickerAiStance: 30 * 60 * 1000
 };
 
 function makeQueryClient() {

@@ -45,7 +45,7 @@ function toSitemapEntries(
       url: `${SITE_ORIGIN}${path === '/' ? '' : path}`,
       lastModified: safeDate(publishedAt),
       changeFrequency:
-        path === '/paper-trading/ai'
+        path === '/virtual-portfolio/ai'
           ? 'daily'
           : path.startsWith('/newsletter/')
             ? 'weekly'
@@ -53,7 +53,7 @@ function toSitemapEntries(
               ? 'daily'
               : 'weekly',
       priority:
-        path === '/' || path === '/paper-trading/ai'
+        path === '/' || path === '/virtual-portfolio/ai'
           ? 1
           : path === '/market'
             ? 0.9

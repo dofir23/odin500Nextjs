@@ -183,6 +183,27 @@
   overflow-wrap: anywhere;
 }
 
+/* Attribution line plus the engine/index pills, stacked so the tags keep their own row on
+   narrow screens instead of wrapping mid-sentence. */
+.paper-header__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.paper-header__owner {
+  color: var(--paper-text, #e2e8f0);
+  font-weight: 600;
+}
+
+.paper-header__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .paper-badge {
   display: inline-flex;
   align-items: center;
@@ -516,6 +537,13 @@
   font-size: 0.85rem;
   font-weight: 600;
   margin-left: 0.25rem;
+}
+
+/* Withheld figures read as quiet metadata, not as a zero the reader might act on. */
+.paper-stat__value--na {
+  color: var(--paper-muted);
+  font-size: 1.1rem;
+  cursor: help;
 }
 
 /* .paper-stat--highlight {
@@ -4384,6 +4412,55 @@
   border-bottom: 2px dashed #94a3b8;
 }
 
+/* Benchmark swatches take the series colour so the legend can't drift from the lines. */
+.paper-chart-legend__item--bench::before {
+  background: transparent;
+  height: 0;
+  border-bottom: 2px dashed var(--paper-bench-color, #94a3b8);
+}
+
+/* --- Index comparison control ---------------------------------------------- */
+/**
+ * Dropdown sits inline to the left of the Return / Max drop boxes.
+ * `nowrap` is the point: with wrapping the dropdown broke onto its own line above the stats
+ * instead of sitting beside them. `align-items: center` lines it up with the middle of the
+ * stat boxes, which are taller than the trigger.
+ */
+.paper-chart-card__head-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
+}
+
+.paper-bench__dd {
+  flex: 0 0 auto;
+}
+
+/* Narrow cards: let it wrap again rather than overflow the header. */
+@media (max-width: 720px) {
+  .paper-chart-card__head-right {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
+.paper-bench__status {
+  margin: 0;
+  padding: 0 1rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--paper-muted);
+}
+
+.paper-bench__status--error {
+  color: #f87171;
+}
+
+[data-theme='light'] .paper-bench__status--error {
+  color: #b91c1c;
+}
+
 .paper-insights__sector-hint {
   margin: 0 0 0.5rem;
   font-size: 0.78rem;
@@ -4793,6 +4870,210 @@
   margin: 0.75rem 0 0;
   font-size: 0.78rem;
   color: var(--paper-muted);
+}
+
+/* --- AI rebalance log --------------------------------------------------------
+   One collapsed row per run so a long history stays scannable; the detail only
+   appears for the run you open. */
+.paper-rebalance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.paper-rebalance__hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--paper-muted);
+}
+
+.paper-rebalance--empty {
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px dashed var(--paper-border);
+  color: var(--paper-muted);
+  font-size: 0.875rem;
+}
+
+.paper-rebalance__empty-title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  color: var(--paper-text);
+}
+
+.paper-rebalance__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.paper-rebalance__item {
+  border: 1px solid var(--paper-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.paper-rebalance__item--open {
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.paper-rebalance__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* A no-change run with no reasoning has nothing to reveal — don't imply it is clickable. */
+.paper-rebalance__head:disabled {
+  cursor: default;
+}
+
+.paper-rebalance__when {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--paper-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-rebalance__summary {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-rebalance__summary--flat,
+.paper-rebalance__summary--error {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--paper-muted);
+}
+
+.paper-rebalance__summary--error {
+  color: #f87171;
+}
+
+.paper-rebalance__delta {
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.paper-rebalance__delta--add {
+  color: #4ade80;
+}
+
+.paper-rebalance__delta--drop {
+  color: #f87171;
+}
+
+.paper-rebalance__caret {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: var(--paper-muted);
+  transition: transform 140ms ease;
+}
+
+.paper-rebalance__caret.is-open {
+  transform: rotate(180deg);
+}
+
+.paper-rebalance__body {
+  padding: 0 0.85rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border-top: 1px solid var(--paper-border);
+  padding-top: 0.7rem;
+}
+
+.paper-rebalance__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+}
+
+.paper-rebalance__group {
+  min-width: 0;
+}
+
+.paper-rebalance__group-k {
+  margin: 0 0 0.3rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+}
+
+.paper-rebalance__tickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.paper-rebalance__ticker {
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-rebalance__ticker--add {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.paper-rebalance__ticker--drop {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.paper-rebalance__reasoning {
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: var(--paper-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.paper-rebalance__error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #f87171;
+}
+
+[data-theme='light'] .paper-rebalance__delta--add,
+[data-theme='light'] .paper-rebalance__ticker--add {
+  color: #15803d;
+}
+
+[data-theme='light'] .paper-rebalance__delta--drop,
+[data-theme='light'] .paper-rebalance__ticker--drop,
+[data-theme='light'] .paper-rebalance__summary--error,
+[data-theme='light'] .paper-rebalance__error {
+  color: #b91c1c;
 }
 
 .paper-analytics {
@@ -5411,7 +5692,7 @@
 .paper-public-table__identity-text {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.3rem;
   min-width: 0;
 }
 
@@ -5420,6 +5701,16 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem 0.45rem;
+  min-width: 0;
+}
+
+/* Owner + tags share one line below the name. Previously the tags sat on the name row and
+   wrapped unpredictably, so every row was a different height and the column looked ragged. */
+.paper-public-table__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
   min-width: 0;
 }
 
@@ -5455,23 +5746,37 @@
   overflow-wrap: anywhere;
 }
 
+/* Numeric cells align right to match their right-aligned sortable headers — without this the
+   figures float left under the header labels and the column reads as broken. */
 .paper-public-table__num {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   font-weight: 600;
+  text-align: right;
 }
 
 .paper-public-table__return {
   display: inline-flex;
   flex-direction: column;
-  gap: 0.1rem;
-  align-items: flex-start;
+  gap: 0.15rem;
+  align-items: flex-end;
 }
 
+/* Tinted from the row's own tone colour, so the pill is green on gainers and red on losers
+   without needing a second set of up/down rules. */
 .paper-public-table__return-pct {
-  font-size: 0.78rem;
-  font-weight: 600;
-  opacity: 0.9;
+  align-self: flex-end;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: inherit;
+  /* Neutral fallback first: browsers without color-mix keep this and just lose the tint. */
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  border-color: color-mix(in srgb, currentColor 26%, transparent);
 }
 
 .paper-public-table__date {
@@ -5537,6 +5842,264 @@
   .paper-public-table-wrap {
     border-radius: 12px;
   }
+}
+
+/* ===========================================================================
+   Published / AI portfolio table — visual pass
+   Fixes: numeric columns aligned to their headers (above), one uniform meta
+   line per row, engine badges that carry colour while the rest of the
+   metadata stays quiet, and separated row actions.
+   =========================================================================== */
+
+.paper-public-table {
+  min-width: 820px;
+}
+
+.paper-public-table thead th {
+  padding: 0.7rem 1rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  border-bottom-color: rgba(148, 163, 184, 0.22);
+}
+
+.paper-public-table tbody td {
+  padding: 0.8rem 1rem;
+  border-bottom-color: rgba(148, 163, 184, 0.09);
+}
+
+/* An accent bar on hover instead of only a wash — reads as "this row is live" and gives the
+   pointer a target edge on wide tables where the cursor is far from the name. */
+.paper-public-table__row td:first-child {
+  box-shadow: inset 3px 0 0 transparent;
+  transition: box-shadow 0.15s ease;
+}
+
+.paper-public-table__row:hover td:first-child {
+  box-shadow: inset 3px 0 0 rgba(96, 165, 250, 0.85);
+}
+
+.paper-public-table__row:hover td {
+  background: rgba(59, 130, 246, 0.07);
+}
+
+/* Owner initials: same footprint as before, but ringed and gradient-filled so it reads as an
+   avatar rather than a flat blue chip competing with the tags beside it. */
+.paper-public-table__avatar {
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #dbeafe;
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.32), rgba(37, 99, 235, 0.14));
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.paper-public-table__identity {
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.paper-public-table__name {
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.paper-public-table__owner {
+  font-size: 0.76rem;
+}
+
+/* --- Row metadata tags -----------------------------------------------------
+   Only the AI engine carries colour: it is the portfolio's identity and the thing
+   people scan for. Index / direction / automated stay a quiet neutral so the row
+   has a hierarchy instead of four competing blue pills. */
+.paper-tag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.44rem;
+  border-radius: 6px;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--paper-muted, #94a3b8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.paper-tag--engine {
+  background: rgba(96, 165, 250, 0.16);
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+/* Engine colours match the badges on the Top performers cards, so the same model reads the
+   same colour wherever it appears. */
+.paper-tag--engine[data-engine='claude'] {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.32);
+}
+
+.paper-tag--engine[data-engine='chatgpt'] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.32);
+}
+
+.paper-tag--engine[data-engine='gemini'] {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.32);
+}
+
+/* Short exposure is the one piece of quiet metadata worth flagging — it changes how a
+   return should be read, so it gets a tint while Long stays neutral. */
+.paper-tag--direction[data-direction='short'],
+.paper-tag--direction[data-direction='long_short'] {
+  background: rgba(244, 114, 182, 0.13);
+  color: #f9a8d4;
+  border-color: rgba(244, 114, 182, 0.26);
+}
+
+.paper-public-table__owner + .paper-tag {
+  margin-left: 0.1rem;
+}
+
+/* Positions count as a chip: a bare "5" in a wide column looks unfinished. */
+.paper-public-table__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  padding: 0.14rem 0.45rem;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: var(--paper-text);
+}
+
+/* --- Row actions ---------------------------------------------------------- */
+.paper-public-table__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.paper-public-table__cta {
+  padding: 0.32rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  background: rgba(59, 130, 246, 0.12);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.paper-public-table__cta:hover {
+  text-decoration: none;
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.paper-public-table__cta--copy {
+  color: var(--paper-muted, #94a3b8);
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+.paper-public-table__cta--copy:hover {
+  color: var(--paper-text);
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+/* --- Light theme ----------------------------------------------------------- */
+[data-theme='light'] .paper-public-table__avatar {
+  color: #1d4ed8;
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0.05));
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+[data-theme='light'] .paper-tag {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .paper-tag--engine {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.24);
+}
+
+[data-theme='light'] .paper-tag--engine[data-engine='claude'] {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.24);
+}
+
+[data-theme='light'] .paper-tag--engine[data-engine='chatgpt'] {
+  background: rgba(5, 150, 105, 0.1);
+  color: #047857;
+  border-color: rgba(5, 150, 105, 0.24);
+}
+
+[data-theme='light'] .paper-tag--engine[data-engine='gemini'] {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0369a1;
+  border-color: rgba(2, 132, 199, 0.24);
+}
+
+[data-theme='light'] .paper-tag--direction[data-direction='short'],
+[data-theme='light'] .paper-tag--direction[data-direction='long_short'] {
+  background: rgba(219, 39, 119, 0.09);
+  color: #be185d;
+  border-color: rgba(219, 39, 119, 0.22);
+}
+
+[data-theme='light'] .paper-public-table__count {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .paper-public-table__row:hover td:first-child {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+[data-theme='light'] .paper-public-table__cta {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+[data-theme='light'] .paper-public-table__cta:hover {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+[data-theme='light'] .paper-public-table__cta--copy {
+  color: #475569;
+  background: transparent;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .paper-public-table__cta--copy:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .paper-public-card {
@@ -6374,20 +6937,119 @@ body.paper-assistant--resizing iframe {
 }
 
 /* Secondary "Copy" action sits beside "View portfolio" in the public/AI table rows. */
+/* Only the <button>-specific resets live here now — colour, padding and borders come from the
+   shared .paper-public-table__cta--copy block above, which this used to silently override. */
 .paper-public-table__cta--copy {
-  margin-left: 0.85rem;
-  padding: 0;
-  background: none;
-  border: none;
   cursor: pointer;
   font-family: inherit;
+}
+
+/* ===========================================================================
+   AI portfolio comparison page (/virtual-portfolio/ai/compare)
+   Layout, rail cards and rows are the shared /market classes (.mkt-fig-shell,
+   .mkt-left, .mkt-mini-card, .mkt-mini-card__row) defined in index.css — only
+   the handful of things /market has no equivalent for live here.
+   =========================================================================== */
+
+/* Two columns, not three: this page has no right-hand tickers rail. The
+   --watchlist-dock-open modifier already collapses the grid to 2 columns, so this
+   only needs to relax the market shell's tall min-height. */
+.ai-cmp-shell {
+  min-height: 0;
+  margin-top: 1rem;
+}
+
+/**
+ * Wider numeric tracks than the market rail's.
+ *
+ * /market sizes Last/Δ for index levels; a portfolio's six-figure equity ($110,822) is several
+ * glyphs longer and overflowed its track, so Last and Δ visually collided. The market cells set
+ * `width: 100%` with no `overflow`, so nothing clipped — the text simply ran over its neighbour.
+ * Wider tracks fix the real case; the overflow rule below is the guarantee that no future value
+ * can reproduce the overlap.
+ */
+.ai-cmp-shell .mkt-mini-card__subhead,
+.ai-cmp-shell .mkt-mini-card__row {
+  grid-template-columns: 16px minmax(0, 1fr) 30px 52px 52px 40px;
+  gap: 4px;
+}
+
+.ai-cmp-shell .mkt-mini-card__row span:nth-child(4),
+.ai-cmp-shell .mkt-mini-card__row span:nth-child(5),
+.ai-cmp-shell .mkt-mini-card__row span:nth-child(6),
+.ai-cmp-shell .mkt-mini-card__subhead span:nth-child(4),
+.ai-cmp-shell .mkt-mini-card__subhead span:nth-child(5),
+.ai-cmp-shell .mkt-mini-card__subhead span:nth-child(6) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/**
+ * Engine cards drop the Ticker column, so their numerics sit at child 3/4/5 instead of 4/5/6.
+ * The market rail's right-align rules key off those positions, so without these overrides the
+ * columns would fall back to left-aligned (and subhead child 3 would pick up `text-align: start`
+ * from the six-column rule). Selectors are one class deeper than the inherited ones, so they win.
+ */
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__subhead,
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__row {
+  grid-template-columns: 16px minmax(0, 1fr) 52px 52px 40px;
+}
+
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__subhead span:nth-child(3),
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__subhead span:nth-child(4),
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__subhead span:nth-child(5),
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__row span:nth-child(3),
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__row span:nth-child(4),
+.ai-cmp-shell .ai-cmp-card--no-ticker .mkt-mini-card__row span:nth-child(5) {
+  justify-self: stretch;
+  width: 100%;
+  text-align: end;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Engine sections with nothing published yet (Gemini today) — /market never has an
+   empty card, so it has no style for one. */
+.ai-cmp-card__empty {
+  margin: 0;
+  padding: 10px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--paper-muted, #94a3b8);
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.ai-cmp-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.ai-cmp-note {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: var(--colors-opacity-bg-opacity-3, #ffffff08);
+  font-size: 0.78rem;
+  line-height: 1.5;
   color: var(--paper-muted);
 }
 
-.paper-public-table__cta--copy:hover {
-  color: #93c5fd;
+[data-theme='light'] .ai-cmp-note {
+  background: #f8fafc;
 }
 
-[data-theme='light'] .paper-public-table__cta--copy:hover {
-  color: #1d4ed8;
+/* "N/A" in the Avg monthly column — a portfolio under a month old has no meaningful monthly
+   rate, so it reads as deliberately withheld rather than as a missing/zero value. */
+.paper-public-table__na {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--paper-muted, #94a3b8);
+  cursor: help;
 }

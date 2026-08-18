@@ -97,20 +97,41 @@ function extractClosePoints(rows) {
   return out;
 }
 
-/** @param {unknown[]} rows
- *  @param {string} [tf] When `1D`, chart uses only the last two trading closes (prior + latest). */
-export function normalizeRows(rows, tf) {
+/**
+ * Rebases a price/value series to percent change from its baseline.
+ *
+ * @param {unknown[]} rows
+ * @param {string} [tf] When `1D`, chart uses only the last two trading closes (prior + latest).
+ * @param {number} [baselineMs] Rebase from the first point at or after this timestamp, and drop
+ *   everything before it. Without it each series is rebased to its own first point, which is
+ *   only meaningful when every series covers the same span — comparing a two-week-old portfolio
+ *   against a six-month index then draws two lines from unrelated origins. Callers mixing
+ *   series of different ages should pass a common baseline.
+ */
+export function normalizeRows(rows, tf, baselineMs = null) {
   const points = extractClosePoints(rows);
   if (!points.length) return [];
 
   let window = points;
-  if (tf === '1D' && points.length >= 2) {
-    window = points.slice(-2);
+  if (Number.isFinite(baselineMs)) {
+    const from = points.findIndex((p) => p.t >= baselineMs);
+    // No overlap with the requested baseline — better to draw nothing than a bogus origin.
+    if (from < 0) return [];
+    window = points.slice(from);
+  }
+  if (tf === '1D' && window.length >= 2) {
+    window = window.slice(-2);
   }
 
-  const base = window[0].c;
+  const base = window[0]?.c;
   if (!Number.isFinite(base) || base === 0) return [];
   return window.map((p) => ({ t: p.t, v: (p.c / base - 1) * 100 }));
+}
+
+/** First timestamp in a set of series, for picking a shared baseline. @returns {number|null} */
+export function firstPointMs(rows) {
+  const points = extractClosePoints(rows);
+  return points.length ? points[0].t : null;
 }
 
 export function calcLatestDelta(rows) {

@@ -2,8 +2,8 @@
  * Client-side sort helpers for the public portfolios table.
  */
 
+/** Mirrors SORT_KEYS in the backend's publicPortfolioQuery.js — avg monthly is not sortable. */
 export const PUBLIC_PORTFOLIO_SORT_KEYS = [
-  'avg_monthly_return_pct',
   'total_return_pct',
   'equity',
   'positions_count',
@@ -16,7 +16,7 @@ export const PUBLIC_PORTFOLIO_SORT_KEYS = [
  * @param {'asc'|'desc'} sortDir
  */
 export function sortPublicPortfolios(portfolios, sortKey, sortDir = 'desc') {
-  const key = PUBLIC_PORTFOLIO_SORT_KEYS.includes(sortKey) ? sortKey : 'avg_monthly_return_pct';
+  const key = PUBLIC_PORTFOLIO_SORT_KEYS.includes(sortKey) ? sortKey : 'total_return_pct';
   const dir = sortDir === 'asc' ? 1 : -1;
   const list = [...(portfolios || [])];
 

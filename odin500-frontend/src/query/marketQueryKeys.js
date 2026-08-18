@@ -24,5 +24,6 @@ export const marketKeys = {
     String(ticker || '').toUpperCase(),
     String(startDate || ''),
     String(endDate || '')
-  ]
+  ],
+  tickerAiStance: (ticker) => ['market', 'ticker-ai-stance', String(ticker || '').toUpperCase()]
 };

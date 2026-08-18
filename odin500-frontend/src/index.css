@@ -9949,6 +9949,186 @@ button:disabled {
   letter-spacing: 0.01em;
 }
 
+/* --- AI Signal card ---------------------------------------------------------
+   A comparison grid: every agent gets a full Long / Short / Neutral row and only
+   its actual call is saturated. The inactive cells stay as faint column tints so
+   the highlighted one reads as a selection, not as three separate badges. */
+.ticker-ai-stance__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 12px 12px;
+}
+
+.ticker-ai-stance__grid--loading {
+  /* Rows are already in place; dimming beats a layout-shifting skeleton. */
+  opacity: 0.55;
+  animation: ticker-ai-stance-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ticker-ai-stance-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.ticker-ai-stance__row {
+  display: grid;
+  /* Agent column is sized to fit the logo chip plus the longest wordmark ("ChatGPT"); the three
+     verdicts then split what is left equally so they align down the card. */
+  grid-template-columns: minmax(88px, 1.5fr) repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  align-items: stretch;
+}
+
+.ticker-ai-stance__row--idle {
+  opacity: 0.5;
+}
+
+.ticker-ai-stance__agent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+/* The supplied marks are mixed: Claude is an orange icon, ChatGPT is solid black, Gemini is a
+   dark lockup. A near-black mark is invisible on this dark card, so every logo sits on a small
+   light chip. That keeps brand colours intact (an invert filter would turn Claude's orange
+   cyan) and works for any asset dropped in later, whatever its colour. */
+.ticker-ai-stance__logo-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.ticker-ai-stance__logo {
+  max-width: 100%;
+  max-height: 100%;
+  /* `contain` matters: the Gemini asset is a wide lockup while the others are square, and
+     stretching it to a square box would distort it. */
+  object-fit: contain;
+}
+
+/* On light backgrounds the chip is redundant — the marks already read against white. */
+[data-theme='light'] .ticker-ai-stance__logo-chip {
+  background: transparent;
+  box-shadow: none;
+}
+
+.ticker-ai-stance__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ticker-text, #e6edf6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticker-ai-stance__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 7px 4px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+/* Resting tints — present but quiet. */
+.ticker-ai-stance__cell--long {
+  background: rgba(34, 197, 94, 0.13);
+  color: #86c9a2;
+}
+.ticker-ai-stance__cell--short {
+  background: rgba(249, 115, 22, 0.13);
+  color: #d9a37a;
+}
+.ticker-ai-stance__cell--neutral {
+  background: rgba(148, 163, 184, 0.14);
+  color: #97a6b8;
+}
+
+/* The agent's actual call. Weight + saturation together, so the selection survives
+   greyscale printing and colour-vision differences rather than relying on hue alone. */
+.ticker-ai-stance__cell--active {
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.ticker-ai-stance__cell--long.ticker-ai-stance__cell--active {
+  background: #2f7d46;
+  color: #ffffff;
+}
+.ticker-ai-stance__cell--short.ticker-ai-stance__cell--active {
+  background: #f0a020;
+  color: #1f1300;
+}
+.ticker-ai-stance__cell--neutral.ticker-ai-stance__cell--active {
+  background: #6b7280;
+  color: #ffffff;
+}
+
+[data-theme='light'] .ticker-ai-stance__cell--long {
+  background: #dff0e2;
+  color: #3f7a53;
+}
+[data-theme='light'] .ticker-ai-stance__cell--short {
+  background: #fde8dd;
+  color: #b46a3c;
+}
+[data-theme='light'] .ticker-ai-stance__cell--neutral {
+  background: #e4e7eb;
+  color: #5b6472;
+}
+[data-theme='light'] .ticker-ai-stance__cell--active {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+[data-theme='light'] .ticker-ai-stance__cell--long.ticker-ai-stance__cell--active {
+  background: #3f7a3f;
+  color: #ffffff;
+}
+[data-theme='light'] .ticker-ai-stance__cell--short.ticker-ai-stance__cell--active {
+  background: #f5a800;
+  color: #2b1a00;
+}
+[data-theme='light'] .ticker-ai-stance__cell--neutral.ticker-ai-stance__cell--active {
+  background: #7b8290;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-ai-stance__grid--loading {
+    animation: none;
+  }
+}
+
+/* The four-column grid stops being legible before the card itself does. */
+@media (max-width: 420px) {
+  .ticker-ai-stance__row {
+    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, 0.8fr));
+  }
+  .ticker-ai-stance__cell {
+    font-size: 0.66rem;
+    padding: 6px 2px;
+  }
+}
+
 /* .ticker-chart-legend__sig {
   font-size: 0.72rem;
   color: #94a3b8;
@@ -11486,6 +11666,52 @@ a.ticker-page__metric-label--link:hover {
 
 .app-dropdown__item:hover {
   background: rgba(51, 65, 85, 0.45);
+}
+
+/* Multi-select mode: items carry a tick box so several can be picked in one open. */
+.app-dropdown__item--checkable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-dropdown__tick {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 1.5px solid rgba(148, 163, 184, 0.6);
+  position: relative;
+}
+
+.app-dropdown__tick--on {
+  background: #38bdf8;
+  border-color: #38bdf8;
+}
+
+.app-dropdown__tick--on::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 3px;
+  height: 7px;
+  border: solid #0b243f;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+html[data-theme='light'] .app-dropdown__tick {
+  border-color: #94a3b8;
+}
+
+html[data-theme='light'] .app-dropdown__tick--on {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+html[data-theme='light'] .app-dropdown__tick--on::after {
+  border-color: #ffffff;
 }
 
 .app-dropdown__item--active {

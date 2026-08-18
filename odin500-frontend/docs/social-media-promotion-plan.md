@@ -52,7 +52,7 @@ Every post should tie to a **live URL** on Odin500.
 | **Ticker spotlight** | `/ticker/{sym}`, reports | “$NVDA: 1Y return vs QQQ in one chart” |
 | **Index & ETF** | `/indices/sp500`, `/sector-data/*` | “Nasdaq-100 breadth this week” |
 | **Movers & screeners** | `/market-movers` | “Top gainers / losers — Odin500 screener” |
-| **Paper trading** | `/paper-trading`, public portfolios | “Test this strategy with $100k virtual cash” |
+| **Paper trading** | `/virtual-portfolio`, public portfolios | “Test this strategy with $100k virtual cash” |
 | **Weekly newsletter** | `/newsletter`, `/newsletter/{slug}` | “Sunday recap: indices, signals, setups” |
 | **Education** | Blog-style tips | “How we calculate Odin Signals (L1–L3)” |
 | **Product / Pro** | `/premium`, `/signup` | “Free tier vs Pro — full platform for $10/mo” |
@@ -102,7 +102,7 @@ Full chart + signals → odin500.com/ticker/xxx?utm_source=twitter&utm_medium=so
 
 ### Format F — Paper trading / social proof
 - Screenshot or chart of public portfolio performance (with permission / aggregate)  
-- CTA: `/paper-trading/public`  
+- CTA: `/virtual-portfolio/public`  
 
 ---
 
@@ -259,7 +259,7 @@ Standardize tracking:
 | signal_alert | `/ticker/{sym}` |
 | newsletter | `/newsletter/{slug}` |
 | ticker_spotlight | `/ticker/{sym}` |
-| paper_trading | `/paper-trading` |
+| paper_trading | `/virtual-portfolio` |
 | pro_cta | `/premium` |
 | signup | `/signup` |
 

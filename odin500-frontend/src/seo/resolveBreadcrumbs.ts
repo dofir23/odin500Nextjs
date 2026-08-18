@@ -71,17 +71,27 @@ const STATIC_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { name: 'Market', path: '/market' },
     { name: 'Accounts', path: '/accounts' }
   ],
-  '/paper-trading': [
+  '/virtual-portfolio': [
     { name: 'Market', path: '/market' },
-    { name: 'Your portfolio', path: '/paper-trading' }
+    { name: 'Your portfolio', path: '/virtual-portfolio' }
   ],
-  '/paper-trading/public': [
+  '/virtual-portfolio/public': [
     { name: 'Market', path: '/market' },
-    { name: 'Public portfolios', path: '/paper-trading/public' }
+    { name: 'Public portfolios', path: '/virtual-portfolio/public' }
   ],
-  '/paper-trading/ai': [
+  '/virtual-portfolio/ai': [
     { name: 'Market', path: '/market' },
-    { name: 'AI portfolios', path: '/paper-trading/ai' }
+    { name: 'AI portfolios', path: '/virtual-portfolio/ai' }
+  ],
+  '/virtual-portfolio/ai/users': [
+    { name: 'Market', path: '/market' },
+    { name: 'AI portfolios', path: '/virtual-portfolio/ai' },
+    { name: 'User portfolios', path: '/virtual-portfolio/ai/users' }
+  ],
+  '/virtual-portfolio/ai/compare': [
+    { name: 'Market', path: '/market' },
+    { name: 'AI portfolios', path: '/virtual-portfolio/ai' },
+    { name: 'Compare', path: '/virtual-portfolio/ai/compare' }
   ],
   '/newsletter': [{ name: 'Newsletter', path: '/newsletter' }],
   '/methodology': [
@@ -173,17 +183,17 @@ export function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
     ];
   }
 
-  const publicPaperMatch = path.match(/^\/paper-trading\/public\/([0-9a-f-]{36})$/i);
+  const publicPaperMatch = path.match(/^\/virtual-portfolio\/public\/([0-9a-f-]{36})$/i);
   if (publicPaperMatch) {
     return [
       { name: 'Market', path: '/market' },
-      { name: 'Public portfolios', path: '/paper-trading/public' },
+      { name: 'Public portfolios', path: '/virtual-portfolio/public' },
       { name: 'Portfolio', path }
     ];
   }
 
-  if (path === '/paper-trading/public') {
-    return STATIC_CRUMBS['/paper-trading/public'];
+  if (path === '/virtual-portfolio/public') {
+    return STATIC_CRUMBS['/virtual-portfolio/public'];
   }
 
   const newsletterIssueMatch = path.match(/^\/newsletter\/([a-z0-9-]+)$/i);

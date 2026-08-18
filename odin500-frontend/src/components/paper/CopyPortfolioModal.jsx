@@ -106,7 +106,7 @@ export function CopyPortfolioModal({ open, portfolio, onClose, onCopied }) {
       }
       onCopied?.(json);
       onClose();
-      navigate(`/paper-trading?account_id=${encodeURIComponent(json.account.id)}`);
+      navigate(`/virtual-portfolio?account_id=${encodeURIComponent(json.account.id)}`);
     } catch (err) {
       setError(err?.message || 'Copy failed');
     } finally {

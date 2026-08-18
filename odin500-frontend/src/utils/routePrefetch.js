@@ -66,13 +66,19 @@ export function prefetchRouteChunks(to) {
   if (p.startsWith('/stock-splits')) return markAndRun('stock-splits', () => import('../views/StockSplitsPage.jsx'));
   if (p.startsWith('/ticker-report')) return markAndRun('ticker-report', () => import('../views/TickerReportPage.jsx'));
   if (p.startsWith('/sector-data')) return markAndRun('sector-data', () => import('../views/IndexPage.jsx'));
-  if (p.startsWith('/paper-trading/public/')) {
+  if (p.startsWith('/virtual-portfolio/ai/compare')) {
+    return markAndRun('paper-ai-compare', () => import('../views/PaperTrading/AiPortfolioComparePage.jsx'));
+  }
+  if (p.startsWith('/virtual-portfolio/ai/users')) {
+    return markAndRun('paper-ai-users', () => import('../views/PaperTrading/AiPortfoliosPage.jsx'));
+  }
+  if (p.startsWith('/virtual-portfolio/public/')) {
     return markAndRun('paper-public-detail', () => import('../views/PaperTrading/PublicPortfolioDetailPage.jsx'));
   }
-  if (p.startsWith('/paper-trading/public')) {
+  if (p.startsWith('/virtual-portfolio/public')) {
     return markAndRun('paper-public-list', () => import('../views/PaperTrading/PublicPortfoliosPage.jsx'));
   }
-  if (p.startsWith('/paper-trading')) return markAndRun('paper-trading', () => import('../views/PaperTrading/PaperTradingPage.jsx'));
+  if (p.startsWith('/virtual-portfolio')) return markAndRun('paper-trading', () => import('../views/PaperTrading/PaperTradingPage.jsx'));
   if (p.startsWith('/accounts')) return markAndRun('accounts', () => import('../views/AccountsPage.jsx'));
   if (p.startsWith('/premium') || p.startsWith('/pricing')) return markAndRun('premium', () => import('../views/Pricing.jsx'));
   if (p.startsWith('/profile')) return markAndRun('profile', () => import('../views/ProfilePage.jsx'));

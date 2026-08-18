@@ -20,7 +20,7 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
       'All portfolios are simulated paper trading for research and comparison. Nothing here is investment advice.'
     ],
     links: [
-      { href: '/paper-trading/ai', label: 'Full AI portfolio leaderboard' },
+      { href: '/virtual-portfolio/ai', label: 'Full AI portfolio leaderboard' },
       { href: '/market', label: 'Market dashboard' },
       { href: '/odin-signals', label: 'Odin Signals' },
       { href: '/signup', label: 'Create free account' },
@@ -60,39 +60,69 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
     ],
     links: [
       { href: '/profile', label: 'Profile settings' },
-      { href: '/paper-trading', label: 'Virtual portfolio' },
+      { href: '/virtual-portfolio', label: 'Virtual portfolio' },
       { href: '/market', label: 'Market dashboard' }
     ]
   },
-  '/paper-trading': {
+  '/virtual-portfolio': {
     heading: 'Your virtual portfolio',
     paragraphs: [
       'Practice U.S. stock trading with simulated virtual portfolios, orders, and performance analytics without risking real capital.',
       'Publish a portfolio to share read-only holdings and performance on the public gallery.'
     ],
     links: [
-      { href: '/paper-trading/public', label: 'Public portfolios' },
+      { href: '/virtual-portfolio/public', label: 'Public portfolios' },
       { href: '/market', label: 'Live market dashboard' },
       { href: '/odin-signals', label: 'Trading signals screener' }
     ]
   },
-  '/paper-trading/public': {
+  '/virtual-portfolio/public': {
     heading: 'Public virtual portfolios',
     paragraphs: [
       'Browse virtual portfolios published by Odin500 users. View holdings, equity curves, closed trades, and sector allocation in read-only mode.',
       'Publish your own portfolio from Your Portfolio when you are ready to share.'
     ],
     links: [
-      { href: '/paper-trading', label: 'Your portfolio' },
+      { href: '/virtual-portfolio', label: 'Your portfolio' },
       { href: '/market', label: 'Market dashboard' }
     ]
   },
-  '/paper-trading/ai': {
+  '/virtual-portfolio/ai/compare': {
+    heading: 'Compare AI portfolios — Claude vs ChatGPT vs Gemini vs the index',
+    paragraphs: [
+      'Put the best-performing books from each AI model on a single chart, alongside the S&P 500, Dow Jones and Nasdaq-100 they trade against. Pick any combination of models, portfolios and indices to see how the strategies actually diverge.',
+      'Every series is rebased to a common start date — the publish date of the youngest portfolio selected — so a book running two weeks is never plotted against six months of an index. Each line shows percent return from that shared date, which is the only way portfolios of different ages compare honestly.',
+      'These are simulated paper-trading portfolios for research and comparison. Nothing here is investment advice.'
+    ],
+    sections: [
+      {
+        heading: 'Why the chart rebases every line',
+        body:
+          'Total return rewards whichever portfolio has been running longest, and a normalised chart that starts each series at its own first data point repeats that bias visually. Anchoring every series to one date means the slope you compare covers the same market conditions for all of them — the same trending days, the same choppy ones.'
+      },
+      {
+        heading: 'Comparing models against each other and against the market',
+        body:
+          'Selecting one portfolio per model shows how Claude, ChatGPT and Gemini handled the same window with their own picks. Adding an index answers the harder question: whether any of them beat simply holding the benchmark over that period. Both comparisons only mean something across enough time to cover more than one market regime.'
+      }
+    ],
+    faqs: [
+      {
+        q: 'How are the portfolios on this page chosen?',
+        a: 'Each AI model section lists its five published portfolios with the highest total return. Models with no published portfolios yet show an empty section rather than being hidden.'
+      },
+      {
+        q: 'Why does a portfolio line start partway across the chart?',
+        a: 'A portfolio has no performance before it was published. When you select portfolios with different publish dates, the chart rebases everything to the most recent one so all selected series share a start.'
+      }
+    ]
+  },
+  '/virtual-portfolio/ai': {
     heading: 'AI stock portfolios — Claude, ChatGPT & Gemini trading performance',
     paragraphs: [
       'Odin500 runs virtual investment portfolios in which large language models make every trading decision. Claude and ChatGPT each manage their own book of stocks today, with Gemini next, going long and short across the S&P 500, Nasdaq-100, and Dow Jones. Every position, rebalance, and closed trade is published so you can compare how different AI models handle the same stock market.',
-      'Each portfolio runs to a fixed trading plan set when it is created: an index universe, a direction (long, short, or long-short), selection criteria, and a daily, weekly, or monthly rebalance cadence. From then on the model is trading stocks unattended — no human overrides the picks.',
-      'Portfolios are ranked by average monthly return rather than total return, so a book opened last week can be compared fairly against one running for months. The table shows portfolio value, total return, average monthly return, and open position count for every AI-powered portfolio.',
+      'Each portfolio runs to a fixed trading plan set when it is created: an index universe, a direction (long, short, or long-short), how many positions it holds and how many shares each one gets, selection criteria, and a daily, weekly, or monthly rebalance cadence. From then on the model is trading stocks unattended — no human overrides the picks.',
+      'Portfolios are ranked by total return since publication. The table shows portfolio value, total return, track record length, and open position count for every AI-powered portfolio — read the return alongside how long the book has been running, since a portfolio opened months ago has had far longer to accumulate one.',
       'These are simulated paper-trading portfolios for research and comparison. Nothing here is investment advice.'
     ],
     sections: [
@@ -114,7 +144,7 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
       {
         heading: 'Judging results over the short and long term',
         body:
-          'A few strong weeks say very little about automated trading strategies. Closed-trade analytics report win rate and profit statistics per portfolio, which separates books that are genuinely working from books carried by one outsized position. Ranking noise over the short term fades as sample size grows, so treat average monthly return over a longer track record — across both trending and choppy market conditions — as the meaningful comparison.'
+          'A few strong weeks say very little about automated trading strategies. Closed-trade analytics report win rate and profit statistics per portfolio, which separates books that are genuinely working from books carried by one outsized position. Ranking noise over the short term fades as sample size grows, so treat total return over a longer track record — across both trending and choppy market conditions — as the meaningful comparison.'
       }
     ],
     faqs: [
@@ -135,8 +165,8 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
         a: 'Yes. A portfolio can be configured long-only, short-only, or long-short. Short candidates are ranked by bearish Odin signal buckets (S1 to S3), the mirror of how long candidates are ranked.'
       },
       {
-        q: 'Why rank by average monthly return instead of total return?',
-        a: 'Total return rewards whichever portfolio has simply been running longest. Average monthly return normalises for age, so a book opened recently and one opened months ago can be compared on the same footing.'
+        q: 'How should I compare portfolios of different ages?',
+        a: 'The leaderboard ranks by total return since publication, which rewards whichever portfolio has been running longest, so every row shows its track record length next to the return. A book up 7% in two weeks and one up 7% over six months are very different results — read the two columns together.'
       },
       {
         q: 'Can I build my own portfolio alongside these?',
@@ -144,8 +174,8 @@ export const STATIC_PAGE_SEO: Record<string, StaticPageSeoBlock> = {
       }
     ],
     links: [
-      { href: '/paper-trading/public', label: 'All public portfolios' },
-      { href: '/paper-trading', label: 'Your portfolio' },
+      { href: '/virtual-portfolio/public', label: 'All public portfolios' },
+      { href: '/virtual-portfolio', label: 'Your portfolio' },
       { href: '/odin-signals', label: 'Odin trading signals' },
       { href: '/methodology', label: 'Signal methodology' },
       { href: '/market', label: 'Market dashboard' }

@@ -42,11 +42,33 @@ const ENGINES = {
     // Google retires older models (2.0-flash, 2.5-flash both 404 now), so keep this current.
     defaultModel: 'gemini-3.6-flash',
     call: callGemini
+  },
+  /**
+   * Microsoft Copilot has no general-purpose public chat API of its own, so this points at an
+   * OpenAI-compatible gateway — GitHub Models by default, or set COPILOT_API_BASE to an Azure
+   * OpenAI deployment. Unconfigured until COPILOT_API_KEY is set, and reported as unavailable
+   * rather than failing the request.
+   *
+   * `stanceOnly` keeps it out of listEngines(), so the paper-trading portfolio creator's engine
+   * picker is unchanged — this engine exists for the ticker AI Signal card only.
+   */
+  copilot: {
+    label: 'Copilot',
+    apiKeyEnv: 'COPILOT_API_KEY',
+    modelEnvVars: ['COPILOT_MODEL'],
+    defaultModel: 'openai/gpt-4o-mini',
+    baseUrlEnv: 'COPILOT_API_BASE',
+    defaultBaseUrl: 'https://models.github.ai/inference',
+    stanceOnly: true,
+    call: callOpenAi
   }
 };
 
+/** Portfolio-facing engines only — see the `stanceOnly` note on copilot. */
 function listEngines() {
-  return Object.entries(ENGINES).map(([id, e]) => ({ id, label: e.label, configured: hasEngineKey(id) }));
+  return Object.entries(ENGINES)
+    .filter(([, e]) => !e.stanceOnly)
+    .map(([id, e]) => ({ id, label: e.label, configured: hasEngineKey(id) }));
 }
 
 function hasEngineKey(engine) {
@@ -72,7 +94,10 @@ function engineConfig(engine) {
   }
   const model = cfg.modelEnvVars.map((k) => process.env[k]?.trim()).find(Boolean) || cfg.defaultModel;
   const timeoutMs = Number(process.env.AI_PROVIDER_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
-  return { apiKey, model, timeoutMs, label: cfg.label };
+  // Only OpenAI-compatible engines carry a base URL; the rest ignore it.
+  const baseUrl =
+    (cfg.baseUrlEnv ? process.env[cfg.baseUrlEnv]?.trim() : '') || cfg.defaultBaseUrl || '';
+  return { apiKey, model, timeoutMs, label: cfg.label, baseUrl };
 }
 
 function providerError(label, status, bodyText) {
@@ -99,8 +124,16 @@ async function callAiProvider({ engine, systemPrompt, messages, tools }) {
     err.code = 'UNKNOWN_ENGINE';
     throw err;
   }
-  const { apiKey, model, timeoutMs } = engineConfig(engine);
-  return cfg.call({ apiKey, model, timeoutMs, systemPrompt, messages: messages || [], tools: tools || [] });
+  const { apiKey, model, timeoutMs, baseUrl } = engineConfig(engine);
+  return cfg.call({
+    apiKey,
+    model,
+    timeoutMs,
+    baseUrl,
+    systemPrompt,
+    messages: messages || [],
+    tools: tools || []
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -129,11 +162,14 @@ function toOpenAiMessages(systemPrompt, messages) {
   return out;
 }
 
-async function callOpenAi({ apiKey, model, timeoutMs, systemPrompt, messages, tools }) {
+const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+
+async function callOpenAi({ apiKey, model, timeoutMs, baseUrl, systemPrompt, messages, tools }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const root = String(baseUrl || OPENAI_DEFAULT_BASE_URL).replace(/\/$/, '');
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(`${root}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -21,9 +21,31 @@ const INDEX_OPTIONS = [
 ];
 
 const DIRECTION_OPTIONS = [
-  { id: 'long', label: 'Long-only', hint: '5 positions' },
-  { id: 'short', label: 'Short-only', hint: '5 positions' },
-  { id: 'long_short', label: 'Long-Short', hint: '10 positions' }
+  { id: 'long', label: 'Long-only' },
+  { id: 'short', label: 'Short-only' },
+  { id: 'long_short', label: 'Long-Short' }
+];
+
+/** Mirrors the server-side bounds in services/paper/aiPositionSizing.js. */
+const POSITION_COUNT_MIN = 1;
+const POSITION_COUNT_MAX = 30;
+const DEFAULT_POSITION_COUNT = { long: 5, short: 5, long_short: 10 };
+const STARTING_CAPITAL = 100000;
+
+const POSITION_COUNT_OPTIONS = [
+  { id: '5', label: '5 positions' },
+  { id: '10', label: '10 positions' },
+  { id: '15', label: '15 positions' },
+  { id: '20', label: '20 positions' }
+];
+
+/** Hints spell out the difference — "equal split" vs "equal capital" is not self-evident. */
+const SIZING_OPTIONS = [
+  { id: 'equal_split', label: 'Equal split', hint: 'same share count' },
+  { id: 'equal_capital', label: 'Equal capital', hint: 'same $ each' },
+  { id: '10', label: '10 shares each' },
+  { id: '25', label: '25 shares each' },
+  { id: '50', label: '50 shares each' }
 ];
 
 const CRITERIA_OPTIONS = [
@@ -39,10 +61,35 @@ const CADENCE_OPTIONS = [
   { id: 'monthly', label: 'Monthly' }
 ];
 
-/** The AI model itself is picked via the dropdown in the composer, not asked here. */
+/** Long-Short always needs a name on each side, so it can never be a one-position book. */
+function minPositionsFor(direction) {
+  return direction === 'long_short' ? 2 : POSITION_COUNT_MIN;
+}
+
+/**
+ * The AI model itself is picked via the dropdown in the composer, not asked here.
+ * `prompt`/`retry` may be functions of the config so far — the position-count question depends
+ * on the direction already chosen. Steps with `numeric` accept a typed number, not just a chip.
+ */
 const WIZARD_STEPS = [
   { key: 'indexFocus', prompt: 'Which index should it trade — S&P 500, Dow Jones, or Nasdaq-100?', options: INDEX_OPTIONS },
   { key: 'direction', prompt: 'Long, short, or both?', options: DIRECTION_OPTIONS },
+  {
+    key: 'positionCount',
+    numeric: true,
+    prompt: (cfg) =>
+      `How many positions should it hold? Pick one below or type any number from ${minPositionsFor(cfg.direction)} to ${POSITION_COUNT_MAX}.`,
+    retry: (cfg) => `I need a number of positions — anything from ${minPositionsFor(cfg.direction)} to ${POSITION_COUNT_MAX}.`,
+    options: POSITION_COUNT_OPTIONS
+  },
+  {
+    key: 'sizing',
+    numeric: true,
+    prompt: `And how big should each position be? Equal split buys the same number of shares of every pick; equal capital divides your $${STARTING_CAPITAL.toLocaleString('en-US')} evenly across the picks and buys whatever shares each slice affords. Or just type a share count.`,
+    retry:
+      'Pick "equal capital" (same dollars per position), "equal split" (same share count), or type a whole number of shares.',
+    options: SIZING_OPTIONS
+  },
   {
     key: 'criteria',
     prompt: 'Any particular stock-picking style — news/momentum, fundamentals, technical, or no preference?',
@@ -171,6 +218,39 @@ function mentionsExplicitTickers(text) {
   return tickers.length >= 2;
 }
 
+/**
+ * Sizing answers stated in passing ("a 12-stock book, 25 shares each"). Deliberately tighter
+ * than what the awaited step accepts: a bare number anywhere in a message is far more likely
+ * to be part of an index name than an answer, so a unit word is always required here.
+ */
+const FREE_TEXT_SIZE_PATTERNS = {
+  positionCount: /\b(\d{1,2})\s*(?:positions?|stocks?|tickers?|names?|holdings?|picks?)\b/i,
+  // Checked before equalSplit: "equal weight"/"equal amount" are dollar-sizing phrases in
+  // finance, and "equal capital" would otherwise be caught by a looser "equal ..." pattern.
+  equalCapital:
+    /\bequal(?:ly)?\s*(?:capital|dollars?|money|values?|amounts?|weight(?:ed|ing)?|allocat\w*|budget)\b|\bsame\s*(?:\$|dollars?|amount|value)\b|\bequal[-\s]?weight\w*\b/i,
+  equalSplit:
+    /\bequal(?:ly)?\s*(?:split|shares?|share\s*counts?|sized?|qty|quantit\w*)\b|\bsplit\s*(?:it\s*)?equally\b|\bsame\s*(?:qty|quantity|number\s*of\s*shares|share\s*count)\b/i,
+  positionQty: /\b(\d[\d,]*)\s*shares?\b/i
+};
+
+/**
+ * "You pick" / "whatever you think" — only honoured while the step is actually being asked.
+ * Deliberately excludes "no preference", which the criteria step already claims.
+ */
+const DEFER_TO_AI_RE = /\b(you\s*(decide|choose|pick|know\s*best)|your\s*(call|choice)|whatever|up\s*to\s*you)\b/i;
+
+/** Answers that mean "as big as it can be" — the same thing equal split already does. */
+const MAX_SIZE_RE = /\b(as\s*many\s*as\s*(possible|it\s*can|you\s*can)|max(imum)?|fill\s*(it|the\s*account)|use\s*(all|the\s*whole)|biggest|largest)\b/i;
+
+/** First whole number in an answer ("about 12 stocks please" -> 12). */
+function firstWholeNumber(text) {
+  const m = String(text).match(/\d[\d,]*/);
+  if (!m) return null;
+  const n = Math.trunc(Number(m[0].replace(/,/g, '')));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 /** Scans free text for any wizard slot values it already states, in step order. */
 function parseSlotsFromText(text) {
   const found = {};
@@ -182,6 +262,23 @@ function parseSlotsFromText(text) {
       }
     }
   }
+
+  const countMatch = text.match(FREE_TEXT_SIZE_PATTERNS.positionCount);
+  if (countMatch) found.positionCount = Number(countMatch[1]);
+
+  // Named modes first: "equal shares" would otherwise read as a quantity of shares.
+  const qtyMatch = text.match(FREE_TEXT_SIZE_PATTERNS.positionQty);
+  if (FREE_TEXT_SIZE_PATTERNS.equalCapital.test(text)) {
+    found.sizing = 'equal_capital';
+    found.positionQty = null;
+  } else if (FREE_TEXT_SIZE_PATTERNS.equalSplit.test(text)) {
+    found.sizing = 'equal_split';
+    found.positionQty = null;
+  } else if (qtyMatch) {
+    found.sizing = 'fixed_qty';
+    found.positionQty = Number(String(qtyMatch[1]).replace(/,/g, ''));
+  }
+
   // Naming exact tickers ("build with AAPL, MSFT...") makes the picking-style question moot —
   // there's no "style" to pick when the user already said exactly what to buy.
   if (!found.criteria && mentionsExplicitTickers(text)) {
@@ -190,8 +287,66 @@ function parseSlotsFromText(text) {
   return found;
 }
 
+/**
+ * Turns one answer to one step into a config patch. Numeric steps take a typed number or an
+ * "equal split" phrase; everything else falls back to matching an option label.
+ * @returns {{ patch?: object, error?: string } | null} null when nothing usable was found
+ */
+function resolveStepAnswer(step, text, config) {
+  // A number carrying the *other* step's unit ("make it 12 positions") is answering that
+  // step, not this one — leave it to the free-text scan rather than misreading it here.
+  const namesPositions = FREE_TEXT_SIZE_PATTERNS.positionCount.test(text);
+  const namesShares = FREE_TEXT_SIZE_PATTERNS.positionQty.test(text);
+
+  if (step.key === 'positionCount') {
+    const min = minPositionsFor(config.direction);
+    if (DEFER_TO_AI_RE.test(text)) {
+      return { patch: { positionCount: Math.max(min, DEFAULT_POSITION_COUNT[config.direction] || 5) } };
+    }
+    if (namesShares && !namesPositions) return null;
+    const n = firstWholeNumber(text);
+    if (n == null) return null;
+    if (n < min || n > POSITION_COUNT_MAX) {
+      return { error: `That has to be between ${min} and ${POSITION_COUNT_MAX} positions — try again.` };
+    }
+    return { patch: { positionCount: n } };
+  }
+
+  if (step.key === 'sizing') {
+    if (FREE_TEXT_SIZE_PATTERNS.equalCapital.test(text)) {
+      return { patch: { sizing: 'equal_capital', positionQty: null } };
+    }
+    // Equal split stays the default for a non-answer: "as big as possible" is literally what
+    // it does, and "you decide" resolved here before equal capital existed.
+    if (FREE_TEXT_SIZE_PATTERNS.equalSplit.test(text) || MAX_SIZE_RE.test(text) || DEFER_TO_AI_RE.test(text)) {
+      return { patch: { sizing: 'equal_split', positionQty: null } };
+    }
+    if (namesPositions && !namesShares) return null;
+    const n = firstWholeNumber(text);
+    if (n == null) return null;
+    return { patch: { sizing: 'fixed_qty', positionQty: n } };
+  }
+
+  const matched = matchOption(text, step.options.filter((o) => !o.disabled));
+  return matched ? { patch: { [step.key]: matched.id } } : null;
+}
+
+/** Long-Short can't run on one name, so a count picked before the direction gets nudged up. */
+function reconcileConfig(config) {
+  const min = minPositionsFor(config.direction);
+  if (config.positionCount && config.positionCount < min) return { ...config, positionCount: min };
+  return config;
+}
+
 function missingStep(cfg) {
   return WIZARD_STEPS.find((s) => !cfg[s.key]) || null;
+}
+
+/** What to say when an answer didn't parse — numeric steps can't just list their chips. */
+function retryPromptFor(step, cfg) {
+  if (step.retry) return typeof step.retry === 'function' ? step.retry(cfg) : step.retry;
+  const optionLabels = step.options.filter((o) => !o.disabled).map((o) => o.label).join(', ');
+  return `Sorry, I didn't catch that — pick one: ${optionLabels}.`;
 }
 
 /** Small-talk / capability replies for messages that aren't answering a slot or asking to build yet. */
@@ -201,9 +356,18 @@ function genericAssistantReply(text) {
     return "Hey! I build AI-managed virtual portfolios — S&P 500, Dow Jones, or Nasdaq-100, long or short, your pick of style. Say \"build me a portfolio\" whenever you're ready.";
   }
   if (/what can you do|how does this work|how do you work|\bhelp\b/.test(t)) {
-    return "I build a brand-new AI-managed virtual portfolio: you tell me the index, direction, stock-picking style, and rebalance cadence, then I select the tickers and propose the full portfolio for you to confirm. Just say \"build me a portfolio\" to start.";
+    return "I build a brand-new AI-managed virtual portfolio: you tell me the index, direction, how many positions and how big each one should be, the stock-picking style, and the rebalance cadence — then I select the tickers and propose the full portfolio for you to confirm. Just say \"build me a portfolio\" to start.";
   }
   return "I'm set up to build AI-managed virtual portfolios here. Tell me you'd like to build one — or describe the index/direction/style you have in mind — and I'll take it from there.";
+}
+
+/** Sizing line for the confirm card — the exact share count is only known once orders are placed. */
+function describeProposalSizing(proposal) {
+  if (proposal.sizing === 'fixed_qty' && proposal.position_qty > 0) {
+    return `${proposal.position_qty} shares each (reduced if that overruns the capital)`;
+  }
+  if (proposal.sizing === 'equal_capital') return 'equal capital — same dollar amount per pick';
+  return 'equal split — same share count for every pick';
 }
 
 function ProposalCard({ proposal, busy, error, errorCode, onConfirm, onCancel, onRename }) {
@@ -239,6 +403,10 @@ function ProposalCard({ proposal, busy, error, errorCode, onConfirm, onCancel, o
       <ul className="paper-assistant__proposal-actions">
         {longs.length ? <li>Long: {longs.map((h) => h.ticker).join(', ')}</li> : null}
         {shorts.length ? <li>Short: {shorts.map((h) => h.ticker).join(', ')}</li> : null}
+        <li>
+          {proposal.holdings.length} position{proposal.holdings.length === 1 ? '' : 's'} ·{' '}
+          {describeProposalSizing(proposal)}
+        </li>
       </ul>
       {error ? (
         <p className="paper-assistant__error">
@@ -282,7 +450,16 @@ export function AiPortfolioCreatorChat({ onCreated }) {
 
   // Local, client-side turns shown before the real AI takes over (greeting, small talk, slot Q&A).
   const [wizardLog, setWizardLog] = useState([]); // [{id, role, content}]
-  const [config, setConfig] = useState({ engine: '', indexFocus: '', direction: '', criteria: '', cadence: '' });
+  const [config, setConfig] = useState({
+    engine: '',
+    indexFocus: '',
+    direction: '',
+    positionCount: 0,
+    sizing: '',
+    positionQty: null,
+    criteria: '',
+    cadence: ''
+  });
   const [awaitingSlotKey, setAwaitingSlotKey] = useState(null);
   const [draft, setDraft] = useState('');
   const greetedRef = useRef(false);
@@ -442,9 +619,9 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     [persistSize, size.height, size.width]
   );
 
-  function askStep(step) {
+  function askStep(step, cfg) {
     setAwaitingSlotKey(step.key);
-    pushWizard('bot', step.prompt);
+    pushWizard('bot', typeof step.prompt === 'function' ? step.prompt(cfg) : step.prompt);
   }
 
   /** Single entry point for anything the user sends — typed, chip click, or suggestion click. */
@@ -461,25 +638,25 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     pushWizard('user', text);
     userNotesRef.current.push(text);
 
+    const awaitingStepNow = WIZARD_STEPS.find((s) => s.key === awaitingSlotKey) || null;
+    // A message can both answer the question just asked and mention other slots in passing
+    // ("12 stocks, and make it nasdaq"), so take both — but let the awaited step own its key,
+    // otherwise a phrase like "you decide" gets claimed by whichever slot pattern sees it first.
     const parsed = parseSlotsFromText(text);
+    const awaited = awaitingStepNow ? resolveStepAnswer(awaitingStepNow, text, config) : null;
+    const patch = { ...parsed, ...(awaited?.patch || {}) };
+
     let nextConfig = config;
-    if (Object.keys(parsed).length) {
-      nextConfig = { ...config, ...parsed };
+    if (Object.keys(patch).length) {
+      nextConfig = reconcileConfig({ ...config, ...patch });
       setConfig(nextConfig);
-    } else if (awaitingSlotKey) {
-      const step = WIZARD_STEPS.find((s) => s.key === awaitingSlotKey);
-      const matched = step && matchOption(text, step.options.filter((o) => !o.disabled));
-      if (matched) {
-        nextConfig = { ...config, [step.key]: matched.id };
-        setConfig(nextConfig);
-      }
     }
 
     const gainedSlot = nextConfig !== config;
     const stillMissing = missingStep(nextConfig);
 
     if (!stillMissing) {
-      // All four slots resolved — hand off everything the user said during setup (not just this
+      // Every slot resolved — hand off everything the user said during setup (not just this
       // last message) so specifics like exact tickers named earlier aren't lost. The effect
       // watching `wizardComplete` sends this off to the AI.
       pendingKickoffRef.current = userNotesRef.current.join('\n');
@@ -487,20 +664,24 @@ export function AiPortfolioCreatorChat({ onCreated }) {
       return;
     }
 
-    if (gainedSlot) {
-      askStep(stillMissing);
+    // Out-of-range answer to the question still on the table — explain instead of re-asking.
+    if (awaited?.error && stillMissing.key === awaitingStepNow?.key) {
+      pushWizard('bot', awaited.error);
       return;
     }
 
-    if (awaitingSlotKey) {
-      const step = WIZARD_STEPS.find((s) => s.key === awaitingSlotKey);
-      const optionLabels = step.options.filter((o) => !o.disabled).map((o) => o.label).join(', ');
-      pushWizard('bot', `Sorry, I didn't catch that — pick one: ${optionLabels}.`);
+    if (gainedSlot) {
+      askStep(stillMissing, nextConfig);
+      return;
+    }
+
+    if (awaitingStepNow) {
+      pushWizard('bot', retryPromptFor(awaitingStepNow, nextConfig));
       return;
     }
 
     if (BUILD_INTENT_RE.test(text)) {
-      askStep(stillMissing);
+      askStep(stillMissing, nextConfig);
       return;
     }
 
@@ -515,6 +696,9 @@ export function AiPortfolioCreatorChat({ onCreated }) {
       engine: keptEngine,
       indexFocus: '',
       direction: '',
+      positionCount: 0,
+      sizing: '',
+      positionQty: null,
       criteria: '',
       cadence: ''
     });
@@ -552,6 +736,10 @@ export function AiPortfolioCreatorChat({ onCreated }) {
         engine: imported.engine || prev.engine,
         indexFocus: imported.index_focus || prev.indexFocus,
         direction: imported.direction || prev.direction,
+        // The file's own row count wins here — it's what was actually proposed.
+        positionCount: imported.position_count || prev.positionCount,
+        sizing: imported.sizing || prev.sizing,
+        positionQty: imported.position_qty ?? prev.positionQty,
         criteria: imported.criteria || prev.criteria,
         cadence: imported.cadence || prev.cadence
       };
@@ -569,7 +757,7 @@ export function AiPortfolioCreatorChat({ onCreated }) {
       // Not published yet (that's an explicit later step) — go to the private dashboard,
       // not the public detail page, since the public page 404s until it's published.
       usePaperSessionStore.getState().setActiveAccountId(account.id);
-      navigate('/paper-trading');
+      navigate('/virtual-portfolio');
     }
   }
 
@@ -588,7 +776,7 @@ export function AiPortfolioCreatorChat({ onCreated }) {
           title="Create AI Portfolio"
           onClick={() => {
             if (!loggedIn) {
-              loginGate?.showLoginRequired({ returnTo: '/paper-trading/ai' });
+              loginGate?.showLoginRequired({ returnTo: '/virtual-portfolio/ai' });
               return;
             }
             setOpen((v) => !v);

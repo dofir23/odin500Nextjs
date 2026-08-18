@@ -25,6 +25,7 @@ const {
   fetchLatestClosePrices
 } = require('../services/paper/pnlCalculator');
 const { runStrategiesForAccount } = require('../services/paper/strategyRunner');
+const { getRebalanceLogForAccount } = require('../services/paper/rebalanceLogReader');
 const { getWatchlistSignalLeaders } = require('../services/paper/watchlistResolver');
 const {
   getAccountsSummary,
@@ -41,6 +42,11 @@ const {
   validateProposal,
   buildDefaultPublishText
 } = require('../services/paper/aiPortfolioCreator');
+const {
+  normalizePositionCount,
+  normalizeSizing,
+  planAiAllocation
+} = require('../services/paper/aiPositionSizing');
 const { parseHoldingsWorkbook } = require('../services/paper/portfolioExport');
 const { listEngines } = require('../services/paper/aiProviders');
 const { executeCopy } = require('../services/paper/copyPortfolio');
@@ -768,6 +774,44 @@ function firstConfiguredEngine() {
   return listEngines().find((e) => e.configured)?.id || '';
 }
 
+/** Columns added by supabase/manual/paper_accounts_ai_position_sizing.sql. */
+const AI_SIZING_COLUMNS = ['ai_position_count', 'ai_position_sizing', 'ai_position_qty'];
+
+function isMissingColumnError(error) {
+  return error?.code === '42703' || error?.code === 'PGRST204' || /column .* does not exist/i.test(error?.message || '');
+}
+
+/**
+ * Writes the AI config onto a freshly created account. The sizing columns are newer than the
+ * rest, so an instance that hasn't run the migration yet still gets a working portfolio —
+ * it just falls back to the legacy equal-dollar sizing on its next rebalance.
+ */
+async function tagAiManagedAccount(accountId, fields) {
+  const { error } = await supabaseService.from('paper_accounts').update(fields).eq('id', accountId);
+  if (!error) return;
+  if (!isMissingColumnError(error)) throw error;
+
+  const legacyFields = { ...fields };
+  for (const col of AI_SIZING_COLUMNS) delete legacyFields[col];
+  const { error: retryErr } = await supabaseService
+    .from('paper_accounts')
+    .update(legacyFields)
+    .eq('id', accountId);
+  if (retryErr) throw retryErr;
+}
+
+
+/** Audit trail of AI rebalances for one account the caller owns. */
+router.get('/accounts/:id/rebalances', async (req, res) => {
+  try {
+    const account = await resolveAccountForUser(req.user.id, req.params.id);
+    const rebalances = await getRebalanceLogForAccount(account.id, { limit: req.query?.limit });
+    res.status(200).json({ success: true, rebalances });
+  } catch (error) {
+    const status = Number(error?.status) || 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to load rebalances' });
+  }
+});
 
 /** On-demand rebalance for one AI-managed account — same logic the scheduled job uses,
  *  triggered manually (e.g. from the portfolio assistant chat) instead of waiting for cadence. */
@@ -811,6 +855,9 @@ router.post('/ai-portfolios/chat', aiPortfolioChatLimiter, async (req, res) => {
       engine: body.engine,
       indexFocus: body.index_focus || body.indexFocus,
       direction: body.direction,
+      positionCount: body.position_count ?? body.positionCount,
+      sizing: body.sizing,
+      positionQty: body.position_qty ?? body.positionQty,
       criteria: body.criteria,
       cadence: body.cadence,
       messages
@@ -870,15 +917,36 @@ router.post('/ai-portfolios/import', uploadSingleImportFile, async (req, res) =>
       });
     }
 
+    // The file's own rows are the position count — a 12-row sheet means a 12-name book, no
+    // matter what the wizard had pencilled in. Sizing still comes from the UI/Settings sheet.
+    const positionCount = normalizePositionCount(direction, holdings.length);
+    const { sizing, qty: positionQty } = normalizeSizing({
+      sizing: body.sizing || settings.sizing,
+      qty: body.position_qty ?? body.positionQty ?? settings.positionQty
+    });
+
     const name = String(body.name || '').trim() || settings.name || `Imported Portfolio ${new Date().toISOString().slice(0, 10)}`;
-    const outcome = await validateProposal({ userId: req.user.id, indexFocus, direction }, { name, holdings });
+    const outcome = await validateProposal(
+      { userId: req.user.id, indexFocus, direction, positionCount, allowAnySplit: true },
+      { name, holdings }
+    );
     if (outcome.error) {
       return res.status(400).json({ error: outcome.error });
     }
 
     res.status(200).json({
       success: true,
-      proposal: { engine, index_focus: indexFocus, direction, criteria, cadence, ...outcome.proposal }
+      proposal: {
+        engine,
+        index_focus: indexFocus,
+        direction,
+        position_count: positionCount,
+        sizing,
+        position_qty: positionQty,
+        criteria,
+        cadence,
+        ...outcome.proposal
+      }
     });
   } catch (error) {
     res.status(error.status || 500).json({ success: false, error: error.message || 'Failed to import file' });
@@ -902,52 +970,65 @@ router.post('/ai-portfolios', async (req, res) => {
       return res.status(400).json({ error: 'holdings is required' });
     }
 
+    const positionCount = normalizePositionCount(direction, body.position_count ?? body.positionCount ?? holdings.length);
+    const { sizing, qty: requestedQty } = normalizeSizing({
+      sizing: body.sizing,
+      qty: body.position_qty ?? body.positionQty
+    });
+
     const tickers = [...new Set(holdings.map((h) => String(h.ticker || '').trim().toUpperCase()).filter(Boolean))];
     const priceMap = await fetchLatestClosePrices(tickers);
-    const perPositionDollars = STARTING_CAPITAL / holdings.length;
+    // Every name gets the same share count, capped so the book's gross cost stays inside the
+    // starting capital. Leftover cash is fine — an equal share count rarely spends it exactly.
+    const plan = planAiAllocation({
+      holdings,
+      priceMap,
+      capital: STARTING_CAPITAL,
+      sizing,
+      qty: requestedQty
+    });
+
+    if (!plan.orders.length) {
+      return res.status(422).json({
+        success: false,
+        error:
+          'None of these picks can be bought within the starting capital at that sizing. Try fewer positions, a smaller share count, or equal-capital sizing.',
+        code: 'NOTHING_AFFORDABLE',
+        failed: plan.failed
+      });
+    }
 
     const account = await createAccountForUser(req.user.id, { name: body.name });
 
-    const { error: tagErr } = await supabaseService
-      .from('paper_accounts')
-      .update({
-        ai_engine: engine,
-        ai_index_focus: indexFocus,
-        ai_direction: direction,
-        ai_criteria: body.criteria,
-        ai_rebalance_cadence: body.cadence,
-        ai_managed: true
-      })
-      .eq('id', account.id);
-    if (tagErr) throw tagErr;
+    await tagAiManagedAccount(account.id, {
+      ai_engine: engine,
+      ai_index_focus: indexFocus,
+      ai_direction: direction,
+      ai_criteria: body.criteria,
+      ai_rebalance_cadence: body.cadence,
+      ai_managed: true,
+      ai_position_count: positionCount,
+      ai_position_sizing: sizing,
+      // The resolved count, not the requested one — rebalances open new names at this size.
+      // Null under equal_capital, where each name's share count depends on its own price.
+      ai_position_qty: plan.qtyPerPosition
+    });
 
     const placedTickers = [];
-    const failed = [];
-    for (const h of holdings) {
-      const ticker = String(h.ticker || '').trim().toUpperCase();
-      const action = String(h.action || '').trim().toUpperCase();
-      const price = priceMap.get(ticker);
-      if (!price) {
-        failed.push({ ticker, error: 'No market price available' });
-        continue;
-      }
-      const qty = Math.floor(perPositionDollars / price);
-      if (qty < 1) {
-        failed.push({ ticker, error: 'Price too high for equal-weight allocation' });
-        continue;
-      }
+    const failed = [...plan.failed];
+    for (const order of plan.orders) {
       try {
         await placeOrder(req.user.id, {
           accountId: account.id,
-          ticker,
-          action,
-          qty,
+          ticker: order.ticker,
+          action: order.action,
+          qty: order.qty,
           orderType: 'market',
           source: 'ai_portfolio_create'
         });
-        placedTickers.push(ticker);
+        placedTickers.push(order.ticker);
       } catch (err) {
-        failed.push({ ticker, error: err.message });
+        failed.push({ ticker: order.ticker, error: err.message });
       }
     }
 
@@ -959,7 +1040,10 @@ router.post('/ai-portfolios', async (req, res) => {
         ai_index_focus: indexFocus,
         ai_direction: direction,
         ai_criteria: body.criteria,
-        ai_rebalance_cadence: body.cadence
+        ai_rebalance_cadence: body.cadence,
+        ai_position_count: positionCount,
+        ai_position_sizing: sizing,
+        ai_position_qty: plan.qtyPerPosition
       },
       body.rationale
     );
@@ -971,7 +1055,22 @@ router.post('/ai-portfolios', async (req, res) => {
       .single();
     if (draftErr) throw draftErr;
 
-    res.status(201).json({ success: true, account: finalAccount, placed: placedTickers, failed });
+    res.status(201).json({
+      success: true,
+      account: finalAccount,
+      placed: placedTickers,
+      failed,
+      sizing: {
+        mode: sizing,
+        qty_per_position: plan.qtyPerPosition,
+        capital_per_position: plan.capitalPerPosition,
+        requested_qty: plan.requestedQty,
+        // True when the typed share count wouldn't fit, so the UI can say why it differs.
+        clamped: plan.clamped,
+        gross_cost: plan.grossCost,
+        capital: STARTING_CAPITAL
+      }
+    });
   } catch (error) {
     res.status(error.status || 500).json({
       success: false,

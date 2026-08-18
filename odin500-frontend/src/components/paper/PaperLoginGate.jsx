@@ -7,7 +7,7 @@ import { useIsLoggedIn } from '../../hooks/useIsLoggedIn.js';
 import { GUEST_AUTH_ENTRY_PATHS } from '../../utils/authRedirect.js';
 
 /** Same login modal as watchlist / Your Portfolio. */
-export function PaperLoginGate({ children, returnTo = '/paper-trading' }) {
+export function PaperLoginGate({ children, returnTo = '/virtual-portfolio' }) {
   const navigate = useNavigate();
   const loginGate = useLoginGateOptional();
   const loggedIn = useIsLoggedIn();

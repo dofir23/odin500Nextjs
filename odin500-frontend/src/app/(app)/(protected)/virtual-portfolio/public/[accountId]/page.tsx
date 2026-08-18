@@ -8,14 +8,14 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps) {
   const { accountId } = await params;
-  return toNextMetadata(`/paper-trading/public/${accountId}`);
+  return toNextMetadata(`/virtual-portfolio/public/${accountId}`);
 }
 
 export const revalidate = 300;
 
 export default async function Page({ params }: PageProps) {
   const { accountId } = await params;
-  const pathname = `/paper-trading/public/${accountId}`;
+  const pathname = `/virtual-portfolio/public/${accountId}`;
   return (
     <PageServerShell pathname={pathname}>
       <PublicPortfolioDetailPage />

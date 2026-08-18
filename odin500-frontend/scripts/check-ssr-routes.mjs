@@ -83,7 +83,7 @@ function parseBuildReport(buildOutput) {
 function collectTestPaths() {
   const paths = buildDynamicSitemapPaths([SAMPLE_TICKER]);
   // Also spot-check a few auth/app routes not in sitemap (informational).
-  const extra = ['/login', '/paper-trading', '/accounts', '/forgot-password'];
+  const extra = ['/login', '/virtual-portfolio', '/accounts', '/forgot-password'];
   return [...new Set([...paths, ...extra])];
 }
 

@@ -19,7 +19,11 @@ const {
     getIndexConstituentLeaders,
     getMarketRailSnapshot
 } = require('../controllers/marketController');
+const { getTickerAiStanceHandler } = require('../controllers/aiStanceController');
 const requireAuth = require('../middleware/authMiddleware'); // Protect this route!
+
+// Per-engine AI long/short read for one ticker (BigQuery-cached, one round per ticker per day).
+router.get('/ticker-ai-stance', requireAuth, getTickerAiStanceHandler);
 
 // Only logged-in users can see stock data
 router.get('/ohlc', requireAuth, getStockData);

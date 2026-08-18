@@ -14,8 +14,10 @@ export const SITEMAP_STATIC_PATHS = [
   '/premium',
   '/methodology',
   '/about',
-  '/paper-trading/public',
-  '/paper-trading/ai',
+  '/virtual-portfolio/public',
+  '/virtual-portfolio/ai',
+  '/virtual-portfolio/ai/users',
+  '/virtual-portfolio/ai/compare',
   '/newsletter'
 ];
 

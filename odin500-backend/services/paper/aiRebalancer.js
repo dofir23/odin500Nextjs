@@ -3,7 +3,8 @@ const { placeOrder } = require('./orderEngine');
 const { getClosableQty } = require('./positionManager');
 const { fetchLatestClosePrices } = require('./pnlCalculator');
 const { STARTING_CAPITAL } = require('./dbSchema');
-const { runAiPortfolioRebalance, DIRECTION_SPEC } = require('./aiPortfolioCreator');
+const { runAiPortfolioRebalance } = require('./aiPortfolioCreator');
+const { resolvePositionSpec, planAiAllocation } = require('./aiPositionSizing');
 
 const CADENCE_MS = {
   daily: 24 * 60 * 60 * 1000,
@@ -60,9 +61,54 @@ async function writeRebalanceLog(accountId, { engine, added, dropped, rawOutput,
 }
 
 /**
+ * How many names this account should hold. `ai_position_count` is the user's answer from the
+ * creator wizard; accounts created before that column existed fall back to what they're
+ * actually holding right now, so a legacy 5- or 10-name book keeps its shape.
+ */
+function resolveAccountPositionCount(account, currentHoldings) {
+  const stored = Number(account.ai_position_count);
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  return currentHoldings.length || undefined;
+}
+
+/**
+ * Sizes the names a rebalance is opening, matching how the account was originally built:
+ *   - equal_capital  each new name gets one position's dollar slice of the starting capital.
+ *   - equal_split / fixed_qty  the per-position share count the book was built with.
+ * Accounts created before the sizing columns existed have neither, and fall back to the old
+ * equal-dollar split — which is the same math as equal_capital.
+ */
+function planAddedOrders(account, added, priceMap, totalCount) {
+  const capital = Number(account.starting_capital) || STARTING_CAPITAL;
+  const storedQty = Number(account.ai_position_qty);
+  const isEqualCapital = account.ai_position_sizing === 'equal_capital';
+
+  if (!isEqualCapital && Number.isFinite(storedQty) && storedQty > 0) {
+    return planAiAllocation({ holdings: added, priceMap, capital, sizing: 'fixed_qty', qty: storedQty });
+  }
+
+  // Size against the book's full name count, not just the names being added, so a rebalance
+  // that swaps 2 of 10 gives those 2 a tenth of the capital each — not half.
+  const perPositionDollars = capital / Math.max(1, totalCount);
+  const orders = [];
+  const failed = [];
+  for (const h of added) {
+    const price = priceMap.get(h.ticker);
+    const qty = price ? Math.floor(perPositionDollars / price) : 0;
+    if (qty < 1) {
+      failed.push({ ticker: h.ticker, action: 'open', error: 'No price or price too high for this position\'s share of the capital' });
+      continue;
+    }
+    orders.push({ ticker: h.ticker, action: h.action, qty });
+  }
+  return { orders, failed };
+}
+
+/**
  * Rebalances one AI-managed account: asks its configured engine for the updated target
  * holdings, diffs against currently open lots, closes drops and opens adds via the normal
- * order engine (equal-weight sized), leaves unchanged tickers untouched, and logs the run.
+ * order engine (sized to the account's per-position share count), leaves unchanged tickers
+ * untouched, and logs the run.
  * @param {object} account a row from paper_accounts (ai_managed = true)
  */
 async function rebalanceAccount(account) {
@@ -75,6 +121,9 @@ async function rebalanceAccount(account) {
       engine: account.ai_engine,
       indexFocus: account.ai_index_focus,
       direction: account.ai_direction,
+      positionCount: resolveAccountPositionCount(account, currentHoldings),
+      sizing: account.ai_position_sizing,
+      positionQty: account.ai_position_qty,
       criteria: account.ai_criteria,
       cadence: account.ai_rebalance_cadence,
       currentHoldings
@@ -132,29 +181,23 @@ async function rebalanceAccount(account) {
   }
 
   if (added.length) {
-    const spec = DIRECTION_SPEC[account.ai_direction];
-    const totalCount = spec.longCount + spec.shortCount;
+    const spec = resolvePositionSpec(account.ai_direction, resolveAccountPositionCount(account, currentHoldings));
     const priceMap = await fetchLatestClosePrices(added.map((h) => h.ticker));
-    const perPositionDollars = STARTING_CAPITAL / totalCount;
+    const plan = planAddedOrders(account, added, priceMap, spec.total);
+    failed.push(...plan.failed.map((f) => ({ action: 'open', ...f })));
 
-    for (const h of added) {
-      const price = priceMap.get(h.ticker);
-      const qty = price ? Math.floor(perPositionDollars / price) : 0;
-      if (qty < 1) {
-        failed.push({ ticker: h.ticker, action: 'open', error: 'No price or price too high for equal-weight allocation' });
-        continue;
-      }
+    for (const order of plan.orders) {
       try {
         await placeOrder(account.user_id, {
           accountId: account.id,
-          ticker: h.ticker,
-          action: h.action,
-          qty,
+          ticker: order.ticker,
+          action: order.action,
+          qty: order.qty,
           orderType: 'market',
           source: 'ai_rebalance'
         });
       } catch (err) {
-        failed.push({ ticker: h.ticker, action: 'open', error: err.message });
+        failed.push({ ticker: order.ticker, action: 'open', error: err.message });
       }
     }
   }

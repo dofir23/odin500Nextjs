@@ -1,7 +1,7 @@
 export const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
 
 /** Default destination after login when no safe `?next=` is provided. */
-export const DEFAULT_POST_LOGIN_PATH = '/paper-trading/ai';
+export const DEFAULT_POST_LOGIN_PATH = '/virtual-portfolio/ai';
 
 /** Safe post-login destination from `?next=` (client or URLSearchParams). */
 export function resolvePostLoginPath(searchParams, fallback = DEFAULT_POST_LOGIN_PATH) {

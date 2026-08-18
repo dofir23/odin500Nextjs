@@ -14,9 +14,9 @@ S1–S3 short) derived from daily OHLC data, and may only act on tool-returned t
 Holdings, equity curves, and closed-trade history are published for every book. Users can launch
 their own portfolio with Claude, ChatGPT, or Gemini. All trading is simulated — not investment advice.
 
-- /paper-trading/ai — AI portfolio leaderboard, ranked by average monthly return
-- /paper-trading — Build your own AI-managed or manual virtual portfolio
-- /paper-trading/public — All published user portfolios
+- /virtual-portfolio/ai — AI portfolio leaderboard, ranked by total return
+- /virtual-portfolio — Build your own AI-managed or manual virtual portfolio
+- /virtual-portfolio/public — All published user portfolios
 
 ## Main sections
 
@@ -36,7 +36,7 @@ their own portfolio with Claude, ChatGPT, or Gemini. All trading is simulated �
 - /ticker/aapl — Per-ticker OHLC charts, returns, and Odin signals (pattern: /ticker/{symbol})
 - /historical-data/aapl — Historical OHLC download (pattern: /historical-data/{symbol})
 - /ticker-report/aapl — Ticker research reports (pattern: /ticker-report/{symbol})
-- /paper-trading — Virtual portfolio simulator with optional strategy automation (see AI portfolios above)
+- /virtual-portfolio — Virtual portfolio simulator with optional strategy automation (see AI portfolios above)
 - /premium — Free and Pro ($10/month) pricing
 - /methodology — Data sources, signal methodology, and editorial standards
 - /about — Company overview, mission, and trust content

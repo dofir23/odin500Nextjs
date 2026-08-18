@@ -3,6 +3,14 @@ const { getWatchlistSignalLeaders } = require('./watchlistResolver');
 const { fetchGeneralMarketNews, fetchCompanyNews } = require('../marketNews');
 const { fetchLatestClosePrices } = require('./pnlCalculator');
 const { STARTING_CAPITAL } = require('./dbSchema');
+const { buildAiPortfolioName } = require('./aiPortfolioNaming');
+const {
+  DIRECTION_LABELS,
+  normalizePositionCount,
+  resolvePositionSpec,
+  normalizeSizing,
+  describeSizing
+} = require('./aiPositionSizing');
 
 /**
  * Chat-driven builder for a brand-new AI-managed portfolio. Unlike
@@ -28,11 +36,14 @@ const INDEX_LABELS = {
   sp500: 'S&P 500'
 };
 
-/** Position counts per leg — Long-Short = 5 long + 5 short = 10 total, per the product spec. */
+/**
+ * Valid directions. Per-leg position counts are no longer fixed here — the user picks a total
+ * in the creator wizard and services/paper/aiPositionSizing.js splits it across the legs.
+ */
 const DIRECTION_SPEC = {
-  long: { longCount: 5, shortCount: 0, label: 'Long-only' },
-  short: { longCount: 0, shortCount: 5, label: 'Short-only' },
-  long_short: { longCount: 5, shortCount: 5, label: 'Long-Short' }
+  long: { label: DIRECTION_LABELS.long },
+  short: { label: DIRECTION_LABELS.short },
+  long_short: { label: DIRECTION_LABELS.long_short }
 };
 
 const CRITERIA_LABELS = {
@@ -68,11 +79,19 @@ function buildDefaultPublishText(account, rationale) {
   const criteriaLabel = (CRITERIA_LABELS[account.ai_criteria] || account.ai_criteria || '').toLowerCase();
   const cadenceLabel = CADENCE_LABELS[account.ai_rebalance_cadence] || account.ai_rebalance_cadence;
 
+  const spec = resolvePositionSpec(account.ai_direction, account.ai_position_count);
+  const sizingLabel =
+    account.ai_position_sizing === 'equal_capital'
+      ? 'an equal dollar amount per name'
+      : account.ai_position_sizing === 'fixed_qty' && account.ai_position_qty > 0
+        ? `${account.ai_position_qty} shares of each name`
+        : 'an equal share count across every name';
+
   const description =
     String(rationale || '').trim() ||
-    `An AI-managed ${String(directionLabel || '').toLowerCase()} portfolio of ${indexLabel} stocks, built and rebalanced ${String(cadenceLabel || '').toLowerCase()} by ${engineLabel}.`;
+    `An AI-managed ${String(directionLabel || '').toLowerCase()} portfolio of ${spec.total} ${indexLabel} stocks, built and rebalanced ${String(cadenceLabel || '').toLowerCase()} by ${engineLabel}.`;
 
-  const strategy = `Fully automated: ${engineLabel} selects ${indexLabel} constituents (${directionLabel}, ${criteriaLabel}) and rebalances the book ${String(cadenceLabel || '').toLowerCase()}, closing dropped picks and opening new ones without manual intervention.`;
+  const strategy = `Fully automated: ${engineLabel} selects ${spec.total} ${indexLabel} constituents (${directionLabel}, ${criteriaLabel}), sizes them at ${sizingLabel}, and rebalances the book ${String(cadenceLabel || '').toLowerCase()}, closing dropped picks and opening new ones without manual intervention.`;
 
   return { description, strategy };
 }
@@ -85,9 +104,18 @@ function assertValid(map, value, label) {
   }
 }
 
-function buildSystemPrompt({ indexFocus, direction, criteria, cadence, currentHoldings }) {
-  const spec = DIRECTION_SPEC[direction];
-  const totalCount = spec.longCount + spec.shortCount;
+function buildSystemPrompt({
+  indexFocus,
+  direction,
+  positionCount,
+  sizing,
+  positionQty,
+  criteria,
+  cadence,
+  currentHoldings
+}) {
+  const spec = resolvePositionSpec(direction, positionCount);
+  const totalCount = spec.total;
   const isRebalance = Array.isArray(currentHoldings) && currentHoldings.length > 0;
 
   const intro = isRebalance
@@ -106,13 +134,13 @@ Fixed configuration for this portfolio (already chosen — do not ask about or c
 - Direction: ${spec.label} — your final proposal must contain exactly ${spec.longCount} long ticker(s) (action BTO) and ${spec.shortCount} short ticker(s) (action STO), ${totalCount} total.
 - Selection criteria: ${CRITERIA_LABELS[criteria]} — ${CRITERIA_GUIDANCE[criteria]}
 - Rebalance cadence: ${CADENCE_LABELS[cadence]}.
-- Position sizing: equal weight. Do not size positions yourself — the system allocates capital equally across all ${totalCount} positions after you pick tickers.${holdingsSection}
+- Position sizing: ${describeSizing({ sizing, qty: positionQty }, STARTING_CAPITAL)}. Do not size positions yourself and do not return quantities — the system sizes every pick identically after you choose tickers. Just make sure the ${totalCount} names you pick are ones a $${STARTING_CAPITAL.toLocaleString('en-US')} book could realistically hold.${holdingsSection}
 
 Rules:
 - Call get_index_universe first, every time — it's your only source of valid tickers and current signal buckets for this index.
 - Use get_market_news / get_company_news / get_ticker_prices as needed for your chosen criteria.
 - Never invent a ticker, price, signal, or news item — only use tool results.
-- When you have your final list, call propose_create_ai_portfolio exactly once with the complete holdings (all long + short legs together), a short portfolio name, and a one-paragraph rationale for the picks.
+- When you have your final list, call propose_create_ai_portfolio exactly once with the complete holdings (all long + short legs together) and a one-paragraph rationale for the picks. Do not name the portfolio — the system names it from the owner and configuration.
 ${isRebalance ? '' : '- If the user asks to swap a pick or reconsider, discuss it, then call propose_create_ai_portfolio again with the corrected full list — always the complete list, not a diff.\n'}- Keep replies concise and focused on this portfolio's construction.
 - This is simulated paper trading — never suggest investing real money, and don't give personalized investment advice.`;
 }
@@ -179,7 +207,8 @@ function buildToolDefinitions() {
         parameters: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'Short portfolio name, e.g. "Dow Momentum Five"' },
+            // No `name` field: the portfolio name is composed from the owner and config in
+            // services/paper/aiPortfolioNaming.js, so there is nothing for the model to invent.
             rationale: { type: 'string', description: 'One paragraph explaining the picks' },
             holdings: {
               type: 'array',
@@ -193,7 +222,7 @@ function buildToolDefinitions() {
               }
             }
           },
-          required: ['name', 'holdings']
+          required: ['holdings']
         }
       }
     }
@@ -229,11 +258,19 @@ function normalizeTicker(t) {
     .slice(0, 12);
 }
 
-/** Validates + normalizes a proposed holdings list against the direction spec and the real index universe. */
-async function validateProposal({ userId, indexFocus, direction }, args) {
-  const spec = DIRECTION_SPEC[direction];
-  const name = String(args?.name || '').trim().slice(0, 120);
-  if (!name) return { error: 'A portfolio name is required.' };
+/**
+ * Validates + normalizes a proposed holdings list against the requested position count and the
+ * real index universe.
+ *
+ * `allowAnySplit` relaxes the per-leg check to "the total matches, and Long-Short has at least
+ * one name per side" — used by the .xlsx importer, where the file's own rows decide the split
+ * and forcing them onto our ceil/floor convention would reject valid uploads.
+ */
+async function validateProposal(
+  { userId, engine, indexFocus, direction, positionCount, allowAnySplit, currentHoldings },
+  args
+) {
+  const spec = resolvePositionSpec(direction, positionCount);
 
   const rawHoldings = Array.isArray(args?.holdings) ? args.holdings : [];
   const holdings = [];
@@ -249,7 +286,16 @@ async function validateProposal({ userId, indexFocus, direction }, args) {
 
   const longs = holdings.filter((h) => h.action === 'BTO');
   const shorts = holdings.filter((h) => h.action === 'STO');
-  if (longs.length !== spec.longCount || shorts.length !== spec.shortCount) {
+  if (allowAnySplit) {
+    if (holdings.length !== spec.total) {
+      return { error: `Need exactly ${spec.total} ticker(s) — got ${holdings.length}.` };
+    }
+    if (direction === 'long_short' && (!longs.length || !shorts.length)) {
+      return { error: 'A Long-Short portfolio needs at least one long (BTO) and one short (STO) ticker.' };
+    }
+    if (direction === 'long' && shorts.length) return { error: 'A Long-only portfolio cannot hold short (STO) tickers.' };
+    if (direction === 'short' && longs.length) return { error: 'A Short-only portfolio cannot hold long (BTO) tickers.' };
+  } else if (longs.length !== spec.longCount || shorts.length !== spec.shortCount) {
     return {
       error: `Need exactly ${spec.longCount} long (BTO) and ${spec.shortCount} short (STO) tickers — got ${longs.length} long and ${shorts.length} short.`
     };
@@ -262,6 +308,15 @@ async function validateProposal({ userId, indexFocus, direction }, args) {
   if (invalid.length) {
     return { error: `These tickers aren't in the ${INDEX_LABELS[indexFocus]} universe: ${invalid.join(', ')}.` };
   }
+
+  /**
+   * Composed here rather than taken from the model. A rebalance keeps the account's existing
+   * name — aiRebalancer only consumes `holdings` and `rationale` — so it skips the lookup.
+   */
+  const isRebalance = Array.isArray(currentHoldings) && currentHoldings.length > 0;
+  const name = isRebalance
+    ? ''
+    : await buildAiPortfolioName({ userId, indexFocus, direction, engine });
 
   return {
     proposal: {
@@ -283,6 +338,20 @@ function assertConfig({ engine, indexFocus, direction, criteria, cadence }) {
     err.code = 'ENGINE_MISSING';
     throw err;
   }
+}
+
+/** The config half of a proposal — echoed back so the confirm step sizes exactly what was chatted. */
+function proposalConfigFields(engine, ctx) {
+  return {
+    engine,
+    index_focus: ctx.indexFocus,
+    direction: ctx.direction,
+    position_count: ctx.positionCount,
+    sizing: ctx.sizing,
+    position_qty: ctx.positionQty,
+    criteria: ctx.criteria,
+    cadence: ctx.cadence
+  };
 }
 
 /**
@@ -315,14 +384,7 @@ async function runToolLoop({ engine, systemPrompt, convo, ctx }) {
       if (call.name === 'propose_create_ai_portfolio') {
         const outcome = await validateProposal(ctx, call.arguments);
         if (outcome.proposal) {
-          proposal = {
-            engine,
-            index_focus: ctx.indexFocus,
-            direction: ctx.direction,
-            criteria: ctx.criteria,
-            cadence: ctx.cadence,
-            ...outcome.proposal
-          };
+          proposal = { ...proposalConfigFields(engine, ctx), ...outcome.proposal };
           toolResult = { ok: true, message: 'Proposal ready.' };
           lastProposeError = '';
         } else {
@@ -409,26 +471,29 @@ async function finalizeProposal({ engine, systemPrompt, convo, ctx, tools }) {
     if (!call) return {};
     const outcome = await validateProposal(ctx, call.arguments);
     if (!outcome.proposal) return { error: outcome.error };
-    return {
-      proposal: {
-        engine,
-        index_focus: ctx.indexFocus,
-        direction: ctx.direction,
-        criteria: ctx.criteria,
-        cadence: ctx.cadence,
-        ...outcome.proposal
-      }
-    };
+    return { proposal: { ...proposalConfigFields(engine, ctx), ...outcome.proposal } };
   } catch (err) {
     return { error: err.message || 'Final proposal attempt failed' };
   }
 }
 
 /**
- * @param {{ userId: string, engine: string, indexFocus: string, direction: string, criteria: string,
- *           cadence: string, messages: Array<{role:string, content:string}> }} input
+ * @param {{ userId: string, engine: string, indexFocus: string, direction: string, positionCount: number,
+ *           sizing: string, positionQty: number|null, criteria: string, cadence: string,
+ *           messages: Array<{role:string, content:string}> }} input
  */
-async function runAiPortfolioCreatorChat({ userId, engine, indexFocus, direction, criteria, cadence, messages }) {
+async function runAiPortfolioCreatorChat({
+  userId,
+  engine,
+  indexFocus,
+  direction,
+  positionCount,
+  sizing,
+  positionQty,
+  criteria,
+  cadence,
+  messages
+}) {
   assertConfig({ engine, indexFocus, direction, criteria, cadence });
 
   const history = (Array.isArray(messages) ? messages : [])
@@ -442,30 +507,63 @@ async function runAiPortfolioCreatorChat({ userId, engine, indexFocus, direction
     throw err;
   }
 
-  const systemPrompt = buildSystemPrompt({ indexFocus, direction, criteria, cadence });
-  const ctx = { userId, indexFocus, direction, criteria, cadence };
+  const ctx = buildRunContext({ userId, engine, indexFocus, direction, positionCount, sizing, positionQty, criteria, cadence });
+  const systemPrompt = buildSystemPrompt(ctx);
   return runToolLoop({ engine, systemPrompt, convo: [...history], ctx });
+}
+
+/** Normalizes the sizing answers once so the prompt, the validator, and the echoed proposal agree. */
+function buildRunContext({ userId, engine, indexFocus, direction, positionCount, sizing, positionQty, criteria, cadence, currentHoldings }) {
+  const normalized = normalizeSizing({ sizing, qty: positionQty });
+  return {
+    userId,
+    // Carried so validateProposal can compose the deterministic portfolio name.
+    engine,
+    indexFocus,
+    direction,
+    positionCount: normalizePositionCount(direction, positionCount),
+    sizing: normalized.sizing,
+    positionQty: normalized.qty,
+    criteria,
+    cadence,
+    currentHoldings
+  };
 }
 
 /**
  * Unattended rebalance run for one already-existing AI-managed account — no chat history,
  * just "decide the updated target list now." Used by services/paper/aiRebalancer.js.
- * @param {{ userId: string, engine: string, indexFocus: string, direction: string, criteria: string,
- *           cadence: string, currentHoldings: Array<{ticker:string, action:string}> }} input
+ * @param {{ userId: string, engine: string, indexFocus: string, direction: string, positionCount: number,
+ *           sizing: string, positionQty: number|null, criteria: string, cadence: string,
+ *           currentHoldings: Array<{ticker:string, action:string}> }} input
  */
 async function runAiPortfolioRebalance({
   userId,
   engine,
   indexFocus,
   direction,
+  positionCount,
+  sizing,
+  positionQty,
   criteria,
   cadence,
   currentHoldings
 }) {
   assertConfig({ engine, indexFocus, direction, criteria, cadence });
 
-  const systemPrompt = buildSystemPrompt({ indexFocus, direction, criteria, cadence, currentHoldings });
-  const ctx = { userId, indexFocus, direction, criteria, cadence };
+  const ctx = buildRunContext({
+    userId,
+    engine,
+    indexFocus,
+    direction,
+    positionCount,
+    sizing,
+    positionQty,
+    criteria,
+    cadence,
+    currentHoldings
+  });
+  const systemPrompt = buildSystemPrompt(ctx);
   const convo = [
     { role: 'user', content: 'Rebalance this portfolio now — decide the updated full target holdings list.' }
   ];

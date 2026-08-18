@@ -8,9 +8,9 @@ import TradingChartLoader from './TradingChartLoader.jsx';
 import {fetchWithAuth, getAuthToken, canFetchMarketData} from '../store/apiStore.js';
 import { apiUrl } from '../utils/apiOrigin.js';
 import {
-  DEFAULT_SELECTED_KEYS,
-  META_BY_KEY,
-  TICKER_BY_KEY,
+  DEFAULT_SELECTED_KEYS as MARKET_DEFAULT_SELECTED_KEYS,
+  META_BY_KEY as MARKET_META_BY_KEY,
+  TICKER_BY_KEY as MARKET_TICKER_BY_KEY,
   marketSeriesChipLabel
 } from './marketSeriesRegistry.js';
 import { TF_OPTIONS, tfRange, normalizeRows } from '../utils/marketCalculations.js';
@@ -196,6 +196,23 @@ function applyNpSnapshotCloneFixes(clonedDoc, clonedRoot) {
   placeBadges();
 }
 
+/**
+ * @param {object} props
+ * @param {Record<string, object>} [props.metaByKey] Series metadata (label/color/badge/tone) by
+ *   key. Defaults to the static market-index registry; the AI comparison page passes indices
+ *   merged with the portfolios currently on screen.
+ * @param {Record<string, string>} [props.tickerByKey] Key → symbol handed to `loadSeriesRows`.
+ *   A key absent here is never loaded, so any injected registry must cover both maps.
+ * @param {number|null} [props.baselineMs] Rebase every series from this timestamp instead of
+ *   from its own first point — required when mixing series whose histories start on different
+ *   dates, or the chart compares moves over unequal spans.
+ * @param {{start: string, end: string}|null} [props.range] Explicit fetch window, overriding the
+ *   timeframe buttons. Callers that set `baselineMs` should set this too: the fetched window has
+ *   to reach back past the baseline, otherwise a series gets truncated at the window start and
+ *   rebased there instead — reintroducing the mismatched origins the baseline exists to fix.
+ * @param {boolean} [props.showTimeframes] Hide the 1D…10Y row for callers whose window is
+ *   derived rather than chosen.
+ */
 export function NormalizedPerformanceCard({
   selectedKeys,
   onSelectedKeysChange,
@@ -203,10 +220,17 @@ export function NormalizedPerformanceCard({
   onTimeframeChange,
   axisMode = 'auto',
   refreshMs = 0,
-  loadSeriesRows = null
+  loadSeriesRows = null,
+  metaByKey = MARKET_META_BY_KEY,
+  tickerByKey = MARKET_TICKER_BY_KEY,
+  defaultKeys = MARKET_DEFAULT_SELECTED_KEYS,
+  baselineMs = null,
+  range = null,
+  showTimeframes = true,
+  emptyHint = ''
 }) {
   const [tfLocal, setTfLocal] = useState(DEFAULT_NP_TIMEFRAME);
-  const [activeKeysLocal, setActiveKeysLocal] = useState(() => [...DEFAULT_SELECTED_KEYS]);
+  const [activeKeysLocal, setActiveKeysLocal] = useState(() => [...defaultKeys]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [series, setSeries] = useState({});
@@ -276,24 +300,25 @@ export function NormalizedPerformanceCard({
     }
     if (!activeKeys.length) {
       setSeries({});
+      setError('');
       return () => {
         cancelled = true;
       };
     }
 
-    const { start, end } = tfRange(tf);
+    const { start, end } = range?.start && range?.end ? range : tfRange(tf);
     async function load() {
       if (stale()) return;
       setLoading(true);
       setError('');
       try {
-        const keysToLoad = activeKeys.filter((k) => TICKER_BY_KEY[k]);
+        const keysToLoad = activeKeys.filter((k) => tickerByKey[k]);
         const results = await Promise.all(
           keysToLoad.map(async (k) => {
-            const ticker = TICKER_BY_KEY[k];
+            const ticker = tickerByKey[k];
             if (typeof loadSeriesRows === 'function') {
-              const rows = await loadSeriesRows(ticker, start, end);
-              return [k, normalizeRows(rows, tf)];
+              const rows = await loadSeriesRows(ticker, start, end, k);
+              return [k, normalizeRows(rows, tf, baselineMs)];
             }
             const res = await fetchWithAuth(apiUrl('/api/market/ohlc-signals-indicator'), {
               method: 'POST',
@@ -304,7 +329,7 @@ export function NormalizedPerformanceCard({
             if (!res.ok || !payload?.success) {
               throw new Error(payload?.error || `Failed loading ${k}`);
             }
-            return [k, normalizeRows(payload.data, tf)];
+            return [k, normalizeRows(payload.data, tf, baselineMs)];
           })
         );
         if (stale()) return;
@@ -324,7 +349,21 @@ export function NormalizedPerformanceCard({
       cancelled = true;
       if (timer) window.clearInterval(timer);
     };
-  }, [tf, activeKeys, refreshMs, loadSeriesRows, location.pathname, navEpoch]);
+    // tickerByKey/baselineMs matter because an injected registry can arrive after mount (the
+    // compare page fetches its portfolio list async) — without them a key selected from a
+    // late-loading section would resolve against a stale map.
+  }, [
+    tf,
+    activeKeys,
+    refreshMs,
+    loadSeriesRows,
+    tickerByKey,
+    baselineMs,
+    range?.start,
+    range?.end,
+    location.pathname,
+    navEpoch
+  ]);
 
   const allPts = useMemo(() => {
     const vals = [];
@@ -344,18 +383,20 @@ export function NormalizedPerformanceCard({
   }, [activeKeys, series]);
 
   const seoNarrative = useMemo(() => {
+    // Same reason as the axis badge: `key` may be an opaque id, `symbol` is the readable name.
+    const nameOf = (m) => String(m.symbol || m.key || '').toUpperCase();
     const labels = activeKeys
-      .map((k) => META_BY_KEY[k])
+      .map((k) => metaByKey[k])
       .filter(Boolean)
-      .map((m) => String(m.key || '').toUpperCase());
+      .map(nameOf);
     const lastByLabel = {};
     for (const k of activeKeys) {
-      const meta = META_BY_KEY[k];
+      const meta = metaByKey[k];
       if (!meta) continue;
-      lastByLabel[String(meta.key || '').toUpperCase()] = last[k];
+      lastByLabel[nameOf(meta)] = last[k];
     }
     return buildNormalizedPerformanceNarrative({ timeframe: tf, seriesLabels: labels, lastByLabel });
-  }, [activeKeys, last, tf]);
+  }, [activeKeys, last, tf, metaByKey]);
 
   const lastRef = useRef(last);
   lastRef.current = last;
@@ -541,7 +582,7 @@ export function NormalizedPerformanceCard({
     }
 
     for (const k of activeKeys) {
-      const meta = META_BY_KEY[k];
+      const meta = metaByKey[k];
       if (!meta) continue;
       let s = existing.get(k);
       if (!s) {
@@ -601,7 +642,7 @@ export function NormalizedPerformanceCard({
   }, [series, activeKeys, axisMode, loading, chartTheme, updateAxisBadgePositions]);
 
   const handleResetView = useCallback(() => {
-    setActiveKeys([...DEFAULT_SELECTED_KEYS]);
+    setActiveKeys([...defaultKeys]);
     setTf(DEFAULT_NP_TIMEFRAME);
     const chart = chartRef.current;
     if (chart) {
@@ -701,7 +742,8 @@ export function NormalizedPerformanceCard({
         </div>
       </header>
 
-      <div className="np-card__tf-row">
+      {showTimeframes ? (
+        <div className="np-card__tf-row">
           {TF_OPTIONS.map((id) => (
             <button
               key={id}
@@ -713,11 +755,12 @@ export function NormalizedPerformanceCard({
             </button>
           ))}
         </div>
+      ) : null}
 
         <div className="np-card__chips-row">
           <div className="np-card__chips">
             {activeKeys.map((k) => {
-              const s = META_BY_KEY[k];
+              const s = metaByKey[k];
               if (!s) return null;
               const chipLabel = marketSeriesChipLabel(s);
               return (
@@ -756,6 +799,10 @@ export function NormalizedPerformanceCard({
 
         <div ref={chartWrapRef} className="np-chart-wrap">
           {error ? <div className="np-card__status np-card__status--error">{error}</div> : null}
+          {/* Nothing selected is a prompt, not a failure — keep it out of the error styling. */}
+          {!error && !activeKeys.length && emptyHint ? (
+            <div className="np-card__status">{emptyHint}</div>
+          ) : null}
           {loading ? (
             <div className="chart-viz-loading-wrap" style={{ minHeight: 390 }}>
               <TradingChartLoader label="Loading chart…" sublabel="Normalized performance" />
@@ -770,7 +817,7 @@ export function NormalizedPerformanceCard({
               />
               <div className="np-chart-axis-tags" aria-hidden="true">
                 {activeKeys.map((k) => {
-                  const s = META_BY_KEY[k];
+                  const s = metaByKey[k];
                   if (!s) return null;
                   const top = axisBadgeTops[k];
                   const bg = s.color;
@@ -788,7 +835,10 @@ export function NormalizedPerformanceCard({
                     >
                       <span className="np-chart-axis-badge__tick" style={{ borderRightColor: bg }} />
                       <div className="np-chart-axis-badge__body">
-                        <span className="np-chart-axis-badge__sym">{s.key}</span>
+                        {/* `symbol` before `key`: injected series key off an opaque id (a
+                            portfolio UUID), which is unreadable on an axis badge. Market series
+                            without a symbol fall back to the key exactly as before. */}
+                        <span className="np-chart-axis-badge__sym">{s.symbol || s.key}</span>
                         <span className="np-chart-axis-badge__val">{fmtPctSigned(last[s.key])}</span>
                       </div>
                     </div>

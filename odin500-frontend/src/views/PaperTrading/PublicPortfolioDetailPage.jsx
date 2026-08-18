@@ -14,6 +14,9 @@ import { ClosedTradesTable } from '../../components/paper/ClosedTradesTable.jsx'
 import { ClosedTradesAnalytics } from '../../components/paper/ClosedTradesAnalytics.jsx';
 import { PortfolioInsightsTab } from '../../components/paper/PortfolioInsightsTab.jsx';
 import { StrategyPanel } from '../../components/paper/StrategyPanel.jsx';
+import { RebalanceLog } from '../../components/paper/RebalanceLog.jsx';
+import { usePortfolioRebalances } from '../../hooks/usePortfolioRebalances.js';
+import { enrichPortfolioTags, isAiTaggedPortfolio } from '../../utils/aiPortfolioTags.js';
 import '../../styles/paper-trading.css';
 
 function fmtDate(iso) {
@@ -52,6 +55,16 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
     error
   } = usePublicPortfolio(accountId);
 
+  // Only fetched for AI-managed books; a manual portfolio has no rebalance history to show.
+  const {
+    rebalances,
+    loading: rebalancesLoading,
+    error: rebalancesError
+  } = usePortfolioRebalances(accountId, {
+    readOnly: true,
+    enabled: Boolean(portfolio?.ai_managed)
+  });
+
   const positions = portfolio?.positions || [];
   const isAutomated = portfolio?.strategy_mode && portfolio.strategy_mode !== 'manual';
   const copyAllowed = Boolean(portfolio) && portfolio.allow_copy !== false && positions.length > 0;
@@ -89,12 +102,41 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
     ];
   }, [portfolio, history]);
 
-  const ownerLine = useMemo(() => {
-    if (!portfolio) return '';
-    const parts = [portfolio.name];
-    if (portfolio.owner_label) parts.push(`by ${portfolio.owner_label}`);
-    return parts.join(' · ');
-  }, [portfolio]);
+  /**
+   * The same engine / index / direction pills the AI portfolios table shows, so a book reads the
+   * same on its detail page as in the list it was clicked from.
+   *
+   * Only AI-tagged books get them: `enrichPortfolioTags` defaults every portfolio to a "Long"
+   * direction, which is noise on a hand-managed book that never declared one.
+   */
+  const headerTags = useMemo(() => {
+    if (!portfolio) return [];
+    const tags = [];
+    if (isAiTaggedPortfolio(portfolio)) {
+      const tagged = enrichPortfolioTags(portfolio);
+      if (tagged.ai_engine) {
+        tags.push({
+          key: 'engine',
+          label: tagged.ai_engine.label,
+          className: 'paper-tag paper-tag--engine',
+          attrs: { 'data-engine': tagged.ai_engine.id }
+        });
+      }
+      if (tagged.index_focus) {
+        tags.push({ key: 'index', label: tagged.index_focus.label, className: 'paper-tag' });
+      }
+      if (tagged.direction) {
+        tags.push({
+          key: 'direction',
+          label: tagged.direction.label,
+          className: 'paper-tag paper-tag--direction',
+          attrs: { 'data-direction': tagged.direction.id }
+        });
+      }
+    }
+    if (isAutomated) tags.push({ key: 'automated', label: 'Automated', className: 'paper-tag' });
+    return tags;
+  }, [portfolio, isAutomated]);
 
   if (!accountId) {
     return (
@@ -109,7 +151,7 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
       <header className="paper-header">
         <div>
           <p className="paper-header__eyebrow">
-            <Link to="/paper-trading/public" className="paper-link">
+            <Link to="/virtual-portfolio/public" className="paper-link">
               Public Portfolios
             </Link>
           </p>
@@ -122,12 +164,24 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
             ) : null}
           </div>
           {portfolio ? (
-            <p className="paper-header__sub">
-              {ownerLine}
-              {portfolio.published_at ? ` · Published ${fmtDate(portfolio.published_at)}` : ''}
-              {isAutomated ? ' · Automated strategy' : ''}
-              {copyCount > 0 ? ` · Copied ${copyCount} time${copyCount === 1 ? '' : 's'}` : ''}
-            </p>
+            <div className="paper-header__meta">
+              {/* The name is already the h1, so the sub-line answers "who runs this, and since when". */}
+              <p className="paper-header__sub">
+                Created by{' '}
+                <strong className="paper-header__owner">{portfolio.owner_label || 'Unknown user'}</strong>
+                {portfolio.published_at ? ` · Published ${fmtDate(portfolio.published_at)}` : ''}
+                {copyCount > 0 ? ` · Copied ${copyCount} time${copyCount === 1 ? '' : 's'}` : ''}
+              </p>
+              {headerTags.length ? (
+                <div className="paper-header__tags">
+                  {headerTags.map((tag) => (
+                    <span key={tag.key} className={tag.className} {...(tag.attrs || {})}>
+                      {tag.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : (
             <p className="paper-header__sub">Loading published portfolio…</p>
           )}
@@ -151,10 +205,10 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
               Export
             </a>
           ) : null}
-          <Link to="/paper-trading/public" className="paper-btn paper-btn--ghost">
+          <Link to="/virtual-portfolio/public" className="paper-btn paper-btn--ghost">
             All public portfolios
           </Link>
-          <Link to="/paper-trading" className="paper-btn paper-btn--ghost">
+          <Link to="/virtual-portfolio" className="paper-btn paper-btn--ghost">
             Your Portfolio
           </Link>
         </div>
@@ -185,7 +239,7 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
         </section>
       ) : null}
 
-      <AccountSummary account={portfolio} loading={loading} />
+      <AccountSummary account={portfolio} loading={loading} closedTrades={closedTrades} />
 
       <div className="paper-layout paper-layout--view-only">
         <div className="paper-layout__main">
@@ -243,6 +297,22 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
                 Closed trades
                 <span className="paper-tabs__count">{closedTrades.length}</span>
               </button>
+              {/* AI-managed books only — a hand-managed portfolio has no rebalance history. */}
+              {portfolio?.ai_managed ? (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'rebalances'}
+                  className={'paper-tabs__btn' + (tab === 'rebalances' ? ' paper-tabs__btn--active' : '')}
+                  onClick={() => setTab('rebalances')}
+                  title="What the AI changed at each rebalance, and why"
+                >
+                  Rebalances
+                  {rebalances.length ? (
+                    <span className="paper-tabs__count">{rebalances.length}</span>
+                  ) : null}
+                </button>
+              ) : null}
               <button
                 type="button"
                 role="tab"
@@ -290,6 +360,13 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
               <ClosedTradesAnalytics trades={closedTrades} loading={loading} />
               <ClosedTradesTable trades={closedTrades} totals={closedTotals} loading={loading} />
             </>
+          ) : tab === 'rebalances' ? (
+            <RebalanceLog
+              rebalances={rebalances}
+              loading={rebalancesLoading}
+              error={rebalancesError}
+              isAiManaged={Boolean(portfolio?.ai_managed)}
+            />
           ) : tab === 'insights' ? (
             <PortfolioInsightsTab
               summaries={portfolioSummary}

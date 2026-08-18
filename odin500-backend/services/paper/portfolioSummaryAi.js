@@ -8,7 +8,7 @@ Rules:
 - 4 sentences max, under 220 characters total.
 - Neutral research tone. No advice like "buy" or "invest now".
 - Mention strategy flavor (AI engine / index / long-short / automated) when present.
-- Mention total return. You may mention average monthly return only if days_elapsed is at least 14; otherwise skip avg monthly or call it an early normalized rate.
+- Mention total return, and how long the book has been running (age_label). NEVER mention or derive a monthly, annualised, or per-period rate — total return and track record length only.
 - NEVER write fractional months like "0.28 months". If under 30 days, say "about N days" (use days_elapsed, rounded). If under 7 days, say "published recently".
 - Plain prose only — no markdown, bullets, quotes, or labels.`;
 
@@ -16,14 +16,14 @@ Rules:
 const cache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 60 * 1000;
 
+/** Keyed on what the summary actually reads — the monthly rate is no longer one of those. */
 function cacheKey(p) {
   const id = String(p?.id || '');
-  const avg = Number(p?.avg_monthly_return_pct);
   const tot = Number(p?.total_return_pct);
   const eq = Math.round(Number(p?.equity) || 0);
   const days = Number(p?.days_elapsed);
   const desc = String(p?.publish_description || '').slice(0, 80);
-  return `${id}|${avg}|${tot}|${eq}|${days}|${desc}`;
+  return `${id}|${tot}|${eq}|${days}|${desc}`;
 }
 
 function agePhrase(p) {
@@ -44,9 +44,7 @@ function heuristicSummary(p) {
   const engine = String(p?.ai_engine_label || '').trim();
   const index = String(p?.index_focus_label || '').trim();
   const auto = p?.strategy_mode && p.strategy_mode !== 'manual';
-  const avg = p?.avg_monthly_return_pct;
   const total = p?.total_return_pct;
-  const days = Number(p?.days_elapsed);
   const age = agePhrase(p);
 
   const bits = [];
@@ -61,17 +59,7 @@ function heuristicSummary(p) {
     bits.push(`with ${totStr} total return`);
   }
 
-  if (
-    avg != null &&
-    Number.isFinite(Number(avg)) &&
-    Number.isFinite(days) &&
-    days >= 14
-  ) {
-    const avgStr = `${Number(avg) >= 0 ? '+' : ''}${Number(avg).toFixed(2)}%`;
-    bits.push(`(${avgStr} average monthly${age ? ` over ${age}` : ''})`);
-  } else if (age) {
-    bits.push(`tracked for ${age}`);
-  }
+  if (age) bits.push(`tracked for ${age}`);
 
   return `${bits.join(' ')}.`;
 }
@@ -87,8 +75,7 @@ function portfolioPayloadForPrompt(p) {
     index_focus: p.index_focus_label || null,
     equity: p.equity,
     total_return_pct: p.total_return_pct,
-    avg_monthly_return_pct: p.avg_monthly_return_pct,
-    months_elapsed: p.months_elapsed,
+    // Monthly rate withheld from the model on purpose — it can't quote what it never sees.
     days_elapsed: p.days_elapsed,
     age_label: agePhrase(p),
     positions_count: p.positions_count

@@ -66,10 +66,11 @@ export function useAiEngines({ enabled = true } = {}) {
  * Stateless-config chat thread that proposes a brand-new AI-managed portfolio,
  * then confirms (creates + publishes) it. Mirrors usePortfolioAssistant.js's
  * shape but there's no existing accountId — config is passed in instead.
- * @param {{ engine: string, indexFocus: string, direction: string, criteria: string, cadence: string }} config
+ * @param {{ engine: string, indexFocus: string, direction: string, positionCount: number,
+ *           sizing: string, positionQty: number|null, criteria: string, cadence: string }} config
  */
 export function useAiPortfolioCreator(config) {
-  const { engine, indexFocus, direction, criteria, cadence } = config;
+  const { engine, indexFocus, direction, positionCount, sizing, positionQty, criteria, cadence } = config;
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -82,8 +83,8 @@ export function useAiPortfolioCreator(config) {
     async (text) => {
       const content = String(text || '').trim();
       if (!content || !canFetchProtectedApi()) return null;
-      if (!engine || !indexFocus || !direction || !criteria || !cadence) {
-        setError('Choose an AI engine, index, direction, criteria, and cadence first.');
+      if (!engine || !indexFocus || !direction || !positionCount || !sizing || !criteria || !cadence) {
+        setError('Choose an AI engine, index, direction, position count, sizing, criteria, and cadence first.');
         return null;
       }
 
@@ -104,6 +105,9 @@ export function useAiPortfolioCreator(config) {
             engine,
             index_focus: indexFocus,
             direction,
+            position_count: positionCount,
+            sizing,
+            position_qty: positionQty,
             criteria,
             cadence,
             messages: history
@@ -141,7 +145,7 @@ export function useAiPortfolioCreator(config) {
         setSending(false);
       }
     },
-    [engine, indexFocus, direction, criteria, cadence, messages]
+    [engine, indexFocus, direction, positionCount, sizing, positionQty, criteria, cadence, messages]
   );
 
   const [importing, setImporting] = useState(false);
@@ -165,6 +169,9 @@ export function useAiPortfolioCreator(config) {
         if (direction) form.append('direction', direction);
         if (criteria) form.append('criteria', criteria);
         if (cadence) form.append('cadence', cadence);
+        // Position count comes from the file's own rows, so only sizing is worth forwarding.
+        if (sizing) form.append('sizing', sizing);
+        if (positionQty) form.append('position_qty', String(positionQty));
 
         const res = await fetchWithAuth(apiUrl('/api/paper/ai-portfolios/import'), {
           method: 'POST',
@@ -201,7 +208,7 @@ export function useAiPortfolioCreator(config) {
         setImporting(false);
       }
     },
-    [engine, indexFocus, direction, criteria, cadence]
+    [engine, indexFocus, direction, sizing, positionQty, criteria, cadence]
   );
 
   const confirmProposal = useCallback(async () => {
@@ -217,6 +224,13 @@ export function useAiPortfolioCreator(config) {
       });
       const payload = await parseJson(res);
       toast.success(`AI portfolio "${payload.account?.name || proposal.name}" created and published`);
+      // A typed share count that wouldn't fit gets reduced server-side rather than failing the
+      // create — say so, otherwise the position sizes look wrong for no visible reason.
+      if (payload.sizing?.clamped) {
+        toast.info(
+          `${payload.sizing.requested_qty} shares each would have cost more than the starting capital — bought ${payload.sizing.qty_per_position} of each instead.`
+        );
+      }
       return payload.account || null;
     } catch (err) {
       const msg = cleanProviderErrorMessage(

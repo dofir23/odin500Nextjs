@@ -104,23 +104,35 @@ export const ROUTE_METADATA: Record<
       'View and manage account details, billing preferences, and linked authentication settings in one place.',
     canonical: `${SITE_ORIGIN}/accounts`
   },
-  '/paper-trading': {
+  '/virtual-portfolio': {
     title: 'Your Virtual Portfolio – Simulate Stock Trading Free',
     description:
       'Practice stock trading with virtual portfolios, simulated strategies, and performance analytics without risking real money.',
-    canonical: `${SITE_ORIGIN}/paper-trading`
+    canonical: `${SITE_ORIGIN}/virtual-portfolio`
   },
-  '/paper-trading/public': {
+  '/virtual-portfolio/public': {
     title: 'Public Virtual Portfolios – Community Trading Strategies',
     description:
       'Browse published virtual portfolios from Odin500 users. View holdings, performance, and trade history in read-only mode.',
-    canonical: `${SITE_ORIGIN}/paper-trading/public`
+    canonical: `${SITE_ORIGIN}/virtual-portfolio/public`
   },
-  '/paper-trading/ai': {
+  '/virtual-portfolio/ai': {
     title: 'AI Portfolio Leaderboard – Claude vs ChatGPT vs Gemini Trading',
     description:
       'Full leaderboard of AI-managed stock portfolios: every book by Claude, ChatGPT and Gemini with holdings, rebalance cadence, win rate, drawdown and trade history. Filter by model, index and direction.',
-    canonical: `${SITE_ORIGIN}/paper-trading/ai`
+    canonical: `${SITE_ORIGIN}/virtual-portfolio/ai`
+  },
+  '/virtual-portfolio/ai/users': {
+    title: 'User AI Portfolios – Member-Built Claude, ChatGPT & Gemini Books',
+    description:
+      'AI-managed virtual stock portfolios built and published by Odin500 members. Browse holdings, rebalance cadence, positions and total return for every member-published AI portfolio, filtered by model, index and direction.',
+    canonical: `${SITE_ORIGIN}/virtual-portfolio/ai/users`
+  },
+  '/virtual-portfolio/ai/compare': {
+    title: 'Compare AI Portfolios – Claude vs ChatGPT vs Gemini vs the Index',
+    description:
+      'Chart the top-performing Claude, ChatGPT and Gemini stock portfolios side by side and against the S&P 500, Dow Jones and Nasdaq-100. Every series is rebased to a common start date so books of different ages compare fairly.',
+    canonical: `${SITE_ORIGIN}/virtual-portfolio/ai/compare`
   },
   '/login': {
     title: 'Sign In – Stock Market Data & Charts',
@@ -230,7 +242,7 @@ export function shouldNoindexPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
   if (path === '/login' || path === '/signup' || path === '/auth/callback') return true;
   if (path === '/profile' || path === '/accounts' || path === '/forgot-password') return true;
-  if (path === '/paper-trading') return true;
+  if (path === '/virtual-portfolio') return true;
   if (path.startsWith('/signup/')) return true;
   if (path.startsWith('/admin')) return true;
   return false;
@@ -330,13 +342,13 @@ export function resolveDynamicRouteMetadata(pathname: string) {
     };
   }
 
-  const publicPaperMatch = path.match(/^\/paper-trading\/public\/([0-9a-f-]{36})$/i);
+  const publicPaperMatch = path.match(/^\/virtual-portfolio\/public\/([0-9a-f-]{36})$/i);
   if (publicPaperMatch) {
     return {
       title: 'Published Virtual Portfolio – Holdings & Performance',
       description:
         'View a published Odin500 virtual portfolio with simulated holdings, equity curve, closed trades, and sector allocation.',
-      canonical: `${SITE_ORIGIN}/paper-trading/public/${publicPaperMatch[1]}`
+      canonical: `${SITE_ORIGIN}/virtual-portfolio/public/${publicPaperMatch[1]}`
     };
   }
 

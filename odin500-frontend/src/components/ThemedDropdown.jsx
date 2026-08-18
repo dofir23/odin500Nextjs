@@ -58,8 +58,15 @@ function OptionLabel({ opt }) {
  *   menuMatchTriggerWidth?: boolean,
  *   disabled?: boolean,
  *   menuPortal?: boolean,
+ *   multiple?: boolean,
  * }} props
  * `menuPortal` defaults to true: menu is rendered in `document.body` with fixed position so it is not clipped by overflow-x ancestors (e.g. returns toolbars). Set false to keep the menu inside the trigger (legacy).
+ *
+ * `multiple` turns the menu into checkable items: `value` becomes an array of ids, `onChange`
+ * receives the next array, and picking an item keeps the menu open so several can be chosen in
+ * one go. Mark one option `isNone: true` to act as the "nothing selected" entry — choosing it
+ * clears the selection, and its label is what the trigger shows while nothing is picked.
+ * Single-select behaviour is unchanged when `multiple` is false (the default).
  */
 export function ThemedDropdown({
   value,
@@ -77,8 +84,13 @@ export function ThemedDropdown({
   wideLabel = false,
   menuMatchTriggerWidth = true,
   disabled = false,
-  menuPortal = true
+  menuPortal = true,
+  multiple = false
 }) {
+  const selectedIds = useMemo(
+    () => (multiple ? (Array.isArray(value) ? value : []) : []),
+    [multiple, value]
+  );
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const menuRef = useRef(/** @type {HTMLUListElement | null} */ (null));
@@ -156,11 +168,42 @@ export function ThemedDropdown({
     };
   }, [open]);
 
-  const currentLabel = useMemo(
-    () => options.find((opt) => opt.id === value)?.label ?? labelFallback,
-    [options, value, labelFallback]
+  const noneOption = useMemo(() => options.find((opt) => opt.isNone), [options]);
+
+  const currentLabel = useMemo(() => {
+    if (!multiple) return options.find((opt) => opt.id === value)?.label ?? labelFallback;
+    if (!selectedIds.length) return noneOption?.label ?? labelFallback;
+    if (selectedIds.length === 1) {
+      return options.find((opt) => opt.id === selectedIds[0])?.label ?? labelFallback;
+    }
+    return `${selectedIds.length} selected`;
+  }, [multiple, options, value, selectedIds, noneOption, labelFallback]);
+
+  const currentOption = useMemo(
+    () => (multiple ? undefined : options.find((opt) => opt.id === value)),
+    [multiple, options, value]
   );
-  const currentOption = useMemo(() => options.find((opt) => opt.id === value), [options, value]);
+
+  const isChecked = (opt) =>
+    multiple ? (opt.isNone ? selectedIds.length === 0 : selectedIds.includes(opt.id)) : value === opt.id;
+
+  const handlePick = (opt) => {
+    if (opt.disabled) return;
+    if (!multiple) {
+      onChange(opt.id);
+      setOpen(false);
+      return;
+    }
+    // The "none" entry is a reset, so it closes; real options toggle and stay open.
+    if (opt.isNone) {
+      onChange([]);
+      setOpen(false);
+      return;
+    }
+    onChange(
+      selectedIds.includes(opt.id) ? selectedIds.filter((id) => id !== opt.id) : [...selectedIds, opt.id]
+    );
+  };
 
   const rootClass =
     'app-dropdown' +
@@ -200,30 +243,36 @@ export function ThemedDropdown({
             : undefined
       }
     >
-      {options.map((opt) => (
-        <li key={opt.id} role="none">
-          <button
-            type="button"
-            role="menuitemradio"
-            aria-checked={value === opt.id}
-            aria-disabled={opt.disabled || undefined}
-            disabled={opt.disabled}
-            title={opt.disabled ? opt.disabledTitle || opt.label : undefined}
-            className={
-              'app-dropdown__item' +
-              (value === opt.id ? ' app-dropdown__item--active' : '') +
-              (opt.disabled ? ' app-dropdown__item--disabled' : '')
-            }
-            onClick={() => {
-              if (opt.disabled) return;
-              onChange(opt.id);
-              setOpen(false);
-            }}
-          >
-            <OptionLabel opt={opt} />
-          </button>
-        </li>
-      ))}
+      {options.map((opt) => {
+        const checked = isChecked(opt);
+        return (
+          <li key={opt.id} role="none">
+            <button
+              type="button"
+              role={multiple ? 'menuitemcheckbox' : 'menuitemradio'}
+              aria-checked={checked}
+              aria-disabled={opt.disabled || undefined}
+              disabled={opt.disabled}
+              title={opt.disabled ? opt.disabledTitle || opt.label : undefined}
+              className={
+                'app-dropdown__item' +
+                (checked ? ' app-dropdown__item--active' : '') +
+                (opt.disabled ? ' app-dropdown__item--disabled' : '') +
+                (multiple ? ' app-dropdown__item--checkable' : '')
+              }
+              onClick={() => handlePick(opt)}
+            >
+              {multiple && !opt.isNone ? (
+                <span
+                  className={'app-dropdown__tick' + (checked ? ' app-dropdown__tick--on' : '')}
+                  aria-hidden
+                />
+              ) : null}
+              <OptionLabel opt={opt} />
+            </button>
+          </li>
+        );
+      })}
     </ul>
   ) : null;
 

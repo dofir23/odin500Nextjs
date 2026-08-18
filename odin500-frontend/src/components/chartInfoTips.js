@@ -98,11 +98,12 @@ export const CHART_INFO_TIPS = {
     calculation: 'Stories are pulled from the live news feed and filtered to the ticker you are viewing.',
     example: 'Open News to see the full list and read articles on the dedicated news page.'
   },
-  tickerSignalLadder: {
-    data: 'Visual ladder of Odin signal buckets for the latest session on this chart.',
+  tickerAiStance: {
+    data: 'How each AI agent — Claude, ChatGPT, and Gemini — reads this ticker: long, short, or neutral.',
     calculation:
-      'The highlighted step matches the signal on the last day of the loaded chart range. L1–L3 are bullish steps; S1–S3 are bearish; N is neutral.',
-    example: 'If the last day is L2, the middle bullish rung is emphasized.'
+      'Each model is given the same context (recent closes, 5/20/60-day changes, period high and low, the 200-day moving average, and the Odin signal) and asked for one directional call. Answers are computed once per ticker per trading day and reused for everyone after that. Hover a row to see the model’s reasoning.',
+    example:
+      'Claude Long, ChatGPT Short, Gemini Long means two of three models lean bullish — a split view, not a consensus.'
   },
   tickerKeyData: {
     data: 'Key statistics: 52-week range, average volume, volatility, and related names in the same sector.',

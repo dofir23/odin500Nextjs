@@ -6,53 +6,71 @@ const {
   summarizeAccountMetrics
 } = require('./pnlCalculator');
 const { fetchSectorMapForSymbols } = require('./portfolioAnalytics');
+const { getRebalanceLogForAccount } = require('./rebalanceLogReader');
 
-async function resolveOwnerLabel(userId) {
+/**
+ * Portfolios owned by an Odin admin are published under a single house identity rather than a
+ * personal display name — they read as first-party Odin books, not one staffer's account.
+ */
+const ADMIN_OWNER_LABEL = 'Admin';
+
+async function resolveOwnerInfo(userId) {
   const uid = String(userId || '').trim();
-  if (!uid) return 'Unknown user';
+  if (!uid) return { label: 'Unknown user', isAdmin: false };
 
   const { data: profile } = await supabaseService
     .from('user_profiles')
-    .select('display_name')
+    .select('display_name, is_admin')
     .eq('id', uid)
     .maybeSingle();
 
+  if (profile?.is_admin) return { label: ADMIN_OWNER_LABEL, isAdmin: true };
+
   const displayName = String(profile?.display_name || '').trim();
-  if (displayName) return displayName;
+  if (displayName) return { label: displayName, isAdmin: false };
 
   try {
     const { data, error } = await supabaseService.auth.admin.getUserById(uid);
-    if (!error && data?.user?.email) return String(data.user.email).trim();
+    if (!error && data?.user?.email) return { label: String(data.user.email).trim(), isAdmin: false };
   } catch {
     // ignore auth lookup errors
   }
 
-  return 'Unknown user';
+  return { label: 'Unknown user', isAdmin: false };
 }
 
-async function resolveOwnerLabels(userIds) {
+/**
+ * Batch owner lookup. Returns display label plus the admin flag, which decides both the label
+ * shown and which of the two AI galleries a portfolio belongs to.
+ * @returns {Promise<Map<string, {label: string, isAdmin: boolean}>>}
+ */
+async function resolveOwnerInfos(userIds) {
   const unique = [...new Set((userIds || []).map((id) => String(id || '').trim()).filter(Boolean))];
-  const labelByUser = new Map();
-  if (!unique.length) return labelByUser;
+  const infoByUser = new Map();
+  if (!unique.length) return infoByUser;
 
   const { data: profiles } = await supabaseService
     .from('user_profiles')
-    .select('id, display_name')
+    .select('id, display_name, is_admin')
     .in('id', unique);
 
   for (const row of profiles || []) {
+    if (row.is_admin) {
+      infoByUser.set(row.id, { label: ADMIN_OWNER_LABEL, isAdmin: true });
+      continue;
+    }
     const name = String(row.display_name || '').trim();
-    if (name) labelByUser.set(row.id, name);
+    if (name) infoByUser.set(row.id, { label: name, isAdmin: false });
   }
 
   await Promise.all(
     unique
-      .filter((uid) => !labelByUser.has(uid))
+      .filter((uid) => !infoByUser.has(uid))
       .map(async (uid) => {
         try {
           const { data, error } = await supabaseService.auth.admin.getUserById(uid);
           if (!error && data?.user?.email) {
-            labelByUser.set(uid, String(data.user.email).trim());
+            infoByUser.set(uid, { label: String(data.user.email).trim(), isAdmin: false });
           }
         } catch {
           // ignore
@@ -61,11 +79,12 @@ async function resolveOwnerLabels(userIds) {
   );
 
   for (const uid of unique) {
-    if (!labelByUser.has(uid)) labelByUser.set(uid, 'Unknown user');
+    if (!infoByUser.has(uid)) infoByUser.set(uid, { label: 'Unknown user', isAdmin: false });
   }
 
-  return labelByUser;
+  return infoByUser;
 }
+
 
 async function getPublishedAccount(accountId) {
   const id = String(accountId || '').trim();
@@ -109,6 +128,10 @@ function publicMetaFields(account) {
     ai_direction: account.ai_direction || null,
     ai_criteria: account.ai_criteria || null,
     ai_rebalance_cadence: account.ai_rebalance_cadence || null,
+    // Null on accounts created before the position-sizing migration.
+    ai_position_count: account.ai_position_count ?? null,
+    ai_position_sizing: account.ai_position_sizing || null,
+    ai_position_qty: account.ai_position_qty ?? null,
     // Missing column (migration not yet run) means copying stays available.
     allow_copy: account.allow_copy !== false
   };
@@ -116,13 +139,19 @@ function publicMetaFields(account) {
 
 /** Average calendar days per month (for fair age normalization across portfolios). */
 const DAYS_PER_MONTH = 30.4375;
-/** Floor so a 1-day portfolio does not explode avg monthly %. */
-const MIN_MONTHS_ELAPSED = 1 / DAYS_PER_MONTH;
+
+/**
+ * A book younger than this has no meaningful monthly rate — dividing a few days of return by a
+ * fraction of a month extrapolates wildly (11 days at +7.5% reads as +21%/month). Below the
+ * threshold the figure is withheld entirely and the UI shows N/A.
+ */
+const MIN_MONTHS_FOR_AVG = 1;
 
 /**
  * Normalize total return into an average monthly % so books of different ages compare fairly.
- * Simple (linear) method: total_return_pct / months_elapsed.
- * @returns {{ months_elapsed: number|null, avg_monthly_return_pct: number|null }}
+ * Simple (linear) method: total_return_pct / months_elapsed, and only once a full month has
+ * actually elapsed.
+ * @returns {{ months_elapsed: number|null, days_elapsed: number|null, avg_monthly_return_pct: number|null }}
  */
 function computeAvgMonthlyReturn(totalReturnPct, startIso) {
   const startMs = Date.parse(String(startIso || ''));
@@ -130,24 +159,27 @@ function computeAvgMonthlyReturn(totalReturnPct, startIso) {
     return { months_elapsed: null, days_elapsed: null, avg_monthly_return_pct: null };
   }
   const days = Math.max(0, (Date.now() - startMs) / 86400000);
-  const months = Math.max(days / DAYS_PER_MONTH, MIN_MONTHS_ELAPSED);
+  const months = days / DAYS_PER_MONTH;
   const total = Number(totalReturnPct);
-  if (!Number.isFinite(total)) {
-    return {
-      months_elapsed: Math.round(months * 100) / 100,
-      days_elapsed: Math.round(days * 10) / 10,
-      avg_monthly_return_pct: null
-    };
-  }
-  return {
+  const base = {
     months_elapsed: Math.round(months * 100) / 100,
-    days_elapsed: Math.round(days * 10) / 10,
-    avg_monthly_return_pct: Math.round((total / months) * 100) / 100
+    days_elapsed: Math.round(days * 10) / 10
   };
+
+  if (!Number.isFinite(total) || months < MIN_MONTHS_FOR_AVG) {
+    return { ...base, avg_monthly_return_pct: null };
+  }
+  return { ...base, avg_monthly_return_pct: Math.round((total / months) * 100) / 100 };
 }
 
+/**
+ * Creation, not publication. An owner who traded for months before publishing has a track record
+ * that long, and dating it from `published_at` divides the same total return by a shorter window,
+ * overstating the monthly rate. Keep this in step with the frontend's portfolioAgeMetrics.js —
+ * the leaderboard column comes from here while the summary card computes its own.
+ */
 function performanceStartAt(account) {
-  return account.published_at || account.created_at || null;
+  return account.created_at || account.published_at || null;
 }
 
 async function loadPublishedAccountSnapshot(account) {
@@ -170,15 +202,18 @@ async function loadPublishedAccountSnapshot(account) {
   const enrichedLots = await enrichLotsWithPnl(lots || []);
   const positions = aggregateLotsToPositions(enrichedLots);
   const metrics = summarizeAccountMetrics(account, positions, closedTrades || []);
-  const ownerLabel = await resolveOwnerLabel(account.user_id);
+  const owner = await resolveOwnerInfo(account.user_id);
   const strategyLabel = await getBoundStrategyLabel(account.id);
   const copyCount = await getCopyCount(account.id);
 
   return {
     id: account.id,
     name: account.name,
-    owner_label: ownerLabel,
+    owner_label: owner.label,
+    owner_is_admin: owner.isAdmin,
     published_at: account.published_at,
+    // The detail page's avg-monthly-return card dates the track record from creation.
+    created_at: account.created_at,
     strategy_mode: account.strategy_mode || 'manual',
     strategy_label: strategyLabel,
     ...publicMetaFields(account),
@@ -238,8 +273,8 @@ async function buildPublishedPortfoliosList() {
   const accountIds = rows.map((r) => r.id);
 
   // Parallel Supabase reads + owner labels (avoids N sequential round-trips).
-  const [labels, lotsRes, closedRes] = await Promise.all([
-    resolveOwnerLabels(rows.map((r) => r.user_id)),
+  const [owners, lotsRes, closedRes] = await Promise.all([
+    resolveOwnerInfos(rows.map((r) => r.user_id)),
     supabaseService
       .from('paper_position_lots')
       .select('*')
@@ -281,7 +316,8 @@ async function buildPublishedPortfoliosList() {
     return {
       id: account.id,
       name: account.name,
-      owner_label: labels.get(account.user_id) || 'Unknown user',
+      owner_label: owners.get(account.user_id)?.label || 'Unknown user',
+      owner_is_admin: Boolean(owners.get(account.user_id)?.isAdmin),
       published_at: account.published_at,
       strategy_mode: account.strategy_mode || 'manual',
       publish_description: account.publish_description ? String(account.publish_description) : '',
@@ -303,10 +339,11 @@ async function buildPublishedPortfoliosList() {
     };
   });
 
-  // Default ranking: highest average monthly return (nulls last).
+  // Default ranking: highest total return (nulls last). Average monthly return is still
+  // computed on every row but no longer ranks anything — see SORT_KEYS in publicPortfolioQuery.js.
   summaries.sort((a, b) => {
-    const av = a.avg_monthly_return_pct;
-    const bv = b.avg_monthly_return_pct;
+    const av = a.total_return_pct;
+    const bv = b.total_return_pct;
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;
@@ -506,6 +543,23 @@ async function getPublishedOrders(accountId) {
   return data || [];
 }
 
+/**
+ * AI rebalance history for a published portfolio.
+ *
+ * Reasoning is included: a published AI book's whole claim is that its decisions are inspectable,
+ * and the owner opted into publishing. Flip `includeReasoning` to false here to withhold the
+ * model's raw text from public viewers while keeping it on the owner's own page.
+ */
+async function getPublishedRebalances(accountId) {
+  const account = await getPublishedAccount(accountId);
+  if (!account) {
+    const err = new Error('Portfolio not found');
+    err.status = 404;
+    throw err;
+  }
+  return getRebalanceLogForAccount(account.id, { includeReasoning: true });
+}
+
 async function getPublishedStrategy(accountId) {
   const account = await getPublishedAccount(accountId);
   if (!account) {
@@ -564,5 +618,6 @@ module.exports = {
   getPublishedClosedTrades,
   getPublishedSectorAllocation,
   getPublishedOrders,
+  getPublishedRebalances,
   getPublishedStrategy
 };

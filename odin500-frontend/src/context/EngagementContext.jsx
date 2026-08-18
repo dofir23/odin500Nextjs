@@ -18,7 +18,7 @@ const AUTH_PATH_PREFIXES = [
   '/signup-username'
 ];
 
-const EXCLUDED_PATHS = new Set(['/paper-trading']);
+const EXCLUDED_PATHS = new Set(['/virtual-portfolio']);
 
 function isAuthRoute(pathname) {
   const p = String(pathname || '');

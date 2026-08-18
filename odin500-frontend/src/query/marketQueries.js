@@ -103,6 +103,35 @@ export async function fetchOhlcSignalsQuery({ ticker, startDate, endDate }, opti
   });
 }
 
+/**
+ * Per-engine AI long/short read for one ticker.
+ *
+ * The server computes this at most once per ticker per market day and stores it in BigQuery, so a
+ * cold symbol costs one round of model calls and every later viewer reads the stored row. It is
+ * auth-gated for that reason — `canFetchMarketData()` keeps signed-out visitors and crawlers from
+ * ever reaching it.
+ */
+export function useTickerAiStanceQuery({ ticker, enabled = true }) {
+  const sym = String(ticker || '').toUpperCase().trim();
+  return useQuery({
+    queryKey: marketKeys.tickerAiStance(sym),
+    queryFn: async () => {
+      const { data } = await fetchJsonCached({
+        path: `/api/market/ticker-ai-stance?ticker=${encodeURIComponent(sym)}`,
+        method: 'GET',
+        ttlMs: MARKET_STALE.tickerAiStance,
+        auth: true,
+        routeAbort: false
+      });
+      return data;
+    },
+    enabled: Boolean(enabled && sym && canFetchMarketData()),
+    staleTime: MARKET_STALE.tickerAiStance,
+    // A cold ticker waits on three model calls; retrying a timeout only doubles the wait.
+    retry: false
+  });
+}
+
 /** React hooks — subscribe to shared cache. */
 export function useTickerDetailsQuery({ index, period, enabled = true }) {
   return useQuery({

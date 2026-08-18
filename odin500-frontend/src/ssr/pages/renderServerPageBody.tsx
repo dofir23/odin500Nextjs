@@ -361,9 +361,10 @@ function ageLabel(months: unknown, days: unknown) {
 
 /**
  * Server-rendered AI portfolio leaderboard.
- * Track record length sits next to every return column on purpose: average monthly return is
- * extrapolated, so a days-old book can post a headline number that is arithmetically true and
- * practically meaningless. Showing age inline keeps the table honest to readers and crawlers.
+ * Track record length sits next to the return column on purpose: total return rewards whichever
+ * book has been running longest, so age is what makes the ranking readable. (The extrapolated
+ * average-monthly column that used to live here is hidden — see SORT_KEYS in the backend's
+ * publicPortfolioQuery.js.)
  */
 export function AiPortfolioLeaderboard({ data, limit }: { data: unknown; limit: number }) {
   const d = data as { rows?: unknown[] } | null;
@@ -373,7 +374,7 @@ export function AiPortfolioLeaderboard({ data, limit }: { data: unknown; limit: 
   return (
     <section className="text-sm">
       <SimpleTable
-        caption={`AI stock portfolios ranked by average monthly return (top ${rows.length})`}
+        caption={`AI stock portfolios ranked by total return (top ${rows.length})`}
         columns={[
           { key: 'rank', label: '#' },
           { key: 'name', label: 'Portfolio' },
@@ -394,15 +395,17 @@ export function AiPortfolioLeaderboard({ data, limit }: { data: unknown; limit: 
           direction: labelOf(DIRECTION_LABELS, r.ai_direction),
           cadence: String(r.ai_rebalance_cadence ?? '—'),
           total: pct(r.total_return_pct),
-          avg: pct(r.avg_monthly_return_pct),
+          // Null under a month old — the API withholds it rather than extrapolating.
+          avg: r.avg_monthly_return_pct == null ? 'N/A' : pct(r.avg_monthly_return_pct),
           age: ageLabel(r.months_elapsed, r.days_elapsed),
           positions: r.positions_count ?? '—'
         }))}
       />
       <p className="mt-2 text-xs opacity-80">
-        Average monthly return is annualised from each book&apos;s track record, so portfolios
-        running only a few days can show outsized figures. Compare the track record column
-        alongside any return. Simulated paper trading — not investment advice.
+        Total return is measured since each portfolio was published, so a book running for months
+        has had far longer to accumulate it than one published this week. Average monthly return
+        normalises for that, and shows N/A until a portfolio is at least a month old. Simulated
+        paper trading — not investment advice.
       </p>
     </section>
   );
@@ -529,7 +532,7 @@ export function renderServerPageBody(pathname: string, data: unknown): ReactNode
   // Static copy plus the live leaderboard. The homepage renders its own top-5 preview via
   // HomePageServer (it does not route through here), which is what keeps the two from
   // reading as duplicates.
-  if (path === '/paper-trading/ai') {
+  if (path === '/virtual-portfolio/ai') {
     return (
       <>
         <StaticPageSection path={path} />

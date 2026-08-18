@@ -237,7 +237,7 @@ export default function AccountsPage() {
           >
             {exporting ? 'Exporting…' : 'Export Snapshot'}
           </button>
-          <Link to="/paper-trading" className="accounts-btn accounts-btn--primary">
+          <Link to="/virtual-portfolio" className="accounts-btn accounts-btn--primary">
             Open portfolios
           </Link>
         </div>
@@ -286,7 +286,7 @@ export default function AccountsPage() {
           ) : !linkedAccounts.length ? (
             <p className="accounts-empty">
               No virtual portfolios yet.{' '}
-              <Link to="/paper-trading" className="accounts-inline-link">
+              <Link to="/virtual-portfolio" className="accounts-inline-link">
                 Create one
               </Link>
             </p>
@@ -365,7 +365,7 @@ export default function AccountsPage() {
         <article className="accounts-card">
           <div className="accounts-card__head">
             <h2 className="accounts-card__title">Top positions</h2>
-            <Link to="/paper-trading" className="accounts-link-btn">
+            <Link to="/virtual-portfolio" className="accounts-link-btn">
               Open full blotter
             </Link>
           </div>
@@ -421,7 +421,7 @@ export default function AccountsPage() {
         <article className="accounts-card">
           <div className="accounts-card__head">
             <h2 className="accounts-card__title">Live activity</h2>
-            <Link to="/paper-trading" className="accounts-link-btn">
+            <Link to="/virtual-portfolio" className="accounts-link-btn">
               View orders
             </Link>
           </div>

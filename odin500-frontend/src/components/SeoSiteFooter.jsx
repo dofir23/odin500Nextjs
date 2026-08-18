@@ -5,9 +5,9 @@ const FOOTER_SECTIONS = [
   {
     title: 'AI portfolios',
     links: [
-      { to: '/paper-trading/ai', label: 'AI Portfolio Leaderboard' },
-      { to: '/paper-trading', label: 'Build Your Own' },
-      { to: '/paper-trading/public', label: 'Public Portfolios' }
+      { to: '/virtual-portfolio/ai', label: 'AI Portfolio Leaderboard' },
+      { to: '/virtual-portfolio', label: 'Build Your Own' },
+      { to: '/virtual-portfolio/public', label: 'Public Portfolios' }
     ]
   },
   {

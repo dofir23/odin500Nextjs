@@ -67,6 +67,58 @@ export function historyToChartPoints(history) {
   return dedupeAscendingPoints(raw);
 }
 
+/** Snapshots are stamped in UTC, but a "trading day" is a New York day. */
+const MARKET_TIME_ZONE = 'America/New_York';
+
+/** `en-CA` formats as YYYY-MM-DD, which is exactly the key we want. */
+const MARKET_DAY_FMT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: MARKET_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+/** @param {number} unixSec → 'YYYY-MM-DD' for the New York day that timestamp falls in. */
+export function marketDayKey(unixSec) {
+  const ms = Number(unixSec) * 1000;
+  if (!Number.isFinite(ms)) return null;
+  const key = MARKET_DAY_FMT.format(new Date(ms));
+  return /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : null;
+}
+
+/** Midnight UTC for a day key — what lightweight-charts renders as that calendar date. */
+function dayKeyToUnixSec(key) {
+  const ms = Date.parse(`${key}T00:00:00Z`);
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
+
+/**
+ * Collapse intraday snapshots to one point per trading day.
+ *
+ * The snapshot job writes several rows a day, which made the line look like an intraday tick
+ * chart and left flat weekend plateaus where nothing traded. Keeping only the last snapshot of
+ * each New York weekday gives the same daily-close cadence as the ticker charts.
+ *
+ * Holidays are not filtered — the market calendar lives on the backend, and a lone holiday
+ * snapshot just repeats the prior close rather than drawing a misleading gap.
+ *
+ * @param {Array<{ time: number, value: number }>} points
+ */
+export function toDailyTradingPoints(points) {
+  const byDay = new Map();
+  // Ascending, so the last write for a day is that day's closing value.
+  for (const pt of dedupeAscendingPoints(points)) {
+    const key = marketDayKey(pt.time);
+    if (!key) continue;
+    const time = dayKeyToUnixSec(key);
+    if (time == null) continue;
+    const weekday = new Date(time * 1000).getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    byDay.set(key, { time, value: pt.value });
+  }
+  return [...byDay.values()].sort((a, b) => a.time - b.time);
+}
+
 /**
  * Rebase series so first point = 100 (percentage performance).
  * @param {Array<{ time: number, value: number }>} points

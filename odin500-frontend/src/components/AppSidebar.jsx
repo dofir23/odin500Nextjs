@@ -151,6 +151,17 @@ function IconAnalyst() {
     </svg>
   );
 }
+/** Two diverging lines — the AI-vs-AI / AI-vs-index comparison chart. */
+function IconCompare() {
+  return (
+    <svg className="app-sidebar__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M4 20V4" strokeLinecap="round" />
+      <path d="M4 20h16" strokeLinecap="round" />
+      <path d="M7 15l4-5 3 3 4-7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 18l4-2 3 1 4-4" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
+    </svg>
+  );
+}
 function IconFinancial() {
   return (
     <svg className="app-sidebar__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -238,7 +249,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   const accountWrapRef = useRef(null);
 
   const requirePaperLogin = useCallback(
-    (returnTo = '/paper-trading/ai') => (e) => {
+    (returnTo = '/virtual-portfolio/ai') => (e) => {
       if (loggedIn) return;
       e.preventDefault();
       loginGate?.showLoginRequired({ returnTo });
@@ -346,10 +357,16 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
   const isReturnTableRoute =
     location.pathname === '/return-table' || location.pathname.startsWith('/return-table/');
   const isRelativePerformanceGroupRoute = isRelativePerformanceRoute || isReturnTableRoute;
-  const isPaperYourRoute = location.pathname === '/paper-trading';
-  const isPaperPublicRoute = location.pathname.startsWith('/paper-trading/public');
-  const isPaperAiRoute = location.pathname.startsWith('/paper-trading/ai');
-  const isPaperRoute = isPaperYourRoute || isPaperPublicRoute || isPaperAiRoute;
+  const isPaperYourRoute = location.pathname === '/virtual-portfolio';
+  const isPaperPublicRoute = location.pathname.startsWith('/virtual-portfolio/public');
+  const isPaperCompareRoute = location.pathname.startsWith('/virtual-portfolio/ai/compare');
+  const isPaperUserAiRoute = location.pathname.startsWith('/virtual-portfolio/ai/users');
+  // The compare and user boards live under /ai, so the Odin row must exclude them or several
+  // rows highlight at once.
+  const isPaperAiRoute =
+    location.pathname.startsWith('/virtual-portfolio/ai') && !isPaperCompareRoute && !isPaperUserAiRoute;
+  const isPaperRoute =
+    isPaperYourRoute || isPaperPublicRoute || isPaperAiRoute || isPaperCompareRoute || isPaperUserAiRoute;
   const isAdminRoute = location.pathname.startsWith('/admin');
   const [indicesOpen, setIndicesOpen] = useState(isIndicesRoute);
   const [statsOpen, setStatsOpen] = useState(isStatsRoute);
@@ -450,29 +467,31 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 role="group"
                 aria-label="Virtual portfolio"
                 onMouseEnter={() => {
-                  warmRoute('/paper-trading/ai');
-                  warmRoute('/paper-trading/public');
-                  warmRoute('/paper-trading');
+                  warmRoute('/virtual-portfolio/ai');
+                  warmRoute('/virtual-portfolio/ai/compare');
+                  warmRoute('/virtual-portfolio/ai/users');
+                  warmRoute('/virtual-portfolio/public');
+                  warmRoute('/virtual-portfolio');
                 }}
               >
                 <NavLink
-                  to="/paper-trading/ai"
+                  to="/virtual-portfolio/ai"
                   className="app-sidebar__indices-main"
                   onClick={() => {
                     setPaperOpen(true);
                     closeMobileSidebar();
                   }}
                   onFocus={() => {
-                    warmRoute('/paper-trading/ai');
-                    warmRoute('/paper-trading/public');
-                    warmRoute('/paper-trading');
+                    warmRoute('/virtual-portfolio/ai');
+                    warmRoute('/virtual-portfolio/public');
+                    warmRoute('/virtual-portfolio');
                   }}
                   title="AI portfolio (opens menu)"
                 >
                   <span className="app-sidebar__row-icon">
                     <IconWallet />
                   </span>
-                  <span className="app-sidebar__row-label">Virtual portfolio</span>
+                  <span className="app-sidebar__row-label">Odin Ai portfolio</span>
                 </NavLink>
                 <button
                   type="button"
@@ -484,7 +503,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                     setPaperOpen((wasOpen) => {
                       const nextOpen = !wasOpen;
                       if (nextOpen) {
-                        navigate('/paper-trading/ai');
+                        navigate('/virtual-portfolio/ai');
                         closeMobileSidebar();
                       }
                       return nextOpen;
@@ -502,24 +521,36 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
               {paperOpen ? (
                 <div id="app-sidebar-paper-options" className="app-sidebar__subnav" role="group" aria-label="Virtual portfolio options">
                   <NavRow
-                    to="/paper-trading/ai"
+                    to="/virtual-portfolio/ai/compare"
+                    icon={IconCompare}
+                    label="Performance"
+                    active={isPaperCompareRoute}
+                  />
+                  <NavRow
+                    to="/virtual-portfolio/ai"
                     icon={IconAnalyst}
-                    label="AI Portfolio"
+                    label="Odin AI Portfolio"
                     active={isPaperAiRoute}
                   />
                   <NavRow
-                    to="/paper-trading/public"
+                    to="/virtual-portfolio/ai/users"
                     icon={IconPeople}
-                    label="Published Portfolio"
+                    label="User Portfolio"
+                    active={isPaperUserAiRoute}
+                  />
+                  <NavRow
+                    to="/virtual-portfolio/public"
+                    icon={IconPeople}
+                    label="All Portfolio"
                     active={isPaperPublicRoute}
                   />
                   <NavRow
-                    to="/paper-trading"
+                    to="/virtual-portfolio"
                     icon={IconWallet}
                     label="Your Portfolio"
                     active={isPaperYourRoute}
                     end
-                    onClick={requirePaperLogin('/paper-trading')}
+                    onClick={requirePaperLogin('/virtual-portfolio')}
                   />
                 </div>
               ) : null}
@@ -590,9 +621,6 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
               />
               <NavRow to="/news" icon={IconNews} label="News" />
               <NavRow to="/newsletter" icon={IconNews} label="Newsletter" />
-              {isAdmin ? (
-                <NavRow to="/admin" icon={IconShield} label="Admin" active={isAdminRoute} />
-              ) : null}
             </nav>
 
             
@@ -739,9 +767,9 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                 active={/^\/ticker-report\//i.test(location.pathname)}
               />
             </nav>
-            <NavRow to="/stock-splits" icon={IconScissors} label="Stock Splits" />
+            {/* <NavRow to="/stock-splits" icon={IconScissors} label="Stock Splits" /> */}
 
-            <div className="app-sidebar__section-label">Data</div>
+            
             <nav className="app-sidebar__nav" aria-label="Data">
               <NavRow
                 to={`/historical-data/${DEFAULT_TICKER_ROUTE_SYMBOL.toLowerCase()}`}
@@ -751,6 +779,9 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
               />
               {/* <NavRow icon={IconLineChart} label="Returns" onClick={() => {}} /> */}
               {/* <NavRow to="/statistic-data" icon={IconCamera} label="Statistic Table" /> */}
+              {isAdmin ? (
+                <NavRow to="/admin" icon={IconShield} label="Admin" active={isAdminRoute} />
+              ) : null}
             </nav>
 
             {/* <div className="app-sidebar__section-label">Premium</div>

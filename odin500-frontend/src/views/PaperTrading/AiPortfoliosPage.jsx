@@ -29,19 +29,15 @@ const TOP_PERFORMERS = 5;
 const DEFAULT_ENGINE = '__all__';
 const DEFAULT_INDEX = '__all__';
 const DEFAULT_DIRECTION = '__all__';
-const DEFAULT_SORT = 'avg_monthly_return_pct';
+const DEFAULT_SORT = 'total_return_pct';
 const DEFAULT_DIR = 'desc';
 
 const ALLOWED_ENGINES = new Set(['__all__', 'ai', ...ENGINE_PATTERNS.map((e) => e.id)]);
 const ALLOWED_INDICES = new Set(['__all__', ...INDEX_PATTERNS.map((i) => i.id)]);
 const ALLOWED_DIRECTIONS = new Set(DIRECTION_OPTIONS.map((d) => d.id));
-const ALLOWED_SORTS = new Set([
-  'equity',
-  'total_return_pct',
-  'avg_monthly_return_pct',
-  'positions_count',
-  'published_at'
-]);
+// Mirrors SORT_KEYS in the backend's publicPortfolioQuery.js — average monthly return is
+// intentionally not sortable; a days-old book extrapolates to an outsized monthly figure.
+const ALLOWED_SORTS = new Set(['equity', 'total_return_pct', 'positions_count', 'published_at']);
 const ALLOWED_DIRS = new Set(['asc', 'desc']);
 
 function parseParam(raw, allowed, fallback) {
@@ -90,7 +86,13 @@ function ownerInitials(label) {
   return text.slice(0, 2).toUpperCase();
 }
 
-function AiPortfoliosPageContent() {
+/**
+ * Shared gallery body for both AI boards. `owner` splits them: `admin` is Odin's own books,
+ * `user` is everything members published. Same filters, sorting, table and creator chat — only
+ * the copy and the server-side owner filter differ, so they stay in sync by construction.
+ * @param {{ owner: 'admin'|'user', title: string, subtitle: string, emptyText: string }} props
+ */
+function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [copyTarget, setCopyTarget] = useState(null);
 
@@ -180,6 +182,7 @@ function AiPortfoliosPageContent() {
     sort: sortKey,
     dir: sortDir,
     aiOnly: true,
+    owner,
     engine: engineFilter,
     index: indexFilter,
     direction: directionFilter
@@ -193,9 +196,10 @@ function AiPortfoliosPageContent() {
   } = usePublicPortfoliosPaged({
     page: 1,
     pageSize: TOP_PERFORMERS,
-    sort: 'avg_monthly_return_pct',
+    sort: 'total_return_pct',
     dir: 'desc',
     aiOnly: true,
+    owner,
     engine: engineFilter,
     index: indexFilter,
     direction: directionFilter
@@ -246,14 +250,10 @@ function AiPortfoliosPageContent() {
           onSort={onSort}
           align="right"
         />
-        <PaperSortableTh
-          label="Avg monthly"
-          sortKey="avg_monthly_return_pct"
-          activeKey={sortKey}
-          dir={sortDir}
-          onSort={onSort}
-          align="right"
-        />
+        {/* Display-only: sorting stays on total return. */}
+        <th scope="col" className="paper-table__th--num" title="Total return ÷ months since publication. Shown only once a portfolio is at least a month old.">
+          Avg monthly
+        </th>
         <PaperSortableTh
           label="Positions"
           sortKey="positions_count"
@@ -280,15 +280,11 @@ function AiPortfoliosPageContent() {
     <div className="paper-page odin-content-page paper-page--public">
       <header className="paper-header">
         <div>
-          <h1 className="paper-header__title">AI Portfolios</h1>
-          <p className="paper-header__sub">
-            Virtual portfolios traded by AI models — Claude and ChatGPT today, with Gemini and more on the
-            way — going long and short on the S&amp;P 500, Nasdaq-100, and Dow Jones. Ranked by average
-            monthly return so portfolios of different ages compare fairly.
-          </p>
+          <h1 className="paper-header__title">{title}</h1>
+          <p className="paper-header__sub">{subtitle}</p>
         </div>
         <div className="paper-header__actions">
-          <Link to="/paper-trading/public" className="paper-btn paper-btn--ghost">
+          <Link to="/virtual-portfolio/public" className="paper-btn paper-btn--ghost">
             All Published Portfolios
           </Link>
         </div>
@@ -362,10 +358,10 @@ function AiPortfoliosPageContent() {
             <p>No AI portfolios match these filters yet</p>
           ) : (
             <>
-              <p>No AI portfolios published yet</p>
+              <p>{emptyText}</p>
               <p className="paper-empty__hint">
                 Check back soon, or browse{' '}
-                <Link to="/paper-trading/public" className="paper-link">
+                <Link to="/virtual-portfolio/public" className="paper-link">
                   all published portfolios
                 </Link>{' '}
                 in the meantime.
@@ -381,33 +377,32 @@ function AiPortfoliosPageContent() {
             {tableHead}
             <tbody>
               {rows.map((p) => {
-                const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
-                const avgTitle =
-                  p.months_elapsed != null
-                    ? `Over ~${p.months_elapsed} month${Number(p.months_elapsed) === 1 ? '' : 's'} since publish`
-                    : undefined;
+                const href = `/virtual-portfolio/public/${encodeURIComponent(p.id)}`;
                 return (
                   <tr key={p.id} className="paper-public-table__row">
                     <td className="paper-public-table__portfolio">
                       <Link to={href} className="paper-public-table__identity">
-                        <span className="paper-public-card__avatar" aria-hidden>
+                        <span className="paper-public-table__avatar" aria-hidden>
                           {ownerInitials(p.owner_label)}
                         </span>
                         <span className="paper-public-table__identity-text">
-                          <span className="paper-public-table__name-row">
-                            <span className="paper-public-table__name">{p.name}</span>
+                          <span className="paper-public-table__name">{p.name}</span>
+                          {/* Owner and tags share one line so every row is the same height. */}
+                          <span className="paper-public-table__meta">
+                            <span className="paper-public-table__owner">by {p.owner_label}</span>
                             {p.ai_engine ? (
-                              <span className="paper-public-card__tag">{p.ai_engine.label}</span>
+                              <span className="paper-tag paper-tag--engine" data-engine={p.ai_engine.id}>
+                                {p.ai_engine.label}
+                              </span>
                             ) : null}
-                            {p.index_focus ? (
-                              <span className="paper-public-card__tag">{p.index_focus.label}</span>
-                            ) : null}
-                            <span className="paper-public-card__tag">{p.direction.label}</span>
+                            {p.index_focus ? <span className="paper-tag">{p.index_focus.label}</span> : null}
+                            <span className="paper-tag paper-tag--direction" data-direction={p.direction.id}>
+                              {p.direction.label}
+                            </span>
                             {p.strategy_mode && p.strategy_mode !== 'manual' ? (
-                              <span className="paper-public-card__tag">Automated</span>
+                              <span className="paper-tag">Automated</span>
                             ) : null}
                           </span>
-                          <span className="paper-public-table__owner">by {p.owner_label}</span>
                         </span>
                       </Link>
                     </td>
@@ -420,29 +415,41 @@ function AiPortfoliosPageContent() {
                         </span>
                       </span>
                     </td>
-                    <td
-                      className={'paper-public-table__num ' + toneClass(p.avg_monthly_return_pct)}
-                      title={avgTitle}
-                    >
-                      {p.avg_monthly_return_pct == null
-                        ? '—'
-                        : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
+                    <td className={'paper-public-table__num ' + toneClass(p.avg_monthly_return_pct)}>
+                      {p.avg_monthly_return_pct == null ? (
+                        <span
+                          className="paper-public-table__na"
+                          title={
+                            p.days_elapsed != null
+                              ? `Published ${Math.round(p.days_elapsed)} day(s) ago — needs a full month before an average is meaningful`
+                              : 'Needs a full month before an average is meaningful'
+                          }
+                        >
+                          N/A
+                        </span>
+                      ) : (
+                        fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })
+                      )}
                     </td>
-                    <td className="paper-public-table__num">{p.positions_count ?? 0}</td>
+                    <td className="paper-public-table__num">
+                      <span className="paper-public-table__count">{p.positions_count ?? 0}</span>
+                    </td>
                     <td className="paper-public-table__date">{fmtDate(p.published_at)}</td>
                     <td className="paper-public-table__action">
-                      <Link to={href} className="paper-public-table__cta">
-                        View portfolio
-                      </Link>
-                      {(p.positions_count ?? 0) > 0 ? (
-                        <button
-                          type="button"
-                          className="paper-public-table__cta paper-public-table__cta--copy"
-                          onClick={() => setCopyTarget({ id: p.id, name: p.name })}
-                        >
-                          Copy
-                        </button>
-                      ) : null}
+                      <span className="paper-public-table__actions">
+                        <Link to={href} className="paper-public-table__cta">
+                          View
+                        </Link>
+                        {(p.positions_count ?? 0) > 0 ? (
+                          <button
+                            type="button"
+                            className="paper-public-table__cta paper-public-table__cta--copy"
+                            onClick={() => setCopyTarget({ id: p.id, name: p.name })}
+                          >
+                            Copy
+                          </button>
+                        ) : null}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -477,6 +484,26 @@ function AiPortfoliosPageContent() {
   );
 }
 
+/** Odin's own AI books — every portfolio published from an admin account. */
 export default function AiPortfoliosPage() {
-  return <AiPortfoliosPageContent />;
+  return (
+    <AiPortfoliosPageContent
+      owner="admin"
+      title="Odin AI Portfolios"
+      subtitle="Virtual portfolios built and traded by AI models on Odin's own accounts — Claude and ChatGPT today, with Gemini and more on the way — going long and short on the S&P 500, Nasdaq-100, and Dow Jones. Ranked by total return since publication, so check each book's age before comparing them."
+      emptyText="No Odin AI portfolios published yet"
+    />
+  );
+}
+
+/** The same board, restricted to AI portfolios published by members rather than by Odin. */
+export function UserAiPortfoliosPage() {
+  return (
+    <AiPortfoliosPageContent
+      owner="user"
+      title="User AI Portfolios"
+      subtitle="AI-managed virtual portfolios built and published by Odin500 members. Same engines and the same published track record as Odin's own books — ranked by total return since publication, so check each book's age before comparing them."
+      emptyText="No member AI portfolios published yet"
+    />
+  );
 }

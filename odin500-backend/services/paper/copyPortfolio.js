@@ -282,7 +282,11 @@ async function executeCopy({ userId, accountId, name, copyAiStrategy = false }) 
       ai_index_focus: source.ai_index_focus,
       ai_direction: source.ai_direction,
       ai_criteria: source.ai_criteria,
-      ai_rebalance_cadence: source.ai_rebalance_cadence
+      ai_rebalance_cadence: source.ai_rebalance_cadence,
+      // Undefined (migration not run) serializes away, so this stays safe on older instances.
+      ai_position_count: source.ai_position_count,
+      ai_position_sizing: source.ai_position_sizing,
+      ai_position_qty: source.ai_position_qty
     });
   }
 

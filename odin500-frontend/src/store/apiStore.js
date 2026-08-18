@@ -798,10 +798,27 @@ export async function fetchJsonCached({
     const rawText = await response.text();
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     let payload;
+    let parseFailed = false;
     try {
       payload = rawText ? JSON.parse(rawText) : null;
     } catch {
-      throw new Error('Invalid JSON from server: ' + path);
+      parseFailed = true;
+    }
+
+    /**
+     * A non-JSON body nearly always means the request never reached the API: the dev server or
+     * backend was mid-restart, or a proxy returned its own HTML error page. Parsing before
+     * checking `response.ok` meant all of those collapsed into a bare "Invalid JSON from server",
+     * discarding the status code — the one detail that says which. Report status, content type,
+     * and a short snippet instead.
+     */
+    if (parseFailed) {
+      const contentType = response.headers.get('content-type') || 'unknown content type';
+      const snippet = rawText.trim().slice(0, 120).replace(/\s+/g, ' ');
+      throw new Error(
+        `Server returned ${response.status} (${contentType}) for ${path}` +
+          (snippet ? ` — ${snippet}` : ' — empty body')
+      );
     }
 
     if (!response.ok) {

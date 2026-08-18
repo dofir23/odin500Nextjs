@@ -30,7 +30,7 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
     { href: '/heatmap', label: 'Stock market heatmap' },
     { href: '/odin-signals', label: 'Trading signals screener' },
     { href: '/newsletter', label: 'Weekly newsletter' },
-    { href: '/paper-trading', label: 'Virtual portfolio' },
+    { href: '/virtual-portfolio', label: 'Virtual portfolio' },
     { href: '/premium', label: 'Premium plans' },
     { href: '/methodology', label: 'Data methodology' },
     { href: '/about', label: 'About Odin500' },
@@ -52,24 +52,24 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
   ],
   '/profile': [
     { href: '/accounts', label: 'Account management' },
-    { href: '/paper-trading', label: 'Virtual portfolio' },
+    { href: '/virtual-portfolio', label: 'Virtual portfolio' },
     { href: '/market', label: 'Market dashboard' }
   ],
   '/accounts': [
     { href: '/profile', label: 'Your profile' },
-    { href: '/paper-trading', label: 'Virtual portfolio' },
+    { href: '/virtual-portfolio', label: 'Virtual portfolio' },
     { href: '/market', label: 'Market dashboard' }
   ],
-  '/paper-trading': [
+  '/virtual-portfolio': [
     { href: '/market', label: 'Market dashboard' },
     { href: '/odin-signals', label: 'Trading signals' },
     { href: '/market-movers', label: 'Market movers' },
     { href: '/methodology', label: 'Data methodology' },
     { href: '/about', label: 'About Odin500' }
   ],
-  '/paper-trading/ai': [
-    { href: '/paper-trading/public', label: 'All public portfolios' },
-    { href: '/paper-trading', label: 'Your portfolio' },
+  '/virtual-portfolio/ai': [
+    { href: '/virtual-portfolio/public', label: 'All public portfolios' },
+    { href: '/virtual-portfolio', label: 'Your portfolio' },
     { href: '/indices/sp500', label: 'S&P 500 index' },
     { href: '/indices/dow-jones', label: 'Dow Jones index' },
     { href: '/indices/nasdaq-100', label: 'Nasdaq 100 index' },
@@ -79,7 +79,7 @@ const STATIC_ROUTE_LINKS: Record<string, Array<{ href: string; label: string }>>
     { href: '/methodology', label: 'Data methodology' },
     { href: '/about', label: 'About Odin500' },
     { href: '/odin-signals', label: 'Odin signals' },
-    { href: '/paper-trading', label: 'Virtual portfolio' },
+    { href: '/virtual-portfolio', label: 'Virtual portfolio' },
     { href: '/newsletter', label: 'Weekly newsletter' }
   ],
   '/methodology': [

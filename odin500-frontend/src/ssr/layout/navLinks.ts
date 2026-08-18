@@ -6,9 +6,9 @@ export type ServerNavLink = {
 };
 
 export const SERVER_NAV_LINKS: ServerNavLink[] = [
-  { href: '/paper-trading/ai', label: 'AI Portfolio' },
-  { href: '/paper-trading/public', label: 'Published Portfolio' },
-  { href: '/paper-trading', label: 'Your Portfolio' },
+  { href: '/virtual-portfolio/ai', label: 'AI Portfolio' },
+  { href: '/virtual-portfolio/public', label: 'Published Portfolio' },
+  { href: '/virtual-portfolio', label: 'Your Portfolio' },
   { href: '/market', label: 'Markets' },
   { href: '/indices/dow-jones', label: 'Indices' },
   { href: '/ticker/AAPL', label: 'Tickers' },

@@ -65,9 +65,11 @@ export function usePublicPortfoliosPaged(params = {}) {
   const {
     page = 1,
     pageSize = 10,
-    sort = 'avg_monthly_return_pct',
+    sort = 'total_return_pct',
     dir = 'desc',
     aiOnly = false,
+    /** '' = every owner, 'admin' = Odin's own books, 'user' = member-published. */
+    owner = '',
     engine = '',
     index = '',
     direction = '',
@@ -87,11 +89,12 @@ export function usePublicPortfoliosPaged(params = {}) {
     qs.set('sort', sort);
     qs.set('dir', dir);
     if (aiOnly) qs.set('ai_only', '1');
+    if (owner) qs.set('owner', owner);
     if (engine && engine !== '__all__') qs.set('engine', engine);
     if (index && index !== '__all__') qs.set('index', index);
     if (direction && direction !== '__all__') qs.set('direction', direction);
     return qs.toString();
-  }, [page, pageSize, sort, dir, aiOnly, engine, index, direction]);
+  }, [page, pageSize, sort, dir, aiOnly, owner, engine, index, direction]);
 
   const load = useCallback(async () => {
     if (!enabled) {

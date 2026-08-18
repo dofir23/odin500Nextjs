@@ -72,7 +72,7 @@ function AdminPortfoliosContent() {
                 {portfolios.map((p) => (
                   <tr key={p.id}>
                     <td>
-                      <Link to={`/paper-trading/public/${p.id}`} className="admin-link">
+                      <Link to={`/virtual-portfolio/public/${p.id}`} className="admin-link">
                         {p.name}
                       </Link>
                     </td>

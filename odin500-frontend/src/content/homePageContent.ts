@@ -6,7 +6,7 @@ export const HOME_HERO = {
   subtitle:
     'Research stocks and ETFs, analyze index and sector performance, screen Odin trading signals, and track AI-built virtual portfolios for major indices — all in one place.',
   primaryCta: { href: '/signup', label: 'Sign up for free' },
-  tertiaryCta: { href: '/paper-trading/ai', label: 'Explore Ai Portfolios' }
+  tertiaryCta: { href: '/virtual-portfolio/ai', label: 'Explore Ai Portfolios' }
 };
 
 export const HOME_PILLARS = [
@@ -39,14 +39,14 @@ export const HOME_USE_CASES = [
     title: 'Practice without risk',
     body:
       'Virtual portfolio simulates fills at Odin daily closes with realistic slippage. Run manual orders or automated strategy rules, track P&L, sector exposure, and closed-trade analytics.',
-    href: '/paper-trading',
+    href: '/virtual-portfolio',
     linkLabel: 'Try virtual portfolio'
   },
   {
     title: 'Compare AI portfolios',
     body:
       'Follow virtual portfolios built with strategies from Claude, ChatGPT, and Gemini across the S&P 500, Dow Jones, and Nasdaq-100 — with live equity curves and transparent performance tracking.',
-    href: '/paper-trading/ai',
+    href: '/virtual-portfolio/ai',
     linkLabel: 'Browse AI portfolios'
   }
 ];
@@ -134,14 +134,14 @@ export const HOME_DATA_COVERAGE: HomeDataCoverageItem[] = [
     title: 'Virtual portfolio',
     summary:
       'Virtual portfolios with $100,000 starting capital, order blotter, strategy automation, and performance charts.',
-    href: '/paper-trading'
+    href: '/virtual-portfolio'
   },
   {
     id: 'ai-portfolios',
     title: 'AI portfolios',
     summary:
       'Index-focused virtual portfolios designed with Claude, ChatGPT, and Gemini strategies — published for side-by-side performance tracking.',
-    href: '/paper-trading/ai'
+    href: '/virtual-portfolio/ai'
   }
 ];
 
@@ -180,13 +180,13 @@ export const HOME_FEATURES = [
     title: 'Virtual portfolio simulator',
     body:
       'Place market orders, manage positions, automate strategy rules, and compare portfolio performance to benchmarks.',
-    href: '/paper-trading'
+    href: '/virtual-portfolio'
   },
   {
     title: 'AI portfolio tracking',
     body:
       'Published virtual portfolios for major U.S. indices with strategies from Claude, ChatGPT, and Gemini — track equity, returns, and holdings over time.',
-    href: '/paper-trading/public'
+    href: '/virtual-portfolio/public'
   }
 ];
 
@@ -206,10 +206,10 @@ export const HOME_FOOTER_CTA = {
 };
 
 export const HOME_NAV_PRODUCT = [
-  { href: '/paper-trading/ai', label: 'AI portfolios' },
+  { href: '/virtual-portfolio/ai', label: 'AI portfolios' },
   { href: '/market', label: 'Market dashboard' },
   { href: '/heatmap', label: 'Heatmaps' },
-  { href: '/paper-trading', label: 'Virtual portfolio' },
+  { href: '/virtual-portfolio', label: 'Virtual portfolio' },
   { href: '/premium', label: 'Pricing' },
   { href: '/methodology', label: 'Methodology' },
   { href: '/about', label: 'About' }
@@ -293,12 +293,12 @@ export const HOME_SHOWCASE: HomeShowcaseItem[] = [
     id: 'aiportfolio',
     title: 'AI portfolios by Claude, ChatGPT & Gemini',
     description:
-      'Virtual books where the model makes every call — picking constituents across the S&P 500, Nasdaq-100, and Dow Jones, going long or short, and rebalancing on its own cadence. Ranked by average monthly return, with holdings, equity curves, and closed trades published for each one.',
-    href: '/paper-trading/ai',
+      'Virtual books where the model makes every call — picking constituents across the S&P 500, Nasdaq-100, and Dow Jones, going long or short, and rebalancing on its own cadence. Ranked by total return, with holdings, equity curves, and closed trades published for each one.',
+    href: '/virtual-portfolio/ai',
     linkLabel: 'View the AI portfolio leaderboard',
     imageKey: 'aiportfolio',
     imageAlt:
-      'Odin500 AI portfolio leaderboard ranking Claude and ChatGPT portfolios by total return and average monthly return'
+      'Odin500 AI portfolio leaderboard ranking Claude and ChatGPT portfolios by total return'
   },
   {
     id: 'dashboard',
@@ -315,7 +315,7 @@ export const HOME_SHOWCASE: HomeShowcaseItem[] = [
     title: 'Public Portfolios',
     description:
       'Browse virtual portfolios published by Odin500 users. View-only snapshots of holdings, portfolio value, and total return — then open any strategy for a closer look.',
-    href: '/paper-trading/public',
+    href: '/virtual-portfolio/public',
     linkLabel: 'Browse public portfolios',
     imageKey: 'publicPortfolio',
     imageAlt: 'Odin500 public portfolios list with values, returns, and published dates'
@@ -387,7 +387,7 @@ export const HOME_SHOWCASE: HomeShowcaseItem[] = [
     title: 'Virtual & AI portfolios',
     description:
       'Practice with virtual capital, or follow AI-built portfolios for the S&P 500, Dow, and Nasdaq-100 — strategies from Claude, ChatGPT, and Gemini with live performance tracking.',
-    href: '/paper-trading/public',
+    href: '/virtual-portfolio/public',
     linkLabel: 'Browse public & AI portfolios',
     imageKey: 'paperTrading',
     imageAlt: 'Odin500 virtual portfolio chart and order ticket'
@@ -458,7 +458,7 @@ export const HOME_AI_PORTFOLIOS: HomeAiPortfoliosContent = {
     'Compare Claude, ChatGPT, and Gemini side by side across S&P 500, Dow, and Nasdaq-100 portfolios — each with its own strategy, and transparent performance tracking in virtual books.',
   disclaimer:
     'AI portfolios are simulated and educational. They are not investment advice. Fills use Odin daily closes; past performance does not guarantee future results.',
-  primaryCta: { href: '/paper-trading/public', label: 'Browse AI & public portfolios' },
+  primaryCta: { href: '/virtual-portfolio/public', label: 'Browse AI & public portfolios' },
   liveTitle: 'Live performance tracking',
   liveEmpty:
     'Published AI portfolios will appear here as they go live. Meanwhile, browse public virtual portfolios or create your own.'

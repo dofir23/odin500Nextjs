@@ -44,7 +44,7 @@ function ownerInitials(label) {
 }
 
 function PublicPortfoliosPageContent() {
-  const [sortKey, setSortKey] = useState('avg_monthly_return_pct');
+  const [sortKey, setSortKey] = useState('total_return_pct');
   const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(1);
 
@@ -60,7 +60,7 @@ function PublicPortfoliosPageContent() {
   const { portfolios: topRows, loading: topLoading } = usePublicPortfoliosPaged({
     page: 1,
     pageSize: TOP_PERFORMERS,
-    sort: 'avg_monthly_return_pct',
+    sort: 'total_return_pct',
     dir: 'desc'
   });
 
@@ -102,14 +102,10 @@ function PublicPortfoliosPageContent() {
           onSort={onSort}
           align="right"
         />
-        <PaperSortableTh
-          label="Avg monthly"
-          sortKey="avg_monthly_return_pct"
-          activeKey={sortKey}
-          dir={sortDir}
-          onSort={onSort}
-          align="right"
-        />
+        {/* Display-only: sorting stays on total return. */}
+        <th scope="col" className="paper-table__th--num" title="Total return ÷ months since publication. Shown only once a portfolio is at least a month old.">
+          Avg monthly
+        </th>
         <PaperSortableTh
           label="Positions"
           sortKey="positions_count"
@@ -139,12 +135,12 @@ function PublicPortfoliosPageContent() {
           <h1 className="paper-header__title">Published Portfolios</h1>
           <p className="paper-header__sub">
             Browse virtual portfolios published by Odin500 users — including AI-built books for major
-            indices (Claude, ChatGPT, Gemini). Ranked by average monthly return so portfolios of
-            different ages compare fairly.
+            indices (Claude, ChatGPT, Gemini). Ranked by total return since publication, so check the
+            published date before comparing two books.
           </p>
         </div>
         <div className="paper-header__actions">
-          <Link to="/paper-trading" className="paper-btn paper-btn--ghost">
+          <Link to="/virtual-portfolio" className="paper-btn paper-btn--ghost">
             Your Portfolio
           </Link>
         </div>
@@ -182,7 +178,7 @@ function PublicPortfoliosPageContent() {
           <p>No published portfolios yet</p>
           <p className="paper-empty__hint">
             Publish your virtual portfolio account from{' '}
-            <Link to="/paper-trading" className="paper-link">
+            <Link to="/virtual-portfolio" className="paper-link">
               Your Portfolio
             </Link>{' '}
             to share it here.
@@ -196,26 +192,23 @@ function PublicPortfoliosPageContent() {
             {tableHead}
             <tbody>
               {portfolios.map((p) => {
-                const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
-                const avgTitle =
-                  p.months_elapsed != null
-                    ? `Over ~${p.months_elapsed} month${Number(p.months_elapsed) === 1 ? '' : 's'} since publish`
-                    : undefined;
+                const href = `/virtual-portfolio/public/${encodeURIComponent(p.id)}`;
                 return (
                   <tr key={p.id} className="paper-public-table__row">
                     <td className="paper-public-table__portfolio">
                       <Link to={href} className="paper-public-table__identity">
-                        <span className="paper-public-card__avatar" aria-hidden>
+                        <span className="paper-public-table__avatar" aria-hidden>
                           {ownerInitials(p.owner_label)}
                         </span>
                         <span className="paper-public-table__identity-text">
-                          <span className="paper-public-table__name-row">
-                            <span className="paper-public-table__name">{p.name}</span>
+                          <span className="paper-public-table__name">{p.name}</span>
+                          {/* Owner and tags share one line so every row is the same height. */}
+                          <span className="paper-public-table__meta">
+                            <span className="paper-public-table__owner">by {p.owner_label}</span>
                             {p.strategy_mode && p.strategy_mode !== 'manual' ? (
-                              <span className="paper-public-card__tag">Automated</span>
+                              <span className="paper-tag">Automated</span>
                             ) : null}
                           </span>
-                          <span className="paper-public-table__owner">by {p.owner_label}</span>
                         </span>
                       </Link>
                     </td>
@@ -228,20 +221,32 @@ function PublicPortfoliosPageContent() {
                         </span>
                       </span>
                     </td>
-                    <td
-                      className={'paper-public-table__num ' + toneClass(p.avg_monthly_return_pct)}
-                      title={avgTitle}
-                    >
-                      {p.avg_monthly_return_pct == null
-                        ? '—'
-                        : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
+                    <td className={'paper-public-table__num ' + toneClass(p.avg_monthly_return_pct)}>
+                      {p.avg_monthly_return_pct == null ? (
+                        <span
+                          className="paper-public-table__na"
+                          title={
+                            p.days_elapsed != null
+                              ? `Published ${Math.round(p.days_elapsed)} day(s) ago — needs a full month before an average is meaningful`
+                              : 'Needs a full month before an average is meaningful'
+                          }
+                        >
+                          N/A
+                        </span>
+                      ) : (
+                        fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })
+                      )}
                     </td>
-                    <td className="paper-public-table__num">{p.positions_count ?? 0}</td>
+                    <td className="paper-public-table__num">
+                      <span className="paper-public-table__count">{p.positions_count ?? 0}</span>
+                    </td>
                     <td className="paper-public-table__date">{fmtDate(p.published_at)}</td>
                     <td className="paper-public-table__action">
-                      <Link to={href} className="paper-public-table__cta">
-                        View portfolio
-                      </Link>
+                      <span className="paper-public-table__actions">
+                        <Link to={href} className="paper-public-table__cta">
+                          View
+                        </Link>
+                      </span>
                     </td>
                   </tr>
                 );

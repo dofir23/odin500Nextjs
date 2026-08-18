@@ -7,6 +7,7 @@ const {
   getPublishedClosedTrades,
   getPublishedSectorAllocation,
   getPublishedOrders,
+  getPublishedRebalances,
   getPublishedStrategy
 } = require('../services/paper/publicPortfolio');
 const { queryPublishedPortfolios } = require('../services/paper/publicPortfolioQuery');
@@ -19,11 +20,21 @@ const {
 
 /**
  * Published portfolios. Supports server-side filter/sort/pagination via query params:
- *   ?page=1&page_size=10&sort=avg_monthly_return_pct&dir=desc&ai_only=1&engine=claude&index=dow&direction=short
+ *   ?page=1&page_size=10&sort=total_return_pct&dir=desc&ai_only=1&engine=claude&index=dow&direction=short
  * Without any of those params it returns the full list unchanged, so existing callers
  * (the public gallery, the homepage teaser) keep working as-is.
  */
-const PAGINATION_PARAMS = ['page', 'page_size', 'sort', 'dir', 'ai_only', 'engine', 'index', 'direction'];
+const PAGINATION_PARAMS = [
+  'page',
+  'page_size',
+  'sort',
+  'dir',
+  'ai_only',
+  'engine',
+  'index',
+  'direction',
+  'owner'
+];
 
 router.get('/portfolios', async (req, res) => {
   try {
@@ -106,6 +117,16 @@ router.get('/portfolios/:accountId/orders', async (req, res) => {
   } catch (error) {
     const status = error.status || 500;
     res.status(status).json({ success: false, error: error.message || 'Failed to load orders' });
+  }
+});
+
+router.get('/portfolios/:accountId/rebalances', async (req, res) => {
+  try {
+    const rebalances = await getPublishedRebalances(req.params.accountId);
+    res.status(200).json({ success: true, rebalances });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to load rebalances' });
   }
 });
 

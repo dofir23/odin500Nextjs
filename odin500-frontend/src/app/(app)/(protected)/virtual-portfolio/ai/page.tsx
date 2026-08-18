@@ -3,11 +3,11 @@ import { PageServerShell } from '@/seo/PageServerShell';
 import { fetchAiPortfoliosPageData } from '@/ssr/fetchPageData';
 import AiPortfoliosPage from '@/views/PaperTrading/AiPortfoliosPage.jsx';
 
-export const metadata = toNextMetadata('/paper-trading/ai');
+export const metadata = toNextMetadata('/virtual-portfolio/ai');
 export const revalidate = 300;
 
 export default async function Page() {
-  const pathname = '/paper-trading/ai';
+  const pathname = '/virtual-portfolio/ai';
 
   let seoData: unknown = null;
   try {

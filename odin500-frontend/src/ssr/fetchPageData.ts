@@ -612,7 +612,7 @@ export async function fetchAiPortfoliosPageData(
   const capped = Math.max(1, Math.min(50, Math.trunc(limit) || 25));
   const payload = await getMarketJson(
     `/api/public/paper/portfolios?page=1&page_size=50&ai_only=1` +
-      `&sort=avg_monthly_return_pct&dir=desc`
+      `&sort=total_return_pct&dir=desc`
   );
 
   const list = Array.isArray(payload?.portfolios) ? payload.portfolios : [];

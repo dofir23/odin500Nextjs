@@ -11,7 +11,7 @@ import { GUEST_AUTH_ENTRY_PATHS, resolvePostLoginPath } from '../utils/authRedir
  * Redirect users with an active session away from login/signup entry pages.
  * Logged-in = getAuthToken() truthy after initAuthSessionOnLoad() (backed by session cookies).
  */
-export function useAuthGuestRedirect(fallback = '/paper-trading/ai') {
+export function useAuthGuestRedirect(fallback = '/virtual-portfolio/ai') {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const gate = useLoginGateOptional();

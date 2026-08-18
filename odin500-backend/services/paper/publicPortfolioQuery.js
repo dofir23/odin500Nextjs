@@ -29,13 +29,15 @@ const GENERIC_AI_RE =
 
 const DIRECTION_LABELS = { long: 'Long', short: 'Short', long_short: 'Long-Short' };
 
-const SORT_KEYS = new Set([
-  'avg_monthly_return_pct',
-  'total_return_pct',
-  'equity',
-  'positions_count',
-  'published_at'
-]);
+/**
+ * `avg_monthly_return_pct` is deliberately absent: it is still computed and returned on every
+ * row, but it extrapolates a few days of performance into a monthly figure, so ranking on it
+ * put days-old books at the top of the leaderboard. Sorting is on total return until that
+ * metric is either age-gated or replaced.
+ */
+const SORT_KEYS = new Set(['total_return_pct', 'equity', 'positions_count', 'published_at']);
+
+const DEFAULT_SORT_KEY = 'total_return_pct';
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -110,7 +112,18 @@ function queryPublishedPortfolios(all, opts = {}) {
   const aiOnly = opts.ai_only === '1' || opts.ai_only === 'true' || opts.aiOnly === true;
 
   const tagged = list.map((p) => ({ row: p, tags: tagsFor(p) }));
-  const base = aiOnly ? tagged.filter((t) => t.tags.engineId) : tagged;
+  const aiFiltered = aiOnly ? tagged.filter((t) => t.tags.engineId) : tagged;
+
+  // `owner=admin|user` splits the AI galleries: Odin's own books vs. ones members published.
+  // Applied before the facet scan so each gallery's engine dropdown only offers engines that
+  // actually appear in that gallery.
+  const owner = String(opts.owner || '').trim().toLowerCase();
+  const base =
+    owner === 'admin'
+      ? aiFiltered.filter((t) => t.row?.owner_is_admin === true)
+      : owner === 'user'
+        ? aiFiltered.filter((t) => t.row?.owner_is_admin !== true)
+        : aiFiltered;
 
   // Engine facet comes from the pre-filter set so the dropdown keeps every engine on offer
   // even after the user narrows by index/direction.
@@ -140,7 +153,7 @@ function queryPublishedPortfolios(all, opts = {}) {
       (isAll(direction) || tags.directionId === direction)
   );
 
-  const sortKey = SORT_KEYS.has(String(opts.sort)) ? String(opts.sort) : 'avg_monthly_return_pct';
+  const sortKey = SORT_KEYS.has(String(opts.sort)) ? String(opts.sort) : DEFAULT_SORT_KEY;
   const sortDir = String(opts.dir) === 'asc' ? 'asc' : 'desc';
   const rows = filtered.map((t) => t.row).sort((a, b) => compare(a, b, sortKey, sortDir));
 

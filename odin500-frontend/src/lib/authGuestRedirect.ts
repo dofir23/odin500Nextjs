@@ -3,7 +3,7 @@ import { hasValidAuthSession } from '@/lib/server-api';
 
 const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
 
-function resolveAuthenticatedDest(next?: string | null, fallback = '/paper-trading/ai') {
+function resolveAuthenticatedDest(next?: string | null, fallback = '/virtual-portfolio/ai') {
   const raw = String(next || '').trim();
   if (!raw.startsWith('/')) return fallback;
   const pathOnly = raw.split('?')[0].split('#')[0];
@@ -17,7 +17,7 @@ export async function hasAuthSession(): Promise<boolean> {
 }
 
 /** Server redirect — keep signed-in users off login/signup entry pages. */
-export async function redirectIfAuthenticated(next?: string | null, fallback = '/paper-trading/ai') {
+export async function redirectIfAuthenticated(next?: string | null, fallback = '/virtual-portfolio/ai') {
   if (await hasAuthSession()) {
     redirect(resolveAuthenticatedDest(next, fallback));
   }

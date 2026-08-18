@@ -27,9 +27,9 @@ const PUBLIC_CONTENT_PREFIXES = [
   '/sector-data',
   '/statistic',
   '/relative-performance',
-  /** Public gallery only — private /paper-trading stays auth-gated. */
-  '/paper-trading/public',
-  '/paper-trading/ai',
+  /** Public gallery only — private /virtual-portfolio stays auth-gated. */
+  '/virtual-portfolio/public',
+  '/virtual-portfolio/ai',
   '/newsletter'
 ];
 
@@ -45,14 +45,14 @@ const PUBLIC_CONTENT_PREFIXES = [
  */
 const PRIVATE_PREFIXES = ['/profile', '/accounts', '/admin'];
 
-/** `/paper-trading` is the visitor's own book; its /ai and /public sub-trees are public. */
+/** `/virtual-portfolio` is the visitor's own book; its /ai and /public sub-trees are public. */
 function isPrivatePaperTradingPath(pathname: string) {
-  if (pathname === '/paper-trading') return true;
-  if (!pathname.startsWith('/paper-trading/')) return false;
+  if (pathname === '/virtual-portfolio') return true;
+  if (!pathname.startsWith('/virtual-portfolio/')) return false;
   return !(
-    pathname === '/paper-trading/ai' ||
-    pathname === '/paper-trading/public' ||
-    pathname.startsWith('/paper-trading/public/')
+    pathname === '/virtual-portfolio/ai' ||
+    pathname === '/virtual-portfolio/public' ||
+    pathname.startsWith('/virtual-portfolio/public/')
   );
 }
 
@@ -74,7 +74,7 @@ function redirectAuthenticatedFromGuestPage(request: NextRequest) {
   const dest =
     next && next.startsWith('/') && !isGuestAuthEntryPath(next.split('?')[0])
       ? next
-      : '/paper-trading/ai';
+      : '/virtual-portfolio/ai';
   return NextResponse.redirect(new URL(dest, request.url));
 }
 

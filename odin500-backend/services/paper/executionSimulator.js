@@ -2,9 +2,21 @@
 // Slippage is price-impact; fees approximate broker + regulatory charges.
 
 const SLIPPAGE_RATE = 0.0005;
-const COMMISSION_RATE = 0.0002;
-const EXCHANGE_FEE_RATE = 0.00005;
-const REGULATORY_FEE_RATE = 0.00003;
+
+/**
+ * Fees are switched off for now — zeroed rather than ripped out, so restoring them is a matter
+ * of putting these three numbers back and nothing else has to change: the fee fields, the
+ * `total_fees` / `fees_allocated` columns, and the Closed trades "Fees" column all still work,
+ * they just carry 0.
+ *
+ * Previous values: commission 0.0002 (2bps), exchange 0.00005 (0.5bps), regulatory 0.00003 (0.3bps).
+ *
+ * NOTE: SLIPPAGE_RATE above is a separate cost and is still active — it moves the fill price
+ * itself rather than being charged as a fee, and at 5bps each way it is the larger of the two.
+ */
+const COMMISSION_RATE = 0;
+const EXCHANGE_FEE_RATE = 0;
+const REGULATORY_FEE_RATE = 0;
 
 /**
  * @param {'BTO'|'STO'|'BTC'|'STC'} action

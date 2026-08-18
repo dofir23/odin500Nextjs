@@ -13,6 +13,8 @@ import { usePaperPositions } from '../../hooks/usePaperPositions.js';
 import { usePaperOrders } from '../../hooks/usePaperOrders.js';
 import { usePaperClosedTrades } from '../../hooks/usePaperClosedTrades.js';
 import { AccountSummary } from '../../components/paper/AccountSummary.jsx';
+import { RebalanceLog } from '../../components/paper/RebalanceLog.jsx';
+import { usePortfolioRebalances } from '../../hooks/usePortfolioRebalances.js';
 import { OrderTicket } from '../../components/paper/OrderTicket.jsx';
 import { PositionsTable } from '../../components/paper/PositionsTable.jsx';
 import { OrdersTable } from '../../components/paper/OrdersTable.jsx';
@@ -59,6 +61,13 @@ function PaperTradingPageContent() {
   });
   const { trades: closedTrades, totals: closedTotals, loading: closedLoading, refetch: refetchClosed } =
     usePaperClosedTrades({ accountId: activeAccountId });
+  // Only fetched for AI-managed books; a manual portfolio has no rebalance history to show.
+  const {
+    rebalances,
+    loading: rebalancesLoading,
+    error: rebalancesError,
+    refetch: refetchRebalances
+  } = usePortfolioRebalances(activeAccountId, { enabled: Boolean(account?.ai_managed) });
   const {
     strategy,
     binding,
@@ -631,7 +640,7 @@ function PaperTradingPageContent() {
 
       {accountError ? <div className="paper-alert paper-alert--error">{accountError}</div> : null}
 
-      <AccountSummary account={account} loading={accountLoading} />
+      <AccountSummary account={account} loading={accountLoading} closedTrades={closedTrades} />
 
       <div className="paper-layout">
         <aside className="paper-layout__ticket">
@@ -701,6 +710,22 @@ function PaperTradingPageContent() {
                   Closed trades
                   <span className="paper-tabs__count">{closedTrades.length}</span>
                 </button>
+                {/* AI-managed books only — a hand-managed portfolio has no rebalance history. */}
+                {account?.ai_managed ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'rebalances'}
+                    className={'paper-tabs__btn' + (tab === 'rebalances' ? ' paper-tabs__btn--active' : '')}
+                    onClick={() => goToTab('rebalances')}
+                    title="What the AI changed at each rebalance, and why"
+                  >
+                    Rebalances
+                    {rebalances.length ? (
+                      <span className="paper-tabs__count">{rebalances.length}</span>
+                    ) : null}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   role="tab"
@@ -785,6 +810,13 @@ function PaperTradingPageContent() {
                   </div>
                   <ClosedTradesTable trades={closedTrades} totals={closedTotals} loading={closedLoading} />
                 </>
+              ) : tab === 'rebalances' ? (
+                <RebalanceLog
+                  rebalances={rebalances}
+                  loading={rebalancesLoading}
+                  error={rebalancesError}
+                  isAiManaged={Boolean(account?.ai_managed)}
+                />
               ) : tab === 'insights' ? (
                 <PortfolioInsightsTab
                   summaries={portfolioSummaries}
@@ -842,7 +874,10 @@ function PaperTradingPageContent() {
               loadHistory(),
               refetchAnalytics(),
               refetchStrategy(selectedAccountId),
-              loadExecutionLog(selectedAccountId)
+              loadExecutionLog(selectedAccountId),
+              // A rebalance triggered from the assistant writes a new log row — pull it in now,
+              // otherwise the Rebalances tab is stale until the next page load.
+              refetchRebalances()
             ]);
             // Trades land in the blotter, rule/automation changes land on the strategy tab.
             const types = new Set((proposal?.actions || []).map((a) => a.type));
@@ -867,7 +902,7 @@ export default function PaperTradingPage() {
     if (GUEST_AUTH_ENTRY_PATHS.has(window.location.pathname)) return;
     promptedRef.current = true;
     loginGate?.showLoginRequired({
-      returnTo: '/paper-trading',
+      returnTo: '/virtual-portfolio',
       onDismiss: () => {
         if (window.history.length > 1) navigate(-1);
         else navigate('/market', { replace: true });

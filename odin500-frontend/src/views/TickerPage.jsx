@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Upload } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from '@/navigation/appRouterCompat.jsx';
 import { ChartInfoTip } from '../components/ChartInfoTip.jsx';
-import { TickerSignalLadder } from '../components/TickerSignalLadder.jsx';
+import { TickerAiStanceCard } from '../components/TickerAiStanceCard.jsx';
 import { CHART_INFO_TIPS } from '../components/chartInfoTips.js';
 import { FigmaPagination } from '../components/FigmaPagination.jsx';
 import { TickerAnnualReturnsFigma } from '../components/TickerAnnualReturnsFigma.jsx';
@@ -213,19 +213,6 @@ function fmtCompact(v) {
   }).format(n);
 }
 
-function alphaProfileIrlink(site) {
-  const raw = String(site || '').trim();
-  if (!raw) return '';
-  try {
-    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
-    const host = String(u.hostname || '').replace(/^www\./i, '').trim();
-    if (!host) return '';
-    return `https://investor.${host}`;
-  } catch {
-    return '';
-  }
-}
-
 async function fetchCompanyOverviewOnce(symbol) {
   const sym = String(symbol || '').toUpperCase().trim();
   if (!sym || !COMPANY_PROFILE_DATA_KEY) return null;
@@ -240,7 +227,7 @@ async function fetchCompanyOverviewOnce(symbol) {
     try {
       const res = await fetch(`${COMPANY_OVERVIEW_BASE}?${qs.toString()}`);
       const payload = await res.json();
-      console.log('[TickerPage] company overview API response', { symbol: sym, payload });
+      //console.log('[TickerPage] company overview API response', { symbol: sym, payload });
       if (payload?.Information || payload?.Note || payload?.ErrorMessage) {
         return companyOverviewCache.get(sym) || null;
       }
@@ -1361,7 +1348,16 @@ export default function TickerPage({ initialData = null }) {
   const companyOverviewDescription = String(companyOverview?.Description || '').trim();
   const companyOverviewAddress = String(companyOverview?.Address || '').trim();
   const companyOverviewWebsite = String(companyOverview?.OfficialSite || '').trim();
-  const companyOverviewIrWebsite = alphaProfileIrlink(companyOverviewWebsite) || companyOverviewWebsite;
+  /**
+   * Real profile fields, unlike the IR link this replaced — that was a guessed
+   * `investor.{host}` URL that 404s for any company without the subdomain, and fell back to
+   * duplicating the Website tile when the guess produced nothing.
+   *
+   * Fiscal year end is the one that changes how the rest of the site reads: Apple's "Q3" is
+   * Apr–Jun, not Jul–Sep, which matters on the quarterly and annual ticker pages.
+   */
+  const companyOverviewFiscalYearEnd = String(companyOverview?.FiscalYearEnd || '').trim();
+  const companyOverviewCountry = String(companyOverview?.Country || '').trim();
   const companyOverviewDividendYield = numOrNull(companyOverview?.DividendYield);
   const companyOverviewBeta = numOrNull(companyOverview?.Beta);
   const companyOverview52Low = numOrNull(companyOverview?.['52WeekLow']);
@@ -1383,9 +1379,14 @@ export default function TickerPage({ initialData = null }) {
       companyOverviewWebsite
         ? { label: 'Website', value: stripUrl(companyOverviewWebsite), href: companyOverviewWebsite }
         : null,
-      companyOverviewIrWebsite
-        ? { label: 'IR Website', value: stripUrl(companyOverviewIrWebsite), href: companyOverviewIrWebsite }
-        : null
+      { label: 'Fiscal year end', value: companyOverviewFiscalYearEnd },
+      // Backfills the sixth tile when the profile has no fiscal year, keeping the 2-column grid
+      // even. Dropped when the address already names the country, to avoid saying it twice.
+      companyOverviewFiscalYearEnd ||
+      !companyOverviewCountry ||
+      companyOverviewAddress.toUpperCase().includes(companyOverviewCountry.toUpperCase())
+        ? null
+        : { label: 'Country', value: companyOverviewCountry }
     ].filter((f) => f && f.value);
   }, [
     companyOverviewSector,
@@ -1393,7 +1394,8 @@ export default function TickerPage({ initialData = null }) {
     companyOverviewAddress,
     companyOverviewExchange,
     companyOverviewWebsite,
-    companyOverviewIrWebsite
+    companyOverviewFiscalYearEnd,
+    companyOverviewCountry
   ]);
   const companyOverviewDescriptionPreview = useMemo(() => {
     if (!companyOverviewDescription) return '';
@@ -2287,19 +2289,13 @@ export default function TickerPage({ initialData = null }) {
           <section className="mkt-mini-card ticker-aside-mini ticker-signal-card-mobile-only" aria-labelledby="odin-signal-h-mobile">
             <header className="mkt-mini-card__head">
               <h2 className="mkt-mini-card__k uppercase" id="odin-signal-h-mobile">
-                Indicative Signal
+                AI Signal
               </h2>
               <span className="mkt-mini-card__head-actions">
-                <ChartInfoTip tip={CHART_INFO_TIPS.tickerSignalLadder} align="start" />
+                <ChartInfoTip tip={CHART_INFO_TIPS.tickerAiStance} align="start" />
               </span>
             </header>
-            <TickerSignalLadder
-              activeBucket={activeBucket}
-              lastSignal={lastSignal}
-              lastUpdatedFmt={lastUpdatedFmt}
-              loading={chartLoading}
-              hasChartData={sortedChart.length > 0}
-            />
+            <TickerAiStanceCard symbol={sym} />
           </section>
 
           <section className="ticker-card ticker-card--news" aria-labelledby="ticker-news-h">
@@ -2368,19 +2364,13 @@ export default function TickerPage({ initialData = null }) {
           <section className="mkt-mini-card ticker-aside-mini ticker-signal-card-desktop-only" aria-labelledby="odin-signal-h">
             <header className="mkt-mini-card__head">
               <h2 className="mkt-mini-card__k uppercase" id="odin-signal-h">
-                Indicative Signal
+                AI Signal
               </h2>
               <span className="mkt-mini-card__head-actions">
-                <ChartInfoTip tip={CHART_INFO_TIPS.tickerSignalLadder} align="start" />
+                <ChartInfoTip tip={CHART_INFO_TIPS.tickerAiStance} align="start" />
               </span>
             </header>
-            <TickerSignalLadder
-              activeBucket={activeBucket}
-              lastSignal={lastSignal}
-              lastUpdatedFmt={lastUpdatedFmt}
-              loading={chartLoading}
-              hasChartData={sortedChart.length > 0}
-            />
+            <TickerAiStanceCard symbol={sym} />
               {/* <div className="ticker-signal-foot">
                 <Link to="/odin-signals" className="ticker-signal-foot__link">
                   Learn more about Odin Signals

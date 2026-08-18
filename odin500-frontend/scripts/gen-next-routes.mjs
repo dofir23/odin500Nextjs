@@ -19,7 +19,7 @@ const staticMeta = {
   'src/app/(protected)/statistic-data/page.tsx': '/statistic-data',
   'src/app/(protected)/return-table/page.tsx': '/return-table',
   'src/app/(protected)/accounts/page.tsx': '/accounts',
-  'src/app/(protected)/paper-trading/page.tsx': '/paper-trading',
+  'src/app/(protected)/virtual-portfolio/page.tsx': '/virtual-portfolio',
   'src/app/(protected)/premium/page.tsx': '/premium',
   'src/app/(protected)/about/page.tsx': '/about',
   'src/app/(protected)/profile/page.tsx': '/profile'
@@ -214,7 +214,7 @@ const clientOnlyRoutes = [
   ['src/app/(auth)/forgot-password/page.tsx', '@/views/ForgotPasswordPage.jsx', 'ForgotPasswordPage'],
   ['src/app/(auth)/auth/callback/page.tsx', '@/views/AuthCallbackPage.jsx', 'AuthCallbackPage'],
   ['src/app/(protected)/accounts/page.tsx', '@/views/AccountsPage.jsx', 'AccountsPage'],
-  ['src/app/(protected)/paper-trading/page.tsx', '@/views/PaperTrading/PaperTradingPage.jsx', 'PaperTradingPage'],
+  ['src/app/(protected)/virtual-portfolio/page.tsx', '@/views/PaperTrading/PaperTradingPage.jsx', 'PaperTradingPage'],
   ['src/app/(protected)/about/page.tsx', '@/views/AboutPage.jsx', 'AboutPage'],
   ['src/app/(protected)/profile/page.tsx', '@/views/ProfilePage.jsx', 'ProfilePage']
 ];

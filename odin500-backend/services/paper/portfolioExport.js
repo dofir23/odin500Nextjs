@@ -15,6 +15,11 @@ const AI_CRITERIA_LABELS = {
   technical: 'Technical analysis'
 };
 const AI_CADENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
+const AI_SIZING_LABELS = {
+  equal_split: 'Equal split (same share count)',
+  equal_capital: 'Equal capital (same $ per position)',
+  fixed_qty: 'Fixed share count'
+};
 
 /**
  * Builds a 3-sheet workbook (Info & Strategy / Holdings / Closed Trades) for a published
@@ -51,7 +56,10 @@ async function buildPortfolioExportWorkbook(accountId) {
       ['Index focus', AI_INDEX_LABELS[portfolio.ai_index_focus] || portfolio.ai_index_focus],
       ['Direction', AI_DIRECTION_LABELS[portfolio.ai_direction] || portfolio.ai_direction],
       ['Selection criteria', AI_CRITERIA_LABELS[portfolio.ai_criteria] || portfolio.ai_criteria],
-      ['Rebalance cadence', AI_CADENCE_LABELS[portfolio.ai_rebalance_cadence] || portfolio.ai_rebalance_cadence]
+      ['Rebalance cadence', AI_CADENCE_LABELS[portfolio.ai_rebalance_cadence] || portfolio.ai_rebalance_cadence],
+      ['Target positions', portfolio.ai_position_count],
+      ['Position sizing', AI_SIZING_LABELS[portfolio.ai_position_sizing] || ''],
+      ['Shares per position', portfolio.ai_position_qty || '']
     );
   }
   infoRows.push(
@@ -207,13 +215,30 @@ function matchSetting(raw, field) {
   return null;
 }
 
+/** Wording that means "same dollar amount per position" rather than "same share count". */
+const EQUAL_CAPITAL_CELL_RE = /capital|dollar|money|value|weight|amount|budget/i;
+
+/**
+ * The Shares-per-position cell is hand-typed, so it accepts a number, "equal capital", or
+ * anything else — which falls through to equal split rather than erroring the upload.
+ */
+function parseSharesPerPosition(raw) {
+  const text = cellText(raw).trim();
+  if (!text) return null;
+  if (EQUAL_CAPITAL_CELL_RE.test(text)) return { sizing: 'equal_capital', positionQty: null };
+  const n = Math.trunc(Number(text.replace(/[^0-9.]/g, '')));
+  if (!Number.isFinite(n) || n <= 0) return { sizing: 'equal_split', positionQty: null };
+  return { sizing: 'fixed_qty', positionQty: n };
+}
+
 /** Which settings row label maps to which config key. */
 const SETTING_KEYS = [
   { key: 'name', re: /^(portfolio\s*)?name$/i, raw: true },
   { key: 'indexFocus', re: /^index(\s*(focus|universe))?$/i, field: 'index' },
   { key: 'direction', re: /^direction$/i, field: 'direction' },
   { key: 'criteria', re: /^(selection\s*)?criteria|picking\s*style$/i, field: 'criteria' },
-  { key: 'cadence', re: /^(rebalance\s*)?cadence|rebalance$/i, field: 'cadence' }
+  { key: 'cadence', re: /^(rebalance\s*)?cadence|rebalance$/i, field: 'cadence' },
+  { key: 'sizing', re: /^(shares?\s*(per|\/)\s*position|shares?\s*each|position\s*size|qty)$/i, sizing: true }
 ];
 
 /** Reads an optional "Settings" sheet of Setting/Value rows into config ids. */
@@ -228,7 +253,10 @@ function parseSettingsSheet(workbook) {
     if (!label) return;
     for (const spec of SETTING_KEYS) {
       if (!spec.re.test(label)) continue;
-      if (spec.raw) {
+      if (spec.sizing) {
+        const parsed = parseSharesPerPosition(value);
+        if (parsed) Object.assign(settings, parsed);
+      } else if (spec.raw) {
         const text = cellText(value).trim();
         if (text) settings[spec.key] = text.slice(0, 120);
       } else {
@@ -354,9 +382,14 @@ function buildAiPortfolioTemplateWorkbook() {
   const settingRows = [
     ['Portfolio Name', 'My AI Portfolio', 'Any text (max 120 characters)'],
     ['Index', 'S&P 500', 'S&P 500 | Dow Jones | Nasdaq-100'],
-    ['Direction', 'Long-Short', 'Long-only (5 rows) | Short-only (5 rows) | Long-Short (10 rows)'],
+    ['Direction', 'Long-Short', 'Long-only | Short-only | Long-Short (needs both sides)'],
     ['Criteria', 'Technical analysis', 'No specific criteria | News / momentum | Fundamental analysis | Technical analysis'],
-    ['Cadence', 'Daily', 'Daily | Weekly | Monthly']
+    ['Cadence', 'Daily', 'Daily | Weekly | Monthly'],
+    [
+      'Shares per position',
+      'Equal split',
+      'Equal split (same share count each) | Equal capital (same $ each) | any whole number of shares'
+    ]
   ];
   for (const [setting, value, allowed] of settingRows) {
     settings.addRow({ setting, value, allowed });
@@ -367,7 +400,8 @@ function buildAiPortfolioTemplateWorkbook() {
   settings.addRow({});
   const note = settings.addRow({
     setting: 'Note',
-    value: 'Fill the Holdings sheet with tickers from the index above. Direction must be Long or Short.'
+    value:
+      'Fill the Holdings sheet with tickers from the index above — however many rows you want (1–30) is how many positions you get. Direction must be Long or Short. Sizing never spends more than your starting capital, so some cash is normally left over.'
   });
   note.font = { italic: true, color: { argb: 'FF6B7280' } };
 
@@ -377,7 +411,7 @@ function buildAiPortfolioTemplateWorkbook() {
     { header: 'Direction', key: 'direction', width: 14 }
   ];
   holdings.getRow(1).font = { bold: true };
-  // Long-Short shape (5 long + 5 short) — delete the rows you don't need for a single-leg book.
+  // A 5+5 Long-Short starting shape — add or delete rows freely; the row count is the book size.
   for (let i = 0; i < 5; i += 1) holdings.addRow({ ticker: '', direction: 'Long' });
   for (let i = 0; i < 5; i += 1) holdings.addRow({ ticker: '', direction: 'Short' });
 

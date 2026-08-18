@@ -112,7 +112,7 @@ export function HomeAiPortfoliosLive() {
       {!state.loading && state.rows.length > 0 ? (
         <ul className="home-ai-live__grid">
           {state.rows.map((p) => {
-            const href = `/paper-trading/public/${encodeURIComponent(p.id)}`;
+            const href = `/virtual-portfolio/public/${encodeURIComponent(p.id)}`;
             return (
               <li key={p.id}>
                 <a href={href} className="home-ai-live__card">

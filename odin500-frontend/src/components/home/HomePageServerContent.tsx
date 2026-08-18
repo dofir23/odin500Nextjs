@@ -9,7 +9,7 @@ export function HomePageServerContent({ aiPortfolios = null }: { aiPortfolios?: 
     <div className="home-page">
       <HomePageHeaderServer />
       {/* AI portfolios lead the page: a top-5 preview of the live leaderboard. The full field,
-          filters, and creator live on /paper-trading/ai. */}
+          filters, and creator live on /virtual-portfolio/ai. */}
       <section className="home-ai-portfolios px-4 py-6">
         <h2 className="text-lg font-bold">AI stock portfolios — live leaderboard</h2>
         <p className="mt-1 max-w-3xl text-sm opacity-80">
@@ -19,7 +19,7 @@ export function HomePageServerContent({ aiPortfolios = null }: { aiPortfolios?: 
         </p>
         <AiPortfolioLeaderboard data={aiPortfolios} limit={5} />
         <p className="mt-2 text-sm">
-          <a href="/paper-trading/ai">See all AI portfolios, filters, and full trade history →</a>
+          <a href="/virtual-portfolio/ai">See all AI portfolios, filters, and full trade history →</a>
         </p>
       </section>
       <HomePageBody />
