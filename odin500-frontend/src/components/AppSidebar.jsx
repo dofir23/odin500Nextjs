@@ -535,7 +535,7 @@ export function AppSidebar({ expanded, setExpanded, mobileOpen = false, onReques
                   <NavRow
                     to="/virtual-portfolio/ai/users"
                     icon={IconPeople}
-                    label="User Portfolio"
+                    label="User AI Portfolio"
                     active={isPaperUserAiRoute}
                   />
                   <NavRow

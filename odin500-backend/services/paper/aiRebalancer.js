@@ -12,11 +12,30 @@ const CADENCE_MS = {
   monthly: 30 * 24 * 60 * 60 * 1000
 };
 
+/**
+ * Tolerance on the cadence check, and the reason a "daily" book was rebalancing every other day.
+ *
+ * `ai_last_rebalanced_at` is stamped when a run *finishes* — after the model call and every
+ * resulting order — while jobs/aiRebalanceJob.js is driven by a fixed-interval timer that ticks
+ * from process start. The tick a day later therefore arrives one run-duration *short* of the
+ * full cadence, and a strict `elapsed >= cadenceMs` rejected it by those few seconds; the
+ * account then waited for the tick after that, 48h on. Real gaps of 48h+1min and 48h-1min in
+ * paper_ai_rebalance_log are that boundary being missed.
+ *
+ * An hour comfortably covers a slow run plus timer jitter, and cannot let a daily cadence fire
+ * twice in a day. It does not shift the schedule: the stamp trails whichever tick ran it, so in
+ * a steady process every tick stays the same distance inside the window.
+ */
+const DUE_GRACE_MS = 60 * 60 * 1000;
+
 function isDue(account) {
   const cadenceMs = CADENCE_MS[account.ai_rebalance_cadence] || CADENCE_MS.daily;
   if (!account.ai_last_rebalanced_at) return true;
-  const elapsed = Date.now() - new Date(account.ai_last_rebalanced_at).getTime();
-  return elapsed >= cadenceMs;
+  const lastMs = new Date(account.ai_last_rebalanced_at).getTime();
+  // An unparseable timestamp would make every comparison false and freeze the account forever.
+  if (!Number.isFinite(lastMs)) return true;
+  const elapsed = Date.now() - lastMs;
+  return elapsed >= cadenceMs - DUE_GRACE_MS;
 }
 
 async function listDueAiManagedAccounts() {

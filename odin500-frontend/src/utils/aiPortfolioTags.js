@@ -17,6 +17,14 @@ export const INDEX_PATTERNS = [
 
 /** Text-heuristic fallback only — real AI-managed accounts carry a structured ai_direction column instead. */
 const DIRECTION_PATTERNS = [
+  // Long-short is tested first because its name contains the word "short": without this the
+  // pattern below claimed "AI-Claude-DowJones-Long-Short" as a pure short book, which is a
+  // different strategy and shows up wherever direction is filtered on.
+  {
+    id: 'long_short',
+    label: 'Long-Short',
+    re: /\b(long[\s\-_/]*(?:and[\s\-_]*)?short|market[\s\-_]*neutral)\b/i
+  },
   { id: 'short', label: 'Short', re: /\b(short(?:ing)?|bear(?:ish)?|inverse)\b/i }
 ];
 

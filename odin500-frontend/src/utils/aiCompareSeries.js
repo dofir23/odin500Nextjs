@@ -10,9 +10,21 @@
  */
 
 import { MARKET_SERIES } from '../components/marketSeriesRegistry.js';
+import { enrichPortfolioTags } from './aiPortfolioTags.js';
 
 /** Index keys offered on this page — the three the AI portfolios actually trade against. */
 export const COMPARE_INDEX_KEYS = ['INDU', 'SPX', 'NDX'];
+
+/**
+ * Trade directions the "best of each" picker can be narrowed to, in menu order. Ids match the
+ * `ai_direction` column (and the text heuristic's fallback) so a series can be filtered by
+ * straight equality — see `pickBestPerEngine`.
+ */
+export const DIRECTION_PRESETS = [
+  { id: 'long', label: 'Best long only' },
+  { id: 'short', label: 'Best short only' },
+  { id: 'long_short', label: 'Best long-short only' }
+];
 
 export const ENGINE_SECTIONS = [
   { id: 'claude', label: 'Claude' },
@@ -94,6 +106,9 @@ export function buildEngineSeries(engineId, portfolios) {
   const ramp = ENGINE_RAMPS[engineId] || ENGINE_RAMPS.ai;
   return (portfolios || []).map((p, i) => {
     const color = ramp[i % ramp.length];
+    // Same enrichment the /ai listing uses, so the direction shown on a portfolio's row there
+    // is the one the "best of each" presets filter on here.
+    const direction = enrichPortfolioTags(p).direction?.id || 'long';
     return {
       key: portfolioKey(p.id),
       target: p.id,
@@ -106,6 +121,7 @@ export function buildEngineSeries(engineId, portfolios) {
       badge: color,
       tone: engineId,
       accountId: p.id,
+      direction,
       publishedAt: p.published_at || null,
       // Fill the rail's Last / Δ / % columns the same way an index snapshot does.
       equity: p.equity ?? null,
@@ -113,6 +129,29 @@ export function buildEngineSeries(engineId, portfolios) {
       totalReturnPct: p.total_return_pct ?? null
     };
   });
+}
+
+/**
+ * Best portfolio per engine, optionally narrowed to one trade direction.
+ *
+ * Each engine's list arrives already sorted by total return, so "best" is just the first row
+ * that matches. The match is exact and exclusive: `short` never picks up a long-short book and
+ * vice versa, since a hedged strategy answers a different question than a directional one.
+ * Engines with nothing matching are skipped rather than substituted. Only the rail's own top-N
+ * rows are considered, since a key outside the registry has no series for the chart to draw.
+ *
+ * @param {Record<string, Array<object>>} engineSeries keyed by engine id
+ * @param {string[]} engineIds order to pick in
+ * @param {string} [direction] one of `DIRECTION_PRESETS`; omitted means best overall
+ * @returns {Array<object>}
+ */
+export function pickBestPerEngine(engineSeries, engineIds, direction) {
+  return (engineIds || [])
+    .map((id) => {
+      const rows = engineSeries?.[id] || [];
+      return direction ? rows.find((s) => s.direction === direction) : rows[0];
+    })
+    .filter(Boolean);
 }
 
 /**

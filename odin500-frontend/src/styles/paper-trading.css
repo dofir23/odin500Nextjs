@@ -4438,11 +4438,24 @@
   flex: 0 0 auto;
 }
 
-/* Narrow cards: let it wrap again rather than overflow the header. */
+/**
+ * Narrow cards: keep the dropdown on the same line, left of Return — the stats block shrinks
+ * (and wraps internally) instead of pushing the trigger onto a row of its own.
+ */
 @media (max-width: 720px) {
   .paper-chart-card__head-right {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: 100%;
+  }
+
+  .paper-chart-card__head-right .paper-chart-card__stats {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Smaller floor than the desktop 5.5rem so both boxes still fit beside the trigger. */
+  .paper-chart-card__head-right .paper-chart-card__stat {
+    min-width: 4.5rem;
   }
 }
 
@@ -7052,4 +7065,256 @@ body.paper-assistant--resizing iframe {
   font-weight: 600;
   color: var(--paper-muted, #94a3b8);
   cursor: help;
+}
+
+/* --- Public / AI portfolio filter row -------------------------------------- */
+/**
+ * Stacked (below Tailwind's `sm`), the three triggers must share one left edge and one width.
+ * `.app-dropdown` is inline-flex and its button sizes to its label, so both need an explicit
+ * 100%; the leading filter icon is hidden because stacked it would indent only the first
+ * trigger past the other two.
+ */
+@media (max-width: 639.98px) {
+  .paper-public-filters .app-dropdown,
+  .paper-public-filters .app-dropdown__btn {
+    width: 100%;
+  }
+
+  .paper-public-filters__icon {
+    display: none;
+  }
+}
+
+/**
+ * Stacked (the shared /market shell collapses to one column at 768px), the chart comes first.
+ * Source order puts the rail ahead of it so the desktop grid reads left-to-right, which on a
+ * phone buried the chart under four cards of checkboxes — you would scroll past the whole
+ * selector before seeing what you selected. Scoped to this page: /market's rail carries the
+ * ticker search and is meant to lead there.
+ */
+@media (max-width: 768px) {
+  .ai-cmp-shell .ai-cmp-main {
+    order: -1;
+  }
+}
+
+/* Header action: reads as a control next to the AI Portfolios link, not a floating menu. */
+.ai-cmp-preset-dd .app-dropdown__btn {
+  margin-bottom: 0;
+}
+
+/* Rail card footer: reads as a quiet continuation of the list, not a call to action. */
+.ai-cmp-card__more {
+  display: block;
+  padding: 8px 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--paper-muted, #94a3b8);
+  text-decoration: none;
+}
+
+.ai-cmp-card__more:hover,
+.ai-cmp-card__more:focus-visible {
+  color: #38bdf8;
+  background: rgba(148, 163, 184, 0.06);
+}
+
+/* --- Row tag group --------------------------------------------------------- */
+/**
+ * The tags travel as a unit. On a wide table they sit inline after the owner exactly as before;
+ * the wrapper only starts to matter once the portfolio column is squeezed.
+ */
+.paper-public-table__tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
+  min-width: 0;
+}
+
+.paper-public-table__owner + .paper-public-table__tags {
+  margin-left: 0.1rem;
+}
+
+/**
+ * Narrow viewports: the table is at its 820px min-width and scrolling, so the portfolio column
+ * is at its tightest no matter how small the screen gets. Owner and tags stop competing for one
+ * line — the owner keeps the first line, the tags get their own — and that tag line is held to a
+ * single row: no wrapping, smaller type and tighter padding, with an ellipsis as the last resort
+ * on a very long label. Ragged two- and three-line tag blocks were making every row a different
+ * height, which is the thing this row layout exists to avoid.
+ */
+@media (max-width: 900px) {
+  .paper-public-table__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    width: 100%;
+  }
+
+  .paper-public-table__owner + .paper-public-table__tags {
+    margin-left: 0;
+  }
+
+  .paper-public-table__tags {
+    flex-wrap: nowrap;
+    width: 100%;
+    gap: 0.25rem;
+  }
+
+  .paper-public-table__tags .paper-tag {
+    flex: 0 1 auto;
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.1rem 0.32rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.03em;
+  }
+}
+
+/* --- Empty state: filters matched nothing ---------------------------------- */
+/**
+ * Distinct from "nothing published yet": there is data, the filters are just too narrow. So it
+ * says which way out is available and puts the button right there — a dead end with no action
+ * leaves the reader hunting back up the page for the dropdown they set.
+ */
+.paper-empty--filtered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2.5rem 1.25rem;
+  border: 1px dashed var(--paper-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.paper-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--paper-border);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--paper-muted);
+}
+
+.paper-empty__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--paper-text);
+}
+
+.paper-empty--filtered .paper-empty__hint {
+  margin: 0;
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.paper-empty__action {
+  margin-top: 0.85rem;
+}
+
+[data-theme='light'] .paper-empty--filtered {
+  background: #f8fafc;
+}
+
+[data-theme='light'] .paper-empty__icon {
+  background: #eef2f7;
+}
+
+/* --- Filter-row search box -------------------------------------------------- */
+/**
+ * Sized to match the dropdowns beside it (38px trigger height, 8px radius, same hairline) so
+ * the row reads as one set of controls rather than an input bolted onto some pills.
+ */
+.paper-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 0 1 18rem;
+}
+
+.paper-search__icon {
+  position: absolute;
+  left: 10px;
+  color: var(--paper-muted, #94a3b8);
+  pointer-events: none;
+}
+
+.paper-search__input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  /* Right padding leaves room for the clear button; the native search cross is suppressed. */
+  padding: 0 2rem 0 2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--colors-opacity-bg-opacity-3, rgba(255, 255, 255, 0.03));
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-sizing: border-box;
+}
+
+.paper-search__input::placeholder {
+  color: var(--paper-muted, #94a3b8);
+  font-weight: 500;
+}
+
+.paper-search__input:hover {
+  border-color: rgba(148, 163, 184, 0.38);
+}
+
+.paper-search__input:focus {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.55);
+}
+
+.paper-search__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.paper-search__clear {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--paper-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.paper-search__clear:hover {
+  background: rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+}
+
+[data-theme='light'] .paper-search__input {
+  background: #fff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+/* Stacked filters: the box spans the column like the dropdowns above it. */
+@media (max-width: 639.98px) {
+  .paper-search {
+    flex: 1 1 auto;
+    width: 100%;
+  }
 }

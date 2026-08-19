@@ -1,16 +1,67 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Filter, Search, SearchX, X } from 'lucide-react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
+import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
+import { CopyPortfolioModal } from '../../components/paper/CopyPortfolioModal.jsx';
 import { usePublicPortfoliosPaged } from '../../hooks/usePublicPortfolios.js';
+import { ENGINE_PATTERNS, INDEX_PATTERNS, enrichPortfolioTags } from '../../utils/aiPortfolioTags.js';
 import { fmtPctSigned } from '../../utils/formatDisplayNumber.js';
 import '../../styles/paper-trading.css';
 
 const PAGE_SIZE = 10;
 const TOP_PERFORMERS = 3;
+
+/**
+ * Who built the book. Three of these split on the publishing account — `admin` is an Odin house
+ * account and `user` is everyone else, read off the account's own admin flag rather than guessed
+ * from the portfolio's name — while `manual` asks a different question: no AI engine involved at
+ * all, whoever published it. They share one control because "who made this" is one question to
+ * the reader, and each maps to its own endpoint parameter in `filterParams` below.
+ */
+const CREATED_BY_OPTIONS = [
+  { id: '', label: 'Anyone' },
+  { id: 'admin', label: 'Odin' },
+  { id: 'user', label: 'Member' },
+  { id: 'manual', label: 'User manual' }
+];
+
+/**
+ * The same engine / index / direction filters the AI galleries carry. `__all__` is the
+ * endpoint's own "no filter" sentinel, so a default selection sends nothing.
+ *
+ * Unlike those galleries this board also holds portfolios with no AI tag at all; narrowing by
+ * engine, index or direction necessarily hides them, since the filter is asking a question a
+ * manually published book has no answer to.
+ */
+const ALL_ENGINES = { id: '__all__', label: 'All AI engines' };
+const ALL_INDICES = { id: '__all__', label: 'All indices' };
+const INDEX_OPTIONS = [ALL_INDICES, ...INDEX_PATTERNS.map(({ id, label }) => ({ id, label }))];
+const DIRECTION_OPTIONS = [
+  { id: '__all__', label: 'All directions' },
+  { id: 'long', label: 'Long' },
+  { id: 'short', label: 'Short' },
+  { id: 'long_short', label: 'Long-Short' }
+];
+
+const DEFAULT_FILTER = '__all__';
+
+/**
+ * Typing pause before a search reaches the API. Long enough that a normal typist sends one
+ * request for a word rather than one per keystroke, short enough that the table still feels
+ * like it is responding to what you typed.
+ */
+const SEARCH_DEBOUNCE_MS = 350;
+
+/** Guards the request against a pasted essay. */
+const MAX_SEARCH_LEN = 100;
+
+/** Age-normalised ranking; see ALLOWED_SORTS in AiPortfoliosPage for the full reasoning. */
+const DEFAULT_SORT = 'avg_monthly_return_pct';
 
 function money(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -44,34 +95,107 @@ function ownerInitials(label) {
 }
 
 function PublicPortfoliosPageContent() {
-  const [sortKey, setSortKey] = useState('total_return_pct');
+  const [sortKey, setSortKey] = useState(DEFAULT_SORT);
   const [sortDir, setSortDir] = useState('desc');
+  const [createdBy, setCreatedBy] = useState('');
+  const [engineFilter, setEngineFilter] = useState(DEFAULT_FILTER);
+  const [indexFilter, setIndexFilter] = useState(DEFAULT_FILTER);
+  const [directionFilter, setDirectionFilter] = useState(DEFAULT_FILTER);
+  const [copyTarget, setCopyTarget] = useState(null);
   const [page, setPage] = useState(1);
 
-  // Table: one page of rows, sorted and paged by the API.
-  const { portfolios, pagination, loading, error } = usePublicPortfoliosPaged({
+  /**
+   * `search` is what the box shows and stays instant; `debouncedSearch` is what the API sees.
+   * Keeping them separate is the point — binding the request to `search` would fire a query per
+   * keystroke and let a slow early response land after a later one.
+   */
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  /**
+   * One control, two parameters: Odin/Member narrow the owner, User manual narrows on whether an
+   * engine was involved. With User manual picked the engine/index/direction filters can only
+   * ever return nothing — a hand-built book has no engine to match — so they are dropped from
+   * the request and disabled in the UI rather than silently emptying the board.
+   */
+  const manualOnly = createdBy === 'manual';
+  const ownerParam = manualOnly ? '' : createdBy;
+  const filterParams = {
+    q: debouncedSearch,
+    owner: ownerParam,
+    ai: manualOnly ? 'manual' : '',
+    engine: manualOnly ? DEFAULT_FILTER : engineFilter,
+    index: manualOnly ? DEFAULT_FILTER : indexFilter,
+    direction: manualOnly ? DEFAULT_FILTER : directionFilter
+  };
+
+  // Table: one page of rows, filtered, sorted and paged by the API.
+  const { portfolios, pagination, facets, loading, error } = usePublicPortfoliosPaged({
     page,
     pageSize: PAGE_SIZE,
     sort: sortKey,
-    dir: sortDir
+    dir: sortDir,
+    ...filterParams
   });
 
-  // Top performers stay the best overall, independent of which page is showing.
+  // Top performers follow the filter — with Odin selected, a member's book topping the board
+  // would contradict the table right under it — but stay the best overall within it, whichever
+  // page is showing.
   const { portfolios: topRows, loading: topLoading } = usePublicPortfoliosPaged({
     page: 1,
     pageSize: TOP_PERFORMERS,
     sort: 'total_return_pct',
-    dir: 'desc'
+    dir: 'desc',
+    ...filterParams
   });
 
   useEffect(() => {
     setPage(1);
-  }, [sortKey, sortDir]);
+  }, [sortKey, sortDir, createdBy, engineFilter, indexFilter, directionFilter, debouncedSearch]);
+
+  /** Engine / index / direction tags for the row chips — the same enrichment the AI board uses. */
+  const rows = useMemo(() => portfolios.map(enrichPortfolioTags), [portfolios]);
+
+  /**
+   * Engines the API actually saw in the current set, in the known Claude/ChatGPT/Gemini order
+   * with anything unrecognised appended — offering an engine nobody has published under would
+   * be a dead end.
+   */
+  const engineOptions = useMemo(() => {
+    const present = facets?.engines || [];
+    const known = ENGINE_PATTERNS.filter((e) => present.some((p) => p.id === e.id)).map(
+      ({ id, label }) => ({ id, label })
+    );
+    const extra = present.filter((e) => !known.some((k) => k.id === e.id));
+    return [ALL_ENGINES, ...known, ...extra];
+  }, [facets]);
 
   const total = pagination?.total ?? 0;
   const totalPages = pagination?.total_pages ?? 1;
   const rangeStart = total ? (pagination.page - 1) * pagination.page_size + 1 : 0;
   const rangeEnd = Math.min(pagination.page * pagination.page_size, total);
+
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    Boolean(createdBy) ||
+    (!manualOnly &&
+      (engineFilter !== DEFAULT_FILTER ||
+        indexFilter !== DEFAULT_FILTER ||
+        directionFilter !== DEFAULT_FILTER));
+
+  const clearFilters = () => {
+    setSearch('');
+    setDebouncedSearch('');
+    setCreatedBy('');
+    setEngineFilter(DEFAULT_FILTER);
+    setIndexFilter(DEFAULT_FILTER);
+    setDirectionFilter(DEFAULT_FILTER);
+  };
 
   const onSort = (key) => {
     if (key === sortKey) {
@@ -102,10 +226,15 @@ function PublicPortfoliosPageContent() {
           onSort={onSort}
           align="right"
         />
-        {/* Display-only: sorting stays on total return. */}
-        <th scope="col" className="paper-table__th--num" title="Total return ÷ months since publication. Shown only once a portfolio is at least a month old.">
-          Avg monthly
-        </th>
+        <PaperSortableTh
+          label="Avg monthly"
+          sortKey="avg_monthly_return_pct"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          align="right"
+          title="Total return ÷ months since publication. Shown only once a portfolio is at least a month old; younger books sort last."
+        />
         <PaperSortableTh
           label="Positions"
           sortKey="positions_count"
@@ -135,8 +264,8 @@ function PublicPortfoliosPageContent() {
           <h1 className="paper-header__title">Published Portfolios</h1>
           <p className="paper-header__sub">
             Browse virtual portfolios published by Odin500 users — including AI-built books for major
-            indices (Claude, ChatGPT, Gemini). Ranked by total return since publication, so check the
-            published date before comparing two books.
+            indices (Claude, ChatGPT, Gemini). Ranked by average monthly return, which puts books of
+            different ages on the same footing; the ones too young for that figure sort last.
           </p>
         </div>
         <div className="paper-header__actions">
@@ -156,6 +285,70 @@ function PublicPortfoliosPageContent() {
         />
       ) : null}
 
+      {/* Same filter row as the AI galleries — see .paper-public-filters for how it stacks. */}
+      <div className="paper-public-filters flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-2 mt-5">
+        {/* Leads the row: it labels everything after it, search box included. */}
+        <Filter size={16} strokeWidth={2} aria-hidden className="paper-public-filters__icon" />
+        <div className="paper-search">
+          <Search size={15} strokeWidth={2} aria-hidden className="paper-search__icon" />
+          <input
+            type="search"
+            className="paper-search__input"
+            placeholder="Search portfolios or owners…"
+            aria-label="Search portfolios by name or owner"
+            maxLength={MAX_SEARCH_LEN}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search ? (
+            <button
+              type="button"
+              className="paper-search__clear"
+              aria-label="Clear search"
+              onClick={() => setSearch('')}
+            >
+              <X size={14} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+        </div>
+        <ThemedDropdown
+          value={createdBy}
+          options={CREATED_BY_OPTIONS}
+          onChange={setCreatedBy}
+          title="Filter by who published the portfolio"
+          ariaLabelPrefix="Created by"
+          labelFallback="Anyone"
+          wideLabel
+        />
+        <ThemedDropdown
+          value={engineFilter}
+          options={engineOptions}
+          onChange={setEngineFilter}
+          title="AI engine filter"
+          ariaLabelPrefix="AI engine filter"
+          wideLabel
+          disabled={manualOnly}
+        />
+        <ThemedDropdown
+          value={indexFilter}
+          options={INDEX_OPTIONS}
+          onChange={setIndexFilter}
+          title="Index filter"
+          ariaLabelPrefix="Index filter"
+          wideLabel
+          disabled={manualOnly}
+        />
+        <ThemedDropdown
+          value={directionFilter}
+          options={DIRECTION_OPTIONS}
+          onChange={setDirectionFilter}
+          title="Direction filter"
+          ariaLabelPrefix="Direction filter"
+          wideLabel
+          disabled={manualOnly}
+        />
+      </div>
+
       {loading ? (
         <div className="paper-table-wrap paper-public-table-wrap" aria-busy="true">
           <table className="paper-table paper-public-table">
@@ -173,7 +366,25 @@ function PublicPortfoliosPageContent() {
         </div>
       ) : null}
 
-      {!loading && !total ? (
+      {/* Two different empty states: filters that match nothing is a dead end with a way out,
+          while an unfiltered empty board is genuinely waiting on someone to publish. */}
+      {!loading && !total && hasActiveFilters ? (
+        <div className="paper-empty paper-empty--public paper-empty--filtered">
+          <span className="paper-empty__icon" aria-hidden>
+            <SearchX size={22} strokeWidth={1.75} />
+          </span>
+          <p className="paper-empty__title">No portfolios match these filters</p>
+          <p className="paper-empty__hint">
+            Nothing published fits every filter at once. Widen one of them, or clear them all to
+            see the full board.
+          </p>
+          <button type="button" className="paper-btn paper-btn--ghost paper-empty__action" onClick={clearFilters}>
+            Clear filters
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !total && !hasActiveFilters ? (
         <div className="paper-empty paper-empty--public">
           <p>No published portfolios yet</p>
           <p className="paper-empty__hint">
@@ -191,7 +402,7 @@ function PublicPortfoliosPageContent() {
           <table className="paper-table paper-public-table">
             {tableHead}
             <tbody>
-              {portfolios.map((p) => {
+              {rows.map((p) => {
                 const href = `/virtual-portfolio/public/${encodeURIComponent(p.id)}`;
                 return (
                   <tr key={p.id} className="paper-public-table__row">
@@ -205,9 +416,26 @@ function PublicPortfoliosPageContent() {
                           {/* Owner and tags share one line so every row is the same height. */}
                           <span className="paper-public-table__meta">
                             <span className="paper-public-table__owner">by {p.owner_label}</span>
-                            {p.strategy_mode && p.strategy_mode !== 'manual' ? (
-                              <span className="paper-tag">Automated</span>
-                            ) : null}
+                            {/* Tags are grouped so they can drop to a line of their own, intact,
+                                once the column is too narrow to hold owner and tags together.
+                                A hand-built book has no engine or index, so it simply shows
+                                fewer chips rather than a different row shape. */}
+                            <span className="paper-public-table__tags">
+                              {p.ai_engine ? (
+                                <span className="paper-tag paper-tag--engine" data-engine={p.ai_engine.id}>
+                                  {p.ai_engine.label}
+                                </span>
+                              ) : null}
+                              {p.index_focus ? <span className="paper-tag">{p.index_focus.label}</span> : null}
+                              {p.ai_engine ? (
+                                <span className="paper-tag paper-tag--direction" data-direction={p.direction.id}>
+                                  {p.direction.label}
+                                </span>
+                              ) : null}
+                              {p.strategy_mode && p.strategy_mode !== 'manual' ? (
+                                <span className="paper-tag">Automated</span>
+                              ) : null}
+                            </span>
                           </span>
                         </span>
                       </Link>
@@ -246,6 +474,15 @@ function PublicPortfoliosPageContent() {
                         <Link to={href} className="paper-public-table__cta">
                           View
                         </Link>
+                        {(p.positions_count ?? 0) > 0 ? (
+                          <button
+                            type="button"
+                            className="paper-public-table__cta paper-public-table__cta--copy"
+                            onClick={() => setCopyTarget({ id: p.id, name: p.name })}
+                          >
+                            Copy
+                          </button>
+                        ) : null}
                       </span>
                     </td>
                   </tr>
@@ -271,6 +508,12 @@ function PublicPortfoliosPageContent() {
           ) : null}
         </div>
       ) : null}
+
+      <CopyPortfolioModal
+        open={Boolean(copyTarget)}
+        portfolio={copyTarget}
+        onClose={() => setCopyTarget(null)}
+      />
     </div>
   );
 }

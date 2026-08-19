@@ -23,6 +23,9 @@ const INDEX_PATTERNS = [
   { id: 'nasdaq', label: 'Nasdaq-100', re: /\b(nasdaq[\s-]*100|\bndx\b|\bqqq\b|nasdaq)\b/i }
 ];
 
+// Tested before SHORT_RE, which would otherwise claim "…-Long-Short" as a pure short book.
+// Keep in step with DIRECTION_PATTERNS in the frontend's aiPortfolioTags.js.
+const LONG_SHORT_RE = /\b(long[\s\-_/]*(?:and[\s\-_]*)?short|market[\s\-_]*neutral)\b/i;
 const SHORT_RE = /\b(short(?:ing)?|bear(?:ish)?|inverse)\b/i;
 const GENERIC_AI_RE =
   /\b(ai[-\s]?generated|ai[-\s]?portfolio|ai[-\s]?strateg|artificial\s+intelligence)\b/i;
@@ -30,14 +33,24 @@ const GENERIC_AI_RE =
 const DIRECTION_LABELS = { long: 'Long', short: 'Short', long_short: 'Long-Short' };
 
 /**
- * `avg_monthly_return_pct` is deliberately absent: it is still computed and returned on every
- * row, but it extrapolates a few days of performance into a monthly figure, so ranking on it
- * put days-old books at the top of the leaderboard. Sorting is on total return until that
- * metric is either age-gated or replaced.
+ * `avg_monthly_return_pct` is sortable now that the metric is age-gated: publicPortfolio.js
+ * withholds it below MIN_MONTHS_FOR_AVG, so the days-old books that used to ride to the top on
+ * an extrapolated figure arrive here as null and sort last in either direction. Ties — including
+ * every pair of withheld rows — fall back to total return so the tail of the list keeps a
+ * meaningful order instead of resting on input order.
  */
-const SORT_KEYS = new Set(['total_return_pct', 'equity', 'positions_count', 'published_at']);
+const SORT_KEYS = new Set([
+  'total_return_pct',
+  'avg_monthly_return_pct',
+  'equity',
+  'positions_count',
+  'published_at'
+]);
 
 const DEFAULT_SORT_KEY = 'total_return_pct';
+
+/** Applied when the primary key can't separate two rows. */
+const TIE_BREAK_KEYS = { avg_monthly_return_pct: 'total_return_pct' };
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -66,8 +79,21 @@ function tagsFor(p) {
     engineId,
     engineLabel: engine?.label || (engineId ? 'AI' : null),
     indexId: INDEX_PATTERNS.find((i) => i.re.test(blob))?.id || null,
-    directionId: SHORT_RE.test(blob) ? 'short' : 'long'
+    directionId: LONG_SHORT_RE.test(blob) ? 'long_short' : SHORT_RE.test(blob) ? 'short' : 'long'
   };
+}
+
+/**
+ * Free-text search over the portfolio's name and its owner's label.
+ *
+ * Tokenised and AND-matched rather than compared as one substring: these books are named
+ * "AI-Claude-DowJones-Long-Strategy-11", so a raw substring test would fail on "claude dow" —
+ * the words are there but never adjacent. Each token must appear somewhere, in any order.
+ */
+function matchesSearch(row, tokens) {
+  if (!tokens.length) return true;
+  const haystack = [row?.name, row?.owner_label].map((x) => String(x || '')).join(' ').toLowerCase();
+  return tokens.every((t) => haystack.includes(t));
 }
 
 function compare(a, b, key, dir) {
@@ -112,7 +138,19 @@ function queryPublishedPortfolios(all, opts = {}) {
   const aiOnly = opts.ai_only === '1' || opts.ai_only === 'true' || opts.aiOnly === true;
 
   const tagged = list.map((p) => ({ row: p, tags: tagsFor(p) }));
-  const aiFiltered = aiOnly ? tagged.filter((t) => t.tags.engineId) : tagged;
+
+  // `ai_only=1` keeps only engine-tagged books (the AI galleries); `ai=manual` is its inverse,
+  // for the "User manual" filter on the all-portfolios board — everything a person built by
+  // hand. Anything an engine can't be detected on counts as manual, which is the same test the
+  // AI galleries use to decide a book belongs to them, read the other way round.
+  const aiMode = String(opts.ai || '').trim().toLowerCase();
+  const aiFiltered = aiOnly
+    ? tagged.filter((t) => t.tags.engineId)
+    : aiMode === 'manual'
+      ? tagged.filter((t) => !t.tags.engineId)
+      : aiMode === 'ai'
+        ? tagged.filter((t) => t.tags.engineId)
+        : tagged;
 
   // `owner=admin|user` splits the AI galleries: Odin's own books vs. ones members published.
   // Applied before the facet scan so each gallery's engine dropdown only offers engines that
@@ -146,16 +184,32 @@ function queryPublishedPortfolios(all, opts = {}) {
   const direction = String(opts.direction || '').trim();
   const isAll = (v) => !v || v === '__all__';
 
+  // Capped so a pasted paragraph can't turn into a hundred-token scan of the whole list.
+  const searchTokens = String(opts.q || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 8);
+
   const filtered = base.filter(
-    ({ tags }) =>
+    ({ row, tags }) =>
       (isAll(engine) || tags.engineId === engine) &&
       (isAll(index) || tags.indexId === index) &&
-      (isAll(direction) || tags.directionId === direction)
+      (isAll(direction) || tags.directionId === direction) &&
+      matchesSearch(row, searchTokens)
   );
 
   const sortKey = SORT_KEYS.has(String(opts.sort)) ? String(opts.sort) : DEFAULT_SORT_KEY;
   const sortDir = String(opts.dir) === 'asc' ? 'asc' : 'desc';
-  const rows = filtered.map((t) => t.row).sort((a, b) => compare(a, b, sortKey, sortDir));
+  const tieKey = TIE_BREAK_KEYS[sortKey];
+  const rows = filtered
+    .map((t) => t.row)
+    .sort((a, b) => {
+      const primary = compare(a, b, sortKey, sortDir);
+      if (primary !== 0 || !tieKey) return primary;
+      return compare(a, b, tieKey, sortDir);
+    });
 
   const pageSize = Math.min(Math.max(toInt(opts.page_size ?? opts.pageSize, DEFAULT_PAGE_SIZE), 1), MAX_PAGE_SIZE);
   const total = rows.length;

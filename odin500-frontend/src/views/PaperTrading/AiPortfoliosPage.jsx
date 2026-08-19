@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { Filter } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Filter, Search, SearchX, X } from 'lucide-react';
 import { Link, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
@@ -23,21 +23,38 @@ const DIRECTION_OPTIONS = [
   { id: 'long_short', label: 'Long-Short' }
 ];
 const INDEX_OPTIONS = [ALL_INDICES, ...INDEX_PATTERNS.map(({ id, label }) => ({ id, label }))];
+/**
+ * Typing pause before a search reaches the API — one request per word rather than per keystroke,
+ * while the table still feels like it is answering what you typed.
+ */
+const SEARCH_DEBOUNCE_MS = 350;
+
+/** Guards the URL and the request against a pasted essay. */
+const MAX_SEARCH_LEN = 100;
+
 const PAGE_SIZE = 10;
 const TOP_PERFORMERS = 5;
 
 const DEFAULT_ENGINE = '__all__';
 const DEFAULT_INDEX = '__all__';
 const DEFAULT_DIRECTION = '__all__';
-const DEFAULT_SORT = 'total_return_pct';
+const DEFAULT_SORT = 'avg_monthly_return_pct';
 const DEFAULT_DIR = 'desc';
 
 const ALLOWED_ENGINES = new Set(['__all__', 'ai', ...ENGINE_PATTERNS.map((e) => e.id)]);
 const ALLOWED_INDICES = new Set(['__all__', ...INDEX_PATTERNS.map((i) => i.id)]);
 const ALLOWED_DIRECTIONS = new Set(DIRECTION_OPTIONS.map((d) => d.id));
-// Mirrors SORT_KEYS in the backend's publicPortfolioQuery.js — average monthly return is
-// intentionally not sortable; a days-old book extrapolates to an outsized monthly figure.
-const ALLOWED_SORTS = new Set(['equity', 'total_return_pct', 'positions_count', 'published_at']);
+// Mirrors SORT_KEYS in the backend's publicPortfolioQuery.js. Average monthly return leads:
+// total return rewards whichever book has simply run longest, while the monthly average is
+// age-normalised. It is withheld below a month of track record, so those rows sort last and
+// fall back to total return among themselves.
+const ALLOWED_SORTS = new Set([
+  'equity',
+  'total_return_pct',
+  'avg_monthly_return_pct',
+  'positions_count',
+  'published_at'
+]);
 const ALLOWED_DIRS = new Set(['asc', 'desc']);
 
 function parseParam(raw, allowed, fallback) {
@@ -52,6 +69,10 @@ function parseEngineParam(raw) {
   if (ALLOWED_ENGINES.has(v)) return v;
   if (/^[a-z0-9_-]{1,32}$/.test(v)) return v;
   return DEFAULT_ENGINE;
+}
+
+function parseSearchParamValue(raw) {
+  return String(raw || '').trim().slice(0, MAX_SEARCH_LEN);
 }
 
 function parsePage(raw) {
@@ -99,6 +120,7 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
   const engineFilter = parseEngineParam(searchParams.get('engine'));
   const indexFilter = parseParam(searchParams.get('index'), ALLOWED_INDICES, DEFAULT_INDEX);
   const directionFilter = parseParam(searchParams.get('direction'), ALLOWED_DIRECTIONS, DEFAULT_DIRECTION);
+  const searchQuery = parseSearchParamValue(searchParams.get('q'));
   const sortKey = parseParam(searchParams.get('sort'), ALLOWED_SORTS, DEFAULT_SORT);
   const sortDir = parseParam(searchParams.get('dir'), ALLOWED_DIRS, DEFAULT_DIR);
   const page = parsePage(searchParams.get('page'));
@@ -116,6 +138,26 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
     },
     [setSearchParams]
   );
+
+  /**
+   * The box holds its own instant value while the URL — and so the request — only takes it after
+   * a pause. Writing every keystroke into the URL would fire a query each time and stack up
+   * history entries for half-typed words.
+   */
+  const [search, setSearch] = useState(searchQuery);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const next = search.trim().slice(0, MAX_SEARCH_LEN);
+      if (next === searchQuery) return;
+      patchParams((params) => {
+        if (next) params.set('q', next);
+        else params.delete('q');
+        params.delete('page');
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [search, searchQuery, patchParams]);
 
   const setEngineFilter = useCallback(
     (id) => {
@@ -149,6 +191,18 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
     },
     [patchParams]
   );
+
+  /** Drops search and all three filters at once — the way out of a no-match empty state. */
+  const clearFilters = useCallback(() => {
+    setSearch('');
+    patchParams((next) => {
+      next.delete('q');
+      next.delete('engine');
+      next.delete('index');
+      next.delete('direction');
+      next.delete('page');
+    });
+  }, [patchParams]);
 
   const setPage = useCallback(
     (nextPage) => {
@@ -185,7 +239,8 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
     owner,
     engine: engineFilter,
     index: indexFilter,
-    direction: directionFilter
+    direction: directionFilter,
+    q: searchQuery
   });
 
   // Top performers carousel: always the best few under the same filters, independent of page.
@@ -202,7 +257,8 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
     owner,
     engine: engineFilter,
     index: indexFilter,
-    direction: directionFilter
+    direction: directionFilter,
+    q: searchQuery
   });
 
   const rows = useMemo(() => portfolios.map(enrichPortfolioTags), [portfolios]);
@@ -223,7 +279,10 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
   const rangeEnd = Math.min(pagination.page * pagination.page_size, total);
 
   const hasActiveFilters =
-    engineFilter !== DEFAULT_ENGINE || indexFilter !== DEFAULT_INDEX || directionFilter !== DEFAULT_DIRECTION;
+    Boolean(searchQuery) ||
+    engineFilter !== DEFAULT_ENGINE ||
+    indexFilter !== DEFAULT_INDEX ||
+    directionFilter !== DEFAULT_DIRECTION;
 
   const reloadAll = () => {
     void refetch();
@@ -250,10 +309,15 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
           onSort={onSort}
           align="right"
         />
-        {/* Display-only: sorting stays on total return. */}
-        <th scope="col" className="paper-table__th--num" title="Total return ÷ months since publication. Shown only once a portfolio is at least a month old.">
-          Avg monthly
-        </th>
+        <PaperSortableTh
+          label="Avg monthly"
+          sortKey="avg_monthly_return_pct"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          align="right"
+          title="Total return ÷ months since publication. Shown only once a portfolio is at least a month old; younger books sort last."
+        />
         <PaperSortableTh
           label="Positions"
           sortKey="positions_count"
@@ -304,18 +368,39 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
       ) : null}
 
       {!loading ? (
-        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 mt-5">
-          <label className="flex items-center gap-2">
-            <Filter size={16} strokeWidth={2} aria-hidden />
-            <ThemedDropdown
-              value={engineFilter}
-              options={engineOptions}
-              onChange={setEngineFilter}
-              title="AI engine filter"
-              ariaLabelPrefix="AI engine filter"
-              wideLabel
+        <div className="paper-public-filters flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-2 mt-5">
+          {/* Leads the row: it labels everything after it, search box included. */}
+          <Filter size={16} strokeWidth={2} aria-hidden className="paper-public-filters__icon" />
+          <div className="paper-search">
+            <Search size={15} strokeWidth={2} aria-hidden className="paper-search__icon" />
+            <input
+              type="search"
+              className="paper-search__input"
+              placeholder="Search portfolios or owners…"
+              aria-label="Search portfolios by name or owner"
+              maxLength={MAX_SEARCH_LEN}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-          </label>
+            {search ? (
+              <button
+                type="button"
+                className="paper-search__clear"
+                aria-label="Clear search"
+                onClick={() => setSearch('')}
+              >
+                <X size={14} strokeWidth={2.5} aria-hidden />
+              </button>
+            ) : null}
+          </div>
+          <ThemedDropdown
+            value={engineFilter}
+            options={engineOptions}
+            onChange={setEngineFilter}
+            title="AI engine filter"
+            ariaLabelPrefix="AI engine filter"
+            wideLabel
+          />
           <ThemedDropdown
             value={indexFilter}
             options={INDEX_OPTIONS}
@@ -352,22 +437,34 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
         </div>
       ) : null}
 
-      {!loading && !total ? (
+      {/* Two different empty states: filters that match nothing is a dead end with a way out,
+          while an unfiltered empty board is genuinely waiting on someone to publish. */}
+      {!loading && !total && hasActiveFilters ? (
+        <div className="paper-empty paper-empty--public paper-empty--filtered">
+          <span className="paper-empty__icon" aria-hidden>
+            <SearchX size={22} strokeWidth={1.75} />
+          </span>
+          <p className="paper-empty__title">No portfolios match these filters</p>
+          <p className="paper-empty__hint">
+            No published book fits every filter at once. Widen one of them, or clear them all to
+            see the full board.
+          </p>
+          <button type="button" className="paper-btn paper-btn--ghost paper-empty__action" onClick={clearFilters}>
+            Clear filters
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !total && !hasActiveFilters ? (
         <div className="paper-empty paper-empty--public">
-          {hasActiveFilters ? (
-            <p>No AI portfolios match these filters yet</p>
-          ) : (
-            <>
-              <p>{emptyText}</p>
-              <p className="paper-empty__hint">
-                Check back soon, or browse{' '}
-                <Link to="/virtual-portfolio/public" className="paper-link">
-                  all published portfolios
-                </Link>{' '}
-                in the meantime.
-              </p>
-            </>
-          )}
+          <p>{emptyText}</p>
+          <p className="paper-empty__hint">
+            Check back soon, or browse{' '}
+            <Link to="/virtual-portfolio/public" className="paper-link">
+              all published portfolios
+            </Link>{' '}
+            in the meantime.
+          </p>
         </div>
       ) : null}
 
@@ -390,18 +487,22 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
                           {/* Owner and tags share one line so every row is the same height. */}
                           <span className="paper-public-table__meta">
                             <span className="paper-public-table__owner">by {p.owner_label}</span>
-                            {p.ai_engine ? (
-                              <span className="paper-tag paper-tag--engine" data-engine={p.ai_engine.id}>
-                                {p.ai_engine.label}
+                            {/* Tags are grouped so they can drop to a line of their own, intact,
+                                once the column is too narrow to hold owner and tags together. */}
+                            <span className="paper-public-table__tags">
+                              {p.ai_engine ? (
+                                <span className="paper-tag paper-tag--engine" data-engine={p.ai_engine.id}>
+                                  {p.ai_engine.label}
+                                </span>
+                              ) : null}
+                              {p.index_focus ? <span className="paper-tag">{p.index_focus.label}</span> : null}
+                              <span className="paper-tag paper-tag--direction" data-direction={p.direction.id}>
+                                {p.direction.label}
                               </span>
-                            ) : null}
-                            {p.index_focus ? <span className="paper-tag">{p.index_focus.label}</span> : null}
-                            <span className="paper-tag paper-tag--direction" data-direction={p.direction.id}>
-                              {p.direction.label}
+                              {p.strategy_mode && p.strategy_mode !== 'manual' ? (
+                                <span className="paper-tag">Automated</span>
+                              ) : null}
                             </span>
-                            {p.strategy_mode && p.strategy_mode !== 'manual' ? (
-                              <span className="paper-tag">Automated</span>
-                            ) : null}
                           </span>
                         </span>
                       </Link>
@@ -490,7 +591,7 @@ export default function AiPortfoliosPage() {
     <AiPortfoliosPageContent
       owner="admin"
       title="Odin AI Portfolios"
-      subtitle="Virtual portfolios built and traded by AI models on Odin's own accounts — Claude and ChatGPT today, with Gemini and more on the way — going long and short on the S&P 500, Nasdaq-100, and Dow Jones. Ranked by total return since publication, so check each book's age before comparing them."
+      subtitle="Virtual portfolios built and traded by AI models on Odin's own accounts — Claude and ChatGPT today, with Gemini and more on the way — going long and short on the S&P 500, Nasdaq-100, and Dow Jones. Ranked by average monthly return, which puts books of different ages on the same footing; the ones too young for that figure sort last."
       emptyText="No Odin AI portfolios published yet"
     />
   );
@@ -502,7 +603,7 @@ export function UserAiPortfoliosPage() {
     <AiPortfoliosPageContent
       owner="user"
       title="User AI Portfolios"
-      subtitle="AI-managed virtual portfolios built and published by Odin500 members. Same engines and the same published track record as Odin's own books — ranked by total return since publication, so check each book's age before comparing them."
+      subtitle="AI-managed virtual portfolios built and published by Odin500 members. Same engines and the same published track record as Odin's own books — ranked by average monthly return, which puts books of different ages on the same footing; the ones too young for that figure sort last."
       emptyText="No member AI portfolios published yet"
     />
   );

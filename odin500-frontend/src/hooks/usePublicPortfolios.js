@@ -54,11 +54,15 @@ const EMPTY_PAGINATION = {
 
 /**
  * Server-paginated published portfolios. Filtering, sorting and paging all happen on the
- * API (`?page=&page_size=&sort=&dir=&ai_only=&engine=&index=&direction=`) so the browser
- * only ever holds one page of rows.
+ * API (`?page=&page_size=&sort=&dir=&ai_only=&ai=&owner=&engine=&index=&direction=&q=`) so the
+ * browser only ever holds one page of rows.
+ *
+ * `q` is matched against portfolio name and owner. Debounce it at the call site — every change
+ * is a request.
  *
  * @param {{ page?: number, pageSize?: number, sort?: string, dir?: 'asc'|'desc',
- *           aiOnly?: boolean, engine?: string, index?: string, direction?: string,
+ *           aiOnly?: boolean, ai?: ''|'ai'|'manual', owner?: ''|'admin'|'user',
+ *           engine?: string, index?: string, direction?: string, q?: string,
  *           enabled?: boolean }} params
  */
 export function usePublicPortfoliosPaged(params = {}) {
@@ -68,11 +72,14 @@ export function usePublicPortfoliosPaged(params = {}) {
     sort = 'total_return_pct',
     dir = 'desc',
     aiOnly = false,
+    /** '' = both kinds, 'ai' = engine-tagged only, 'manual' = built by hand only. */
+    ai = '',
     /** '' = every owner, 'admin' = Odin's own books, 'user' = member-published. */
     owner = '',
     engine = '',
     index = '',
     direction = '',
+    q = '',
     enabled = true
   } = params;
 
@@ -89,12 +96,15 @@ export function usePublicPortfoliosPaged(params = {}) {
     qs.set('sort', sort);
     qs.set('dir', dir);
     if (aiOnly) qs.set('ai_only', '1');
+    if (ai) qs.set('ai', ai);
     if (owner) qs.set('owner', owner);
     if (engine && engine !== '__all__') qs.set('engine', engine);
     if (index && index !== '__all__') qs.set('index', index);
     if (direction && direction !== '__all__') qs.set('direction', direction);
+    const search = String(q || '').trim();
+    if (search) qs.set('q', search);
     return qs.toString();
-  }, [page, pageSize, sort, dir, aiOnly, owner, engine, index, direction]);
+  }, [page, pageSize, sort, dir, aiOnly, ai, owner, engine, index, direction, q]);
 
   const load = useCallback(async () => {
     if (!enabled) {

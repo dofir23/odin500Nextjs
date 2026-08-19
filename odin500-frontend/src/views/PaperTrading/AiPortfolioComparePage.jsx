@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
 import { NormalizedPerformanceCard } from '../../components/NormalizedPerformanceCard.jsx';
+import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
 import { fetchWithAuth, canFetchMarketData } from '../../store/apiStore.js';
 import { apiUrl } from '../../utils/apiOrigin.js';
 import { fetchMarketRailSnapshotQuery } from '../../query/marketQueries.js';
@@ -10,6 +11,7 @@ import { MARKET_STALE } from '../../query/queryClient.js';
 import { fmtAbsSigned, fmtPct, fmtPrice } from '../../utils/marketCalculations.js';
 import { useAiEngineLeaders, usePortfolioHistoryCache } from '../../hooks/useAiEngineLeaders.js';
 import {
+  DIRECTION_PRESETS,
   ENGINE_SECTIONS,
   baselineLabel,
   buildChartRegistry,
@@ -19,7 +21,8 @@ import {
   dedupeSeriesSymbols,
   indexKey,
   isPortfolioKey,
-  keyTarget
+  keyTarget,
+  pickBestPerEngine
 } from '../../utils/aiCompareSeries.js';
 import '../../styles/paper-trading.css';
 
@@ -28,7 +31,13 @@ const TOP_PER_ENGINE = 5;
 /** Beyond this the chart is unreadable spaghetti, so further toggles are refused. */
 const MAX_SELECTED = 8;
 
-const DEFAULT_KEYS = [indexKey('SPX')];
+/** The benchmark every book is read against, and the one index kept selected by default. */
+const DEFAULT_INDEX_KEY = indexKey('SPX');
+
+const ENGINE_IDS = ENGINE_SECTIONS.map((e) => e.id);
+
+/** Plain-English direction for the "nothing published" tooltip on a disabled preset. */
+const DIRECTION_NOUNS = { long: 'long', short: 'short', long_short: 'long-short' };
 
 /** Lead-in before the baseline so a holiday/weekend publish date still has a prior close. */
 const BASELINE_LEAD_IN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -116,10 +125,15 @@ function CompareRailRow({ series, snapshot, selected, disabled, showTicker, onTo
  * `showTicker` is on for Indices (DJI/SPX/NDX are meaningful symbols) and off for the engine
  * cards, where the "ticker" is only an abbreviation of the portfolio name — the name column
  * beside it already says the same thing, and dropping it gives that name 34px more room.
+ *
+ * `engineId` marks a card as an engine's card: it adds the footer link through to that engine's
+ * slice of /virtual-portfolio/ai, since the rail only lists each engine's top few. Indices have
+ * no such page, so the card is passed no id and shows no link.
  */
 function RailCard({
   title,
   badge,
+  engineId,
   series,
   snapshots,
   selectedSet,
@@ -173,6 +187,15 @@ function RailCard({
       ) : (
         <p className="ai-cmp-card__empty">{emptyText}</p>
       )}
+      {engineId ? (
+        <Link
+          className="ai-cmp-card__more"
+          to={`/virtual-portfolio/ai?engine=${encodeURIComponent(engineId)}`}
+          title={`Browse every published ${title} portfolio`}
+        >
+          More {title} portfolios
+        </Link>
+      ) : null}
     </section>
   );
 }
@@ -181,7 +204,8 @@ export default function AiPortfolioComparePage() {
   const { byEngine, total, loading } = useAiEngineLeaders({ limit: TOP_PER_ENGINE });
   const loadPortfolioHistory = usePortfolioHistoryCache();
 
-  const [selectedKeys, setSelectedKeys] = useState(DEFAULT_KEYS);
+  const [selectedKeys, setSelectedKeys] = useState([DEFAULT_INDEX_KEY]);
+  const [preset, setPreset] = useState('');
 
   // Badges are deduped once across the whole set — indices included, so a portfolio can never
   // shadow SPX — then the rail slices are read back out of the deduped list. Doing it per
@@ -205,6 +229,30 @@ export default function AiPortfolioComparePage() {
   );
 
   const { metaByKey, tickerByKey } = useMemo(() => buildChartRegistry(allSeries), [allSeries]);
+
+  /**
+   * Landing selection: SPX plus the best book from each engine. It can only be built once the
+   * leaders have loaded, hence the seeding effect below rather than a `useState` initialiser.
+   * The card's Reset takes the same list, so resetting returns to the view the page opened on
+   * instead of a lone index line.
+   */
+  const defaultKeys = useMemo(
+    () =>
+      [DEFAULT_INDEX_KEY, ...pickBestPerEngine(engineSeries, ENGINE_IDS).map((s) => s.key)].slice(
+        0,
+        MAX_SELECTED
+      ),
+    [engineSeries]
+  );
+
+  const seededRef = useRef(false);
+  useEffect(() => {
+    // Once only: after this the selection belongs to the user, so a later leaders refetch
+    // must not pull their picks back to the defaults.
+    if (seededRef.current || defaultKeys.length < 2) return;
+    seededRef.current = true;
+    setSelectedKeys(defaultKeys);
+  }, [defaultKeys]);
 
   // Every series is measured from the youngest selected portfolio's publish date, so a book
   // running two weeks is never compared against six months of an index.
@@ -308,10 +356,29 @@ export default function AiPortfolioComparePage() {
     []
   );
 
-  const compareBestOfEach = () => {
-    const picks = ENGINE_SECTIONS.map((e) => (engineSeries[e.id] || [])[0]).filter(Boolean);
-    setSelectedKeys([indexKey('SPX'), ...picks.map((p) => p.key)].slice(0, MAX_SELECTED));
-  };
+  /**
+   * Menu is derived from what is actually published: a direction no engine has a book in is
+   * offered as disabled rather than as a pick that silently clears the chart to SPX alone.
+   */
+  const presetOptions = useMemo(
+    () =>
+      DIRECTION_PRESETS.map((d) => ({
+        id: d.id,
+        label: d.label,
+        disabled: !pickBestPerEngine(engineSeries, ENGINE_IDS, d.id).length,
+        disabledTitle: `No published ${DIRECTION_NOUNS[d.id] || d.id} portfolios yet`
+      })),
+    [engineSeries]
+  );
+
+  const applyPreset = useCallback(
+    (directionId) => {
+      setPreset(directionId);
+      const picks = pickBestPerEngine(engineSeries, ENGINE_IDS, directionId);
+      setSelectedKeys([DEFAULT_INDEX_KEY, ...picks.map((p) => p.key)].slice(0, MAX_SELECTED));
+    },
+    [engineSeries]
+  );
 
   const selectedPortfolioCount = selectedKeys.filter((k) => isPortfolioKey(k)).length;
 
@@ -327,9 +394,17 @@ export default function AiPortfolioComparePage() {
           </p>
         </div>
         <div className="paper-header__actions">
-          <button type="button" className="paper-btn paper-btn--ghost" onClick={compareBestOfEach} disabled={!total}>
-            Compare best of each
-          </button>
+          <ThemedDropdown
+            value={preset}
+            options={presetOptions}
+            onChange={applyPreset}
+            title="Pick each engine's best book in one trade direction"
+            ariaLabelPrefix="Best of each"
+            labelFallback="Compare best of each"
+            disabled={!total}
+            wideLabel
+            className="ai-cmp-preset-dd"
+          />
           <Link to="/virtual-portfolio/ai" className="paper-btn paper-btn--ghost">
             AI Portfolios
           </Link>
@@ -359,6 +434,7 @@ export default function AiPortfolioComparePage() {
               <RailCard
                 key={engine.id}
                 title={engine.label}
+                engineId={engine.id}
                 badge={series.length ? `TOP ${series.length}` : ''}
                 series={series}
                 selectedSet={selectedSet}
@@ -381,7 +457,7 @@ export default function AiPortfolioComparePage() {
             loadSeriesRows={loadSeriesRows}
             metaByKey={metaByKey}
             tickerByKey={tickerByKey}
-            defaultKeys={DEFAULT_KEYS}
+            defaultKeys={defaultKeys}
             baselineMs={baselineMs}
             range={range}
             showTimeframes={false}

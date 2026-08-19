@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from '@/navigation/appRouterCompat.jsx';
-import { detectAiEngine, detectIndexFocus } from '@/utils/aiPortfolioTags.js';
+import { enrichPortfolioTags } from '@/utils/aiPortfolioTags.js';
 import { fmtPctSigned } from '@/utils/formatDisplayNumber.js';
 import { apiUrl } from '@/utils/apiOrigin.js';
 import { PublicPortfolioMiniChart } from './PublicPortfolioMiniChart.jsx';
@@ -30,17 +30,6 @@ function ownerInitials(label) {
   const parts = text.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return text.slice(0, 2).toUpperCase();
-}
-
-function enrichPortfolio(p) {
-  const blob = [p?.name, p?.owner_label, p?.publish_description, p?.publish_strategy]
-    .map((x) => String(x || ''))
-    .join(' ');
-  return {
-    ...p,
-    ai_engine: detectAiEngine(blob),
-    index_focus: detectIndexFocus(blob)
-  };
 }
 
 /** Human track-record length for the card's third stat tile — "12 d", "3.4 mo". */
@@ -109,16 +98,21 @@ export function pickTopPublicPortfolios(portfolios, limit = 3) {
       return Number(bv) - Number(av);
     })
     .slice(0, limit)
-    .map(enrichPortfolio);
+    .map(enrichPortfolioTags);
 }
 
 const RANK_LABELS = ['1st', '2nd', '3rd'];
 
+/**
+ * No max-height: the card grows to whatever its content needs. A cap here would have to be paid
+ * for with an inner scroll area, and a summary card you have to scroll hides the very numbers it
+ * exists to show. Cards in a row still line up — `h-full` stretches each to the tallest.
+ */
 const CARD_BASE =
-  'flex h-full max-h-[26rem] min-h-[14rem] flex-col gap-3 rounded-[14px] border px-4 pb-3.5 pt-4 transition duration-150 ease-out hover:-translate-y-0.5';
+  'flex h-full min-h-[14rem] flex-col gap-3 rounded-[14px] border px-4 pb-3.5 pt-4 transition duration-150 ease-out hover:-translate-y-0.5';
 
 const CARD_BASE_COMPACT =
-  'flex h-full max-h-[24rem] min-h-[11.5rem] flex-col gap-2.5 rounded-[12px] border px-3 pb-3 pt-3 transition duration-150 ease-out hover:-translate-y-0.5';
+  'flex h-full min-h-[11.5rem] flex-col gap-2.5 rounded-[12px] border px-3 pb-3 pt-3 transition duration-150 ease-out hover:-translate-y-0.5';
 
 const CARD_BY_RANK = [
   // 1st
@@ -145,6 +139,17 @@ const BADGE_BY_ENGINE = {
 };
 
 const BADGE_INDEX = `${BADGE_BASE} border-violet-300/70 bg-violet-50 text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300`;
+
+/**
+ * Which way the book trades, beside the engine and index chips. Colour carries the meaning at a
+ * glance — green long, red short, teal for a hedged long-short — so the three never read as the
+ * same kind of tag.
+ */
+const BADGE_BY_DIRECTION = {
+  long: `${BADGE_BASE} border-emerald-300/70 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300`,
+  short: `${BADGE_BASE} border-rose-300/70 bg-rose-50 text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300`,
+  long_short: `${BADGE_BASE} border-teal-300/70 bg-teal-50 text-teal-800 dark:border-teal-500/30 dark:bg-teal-500/15 dark:text-teal-300`
+};
 const BADGE_DEFAULT = `${BADGE_BASE} border-blue-300/70 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300`;
 
 const SKEL_CARD =
@@ -252,11 +257,10 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
   };
 
   /**
-   * Drag-to-scroll across the whole strip. Without this the carousel only moved when the
-   * gesture started in the gap between cards — the cards' own vertically scrollable body
-   * captured the pointer everywhere else. Snapping is disabled mid-drag so the strip tracks
-   * the cursor smoothly, and the click that follows a real drag is swallowed so dragging
-   * across a card never navigates to it.
+   * Drag-to-scroll across the whole strip, so the gesture works anywhere on it rather than only
+   * in the gaps between cards. Snapping is disabled mid-drag so the strip tracks the cursor
+   * smoothly, and the click that follows a real drag is swallowed so dragging across a card
+   * never navigates to it.
    */
   const dragRef = useRef(null);
 
@@ -348,14 +352,9 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
 
     return (
       <article className={cardClass}>
-        {/* touch-pan-y in carousel mode: this body scrolls vertically, but horizontal
-            gestures must fall through to the carousel strip instead of dying here. */}
-        <div
-          className={
-            'flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' +
-            (carousel ? ' touch-pan-y' : '')
-          }
-        >
+        {/* `flex-1` only to push the View link to the bottom of a stretched card — this body
+            lays its content out in full, it does not scroll. */}
+        <div className="flex flex-1 flex-col gap-3.5">
           <div className="flex items-center justify-between gap-2.5">
             <span
               className={`inline-flex min-w-[2.35rem] items-center justify-center rounded-full px-2.5 py-0.5 text-[0.68rem] font-extrabold uppercase tracking-wide ${rankClass}`}
@@ -414,15 +413,25 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
                 </span>
               ) : null}
               {p.index_focus ? <span className={BADGE_INDEX}>{p.index_focus.label}</span> : null}
+              {/* Only where direction is real: an AI-managed book carries it as a column, and a
+                  tagged one names it in its strategy. On an untagged manual portfolio the
+                  heuristic's "long" default would be a guess dressed up as a fact. */}
+              {p.direction && (p.ai_managed || p.ai_engine) ? (
+                <span className={BADGE_BY_DIRECTION[p.direction.id] || BADGE_DEFAULT}>
+                  {p.direction.label}
+                </span>
+              ) : null}
               {p.strategy_mode && p.strategy_mode !== 'manual' ? (
                 <span className={BADGE_DEFAULT}>Automated</span>
               ) : null}
             </div>
           </div>
+          {/* Four tiles: two rows of two in the narrow carousel card, one row on the wide grid
+              card — at 15.5rem a four-across row leaves no room for a six-figure equity. */}
           <dl
             className={
-              'm-0 grid grid-cols-3 gap-2 rounded-[10px] border border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.04]' +
-              (carousel ? ' px-2 py-2' : ' px-2.5 py-2.5')
+              'm-0 grid gap-2 rounded-[10px] border border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.04]' +
+              (carousel ? ' grid-cols-2 px-2 py-2' : ' grid-cols-2 px-2.5 py-2.5 sm:grid-cols-4')
             }
           >
             <div>
@@ -437,6 +446,30 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
                 {fmtPctSigned(p.total_return_pct, { decimals: 2 })}
               </dd>
             </div>
+            {/* Total return favours whichever book has run longest; the monthly average is the
+                length-adjusted read, so the two sit side by side. Null until a book is a month
+                old — an annualised figure off nine days is noise. */}
+            <div>
+              <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Monthly avg
+              </dt>
+              <dd
+                className={`m-0 mt-0.5 font-bold tabular-nums ${carousel ? 'text-[0.8rem]' : 'text-[0.9rem]'} ${
+                  p.avg_monthly_return_pct == null
+                    ? 'text-slate-400 dark:text-slate-500'
+                    : toneClass(p.avg_monthly_return_pct)
+                }`}
+                title={
+                  p.avg_monthly_return_pct == null
+                    ? 'Needs a full month of track record before an average is meaningful'
+                    : undefined
+                }
+              >
+                {p.avg_monthly_return_pct == null
+                  ? 'N/A'
+                  : fmtPctSigned(p.avg_monthly_return_pct, { decimals: 2 })}
+              </dd>
+            </div>
             <div>
               <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Equity
@@ -447,7 +480,6 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
                 {money(p.equity)}
               </dd>
             </div>
-            {/* Total return rewards whichever book has run longest, so age sits right next to it. */}
             <div>
               <dt className="m-0 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Running
@@ -466,7 +498,7 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
             <PublicPortfolioMiniChart
               history={histories[p.id] || []}
               loading={historyLoading && !(histories[p.id]?.length > 0)}
-              height={carousel ? 64 : 96}
+              height={carousel ? 64 : 86}
             />
           </div>
         </div>
