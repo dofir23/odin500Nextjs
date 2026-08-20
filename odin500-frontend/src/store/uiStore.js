@@ -21,6 +21,18 @@ export const useUiStore = create((set, get) => ({
 
   /** @type {RightRailDockPanel | null} */
   activeDockPanel: null,
+
+  /**
+   * "Ask Odin AI" panel on /virtual-portfolio.
+   *
+   * Lives here because the trigger and the panel are in different trees: the button is in
+   * AppRightRail (mounted by ProtectedLayout, on every route) while the panel belongs to
+   * PortfolioAssistantChat on the portfolio page. Local state could not span the two.
+   */
+  assistantOpen: false,
+  setAssistantOpen: (v) => set({ assistantOpen: Boolean(v) }),
+  toggleAssistant: () => set((s) => ({ assistantOpen: !s.assistantOpen })),
+
   /** @type {((action: () => void) => boolean) | null} */
   _requireLoginFn: null,
 

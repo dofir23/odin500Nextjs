@@ -6,7 +6,6 @@ import { Link, useSearchParams } from '@/navigation/appRouterCompat.jsx';
 import { FigmaPagination } from '../../components/FigmaPagination.jsx';
 import { PaperSortableTh } from '../../components/paper/PaperSortableTh.jsx';
 import { PublicPortfoliosTopSummary } from '../../components/paper/PublicPortfoliosTopSummary.jsx';
-import { AiPortfolioCreatorChat } from '../../components/paper/AiPortfolioCreatorChat.jsx';
 import { CopyPortfolioModal } from '../../components/paper/CopyPortfolioModal.jsx';
 import { ThemedDropdown } from '../../components/ThemedDropdown.jsx';
 import { usePublicPortfoliosPaged } from '../../hooks/usePublicPortfolios.js';
@@ -289,6 +288,15 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
     void refetchTop();
   };
 
+  // The creator is mounted in ProtectedLayout (so it appears on every page), not here, so the
+  // board refreshes off its broadcast rather than an onCreated prop.
+  useEffect(() => {
+    const onCreated = () => reloadAll();
+    window.addEventListener('odin-ai-portfolio-created', onCreated);
+    return () => window.removeEventListener('odin-ai-portfolio-created', onCreated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const tableHead = (
     <thead>
       <tr>
@@ -355,8 +363,6 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
       </header>
 
       {error ? <div className="paper-alert paper-alert--error">{error}</div> : null}
-
-      <AiPortfolioCreatorChat onCreated={reloadAll} />
 
       {topLoading || topRows.length > 0 ? (
         <PublicPortfoliosTopSummary

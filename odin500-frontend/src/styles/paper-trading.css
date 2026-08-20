@@ -6936,6 +6936,85 @@ body.paper-assistant--resizing iframe {
 
 /* Wraps the picker only so the hint bubble has something to anchor to. `flex: 0 0 auto`
    reproduces what .ai-portfolio-creator__engine-dd contributed as a direct flex child. */
+/* --- Launcher menu + compact mobile launcher --------------------------------- */
+
+/* The + is the mobile face of the button; the wand + label is the desktop one. */
+.ai-portfolio-creator__toggle-plus {
+  display: none;
+}
+
+.ai-portfolio-creator__menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 2;
+  min-width: 13.5rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.3rem;
+  border-radius: 12px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 44px rgba(2, 6, 23, 0.55);
+}
+
+[data-theme='light'] .ai-portfolio-creator__menu {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+}
+
+.ai-portfolio-creator__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ai-portfolio-creator__menu-item:hover {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+[data-theme='light'] .ai-portfolio-creator__menu-item {
+  color: #0f172a;
+}
+
+[data-theme='light'] .ai-portfolio-creator__menu-item:hover {
+  background: #f1f5f9;
+}
+
+@media (max-width: 640px) {
+  /* Icon-only: the labelled pill spanned most of a phone viewport. */
+  .ai-portfolio-creator__toggle .paper-assistant__toggle-text,
+  .ai-portfolio-creator__toggle .paper-assistant__toggle-sparkle:not(.ai-portfolio-creator__toggle-plus) {
+    display: none;
+  }
+
+  .ai-portfolio-creator__toggle .ai-portfolio-creator__toggle-plus {
+    display: block;
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .ai-portfolio-creator__toggle .paper-assistant__toggle-btn {
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
+    gap: 0;
+  }
+}
+
 .ai-portfolio-creator__engine-wrap {
   position: relative;
   display: inline-flex;
@@ -7562,5 +7641,56 @@ body.paper-assistant--resizing iframe {
   .ai-portfolio-creator__engine-wrap.is-hinting::before,
   .ai-portfolio-creator__engine-tip {
     animation: none;
+  }
+}
+
+/*
+ * Lift the launcher clear of the fixed bottom nav.
+ *
+ * The nav dock (.app-main-topbar__mobile-nav--dock) is fixed at bottom:0 from 900px down, and
+ * the launcher's bottom:1rem put it behind/over the bar. 58px is the dock's own height — the
+ * same figure .app-main-column uses for its bottom padding — plus the safe-area inset for
+ * home-indicator devices and a small gap.
+ *
+ * Scoped to 900px rather than 640px because the dock appears at 900px, so the gap existed
+ * across that whole band. The right rail is hidden here too, so the 4.5rem inset that cleared
+ * it is no longer needed and the button can sit near the edge.
+ *
+ * Placed last so it wins over the 640px block above, which sets bottom:1rem.
+ */
+@media (max-width: 900px) {
+  .ai-portfolio-creator__toggle {
+    right: 1rem;
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 14px);
+  }
+}
+
+/*
+ * Keep the panel clear of the fixed bottom nav on small screens.
+ *
+ * The 640px block below-ish parks the sheet at bottom:0, which put its composer (input, model
+ * picker, send) behind the nav dock — the controls you need most were the ones you could not
+ * reach. Sitting the sheet on top of the dock instead of overlapping it also stops the engine
+ * hint bubble spilling over the nav.
+ *
+ * 58px is the dock's height, the same figure .app-main-column pads by. `height` needs
+ * !important because the 640px rule sets it that way to beat the panel's inline resize style,
+ * and max-height then stops the sheet running off the top on short viewports.
+ */
+@media (max-width: 900px) {
+  .paper-assistant__panel.wl-manage-modal {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    height: min(70vh, 620px) !important;
+    max-height: calc(100dvh - 58px - env(safe-area-inset-bottom, 0px) - 16px);
+    border-radius: 16px;
+  }
+
+  /*
+   * Hide the launcher while the sheet is open: it is fixed above the sheet and floated over the
+   * content. The panel header's close button is the way out at this width.
+   */
+  .ai-portfolio-creator.paper-assistant--open .ai-portfolio-creator__toggle,
+  .ai-portfolio-creator.is-assistant-open .ai-portfolio-creator__toggle {
+    display: none;
   }
 }

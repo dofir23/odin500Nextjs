@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, Sparkles } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { usePortfolioAssistant } from '../../hooks/usePortfolioAssistant.js';
+import { useUiStore } from '../../store/uiStore.js';
 import { ModalCloseIcon } from '../ModalCloseIcon.jsx';
 
 const SUGGESTIONS = [
@@ -227,7 +228,13 @@ export function PortfolioAssistantChat({
   loadExecutionLog,
   onApplied
 }) {
-  const [open, setOpen] = useState(false);
+  // Driven from the right-rail button, which lives in a different tree — see uiStore.
+  const open = useUiStore((s) => s.assistantOpen);
+  const setAssistantOpen = useUiStore((s) => s.setAssistantOpen);
+  const setOpen = setAssistantOpen;
+
+  // The panel is scoped to this page; leaving it must not strand the state as open.
+  useEffect(() => () => setAssistantOpen(false), [setAssistantOpen]);
   const [chipsExpanded, setChipsExpanded] = useState(false);
   const [draft, setDraft] = useState('');
   const [applyBusyId, setApplyBusyId] = useState('');
@@ -373,22 +380,6 @@ export function PortfolioAssistantChat({
 
   return (
     <div className={'paper-assistant' + (open ? ' paper-assistant--open' : '')}>
-      <div className="paper-assistant__toggle" role="group" aria-label="Ask Odin AI">
-        <button
-          type="button"
-          className={
-            'paper-assistant__toggle-btn' + (open ? ' paper-assistant__toggle-btn--active' : '')
-          }
-          aria-expanded={open}
-          aria-controls="paper-assistant-panel"
-          title="Ask Odin AI"
-          onClick={() => setOpen((v) => !v)}
-        >
-          <Sparkles className="paper-assistant__toggle-sparkle" strokeWidth={2.25} aria-hidden />
-          <span className="paper-assistant__toggle-text">Ask Odin AI</span>
-        </button>
-      </div>
-
       {open ? (
         <section
           id="paper-assistant-panel"

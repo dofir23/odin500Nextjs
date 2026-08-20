@@ -16,6 +16,7 @@ import { MarketMoversRailFlyout } from './MarketMoversRailFlyout.jsx';
 import { notifyChartFullscreenLayout } from '../utils/chartFullscreenLayout.js';
 import { RouteNavigationGate } from './RouteNavigationGate.jsx';
 import { RouteErrorBoundary } from './RouteErrorBoundary.jsx';
+import { AiPortfolioCreatorChat } from './paper/AiPortfolioCreatorChat.jsx';
 
 function ProtectedLayoutShell({ children, serverNav = null }) {
   const location = useLocation();
@@ -166,6 +167,13 @@ function ProtectedLayoutShell({ children, serverNav = null }) {
         </div>
         <AppRightRail mobileOpen={isMobile && mobileRightOpen} onRequestClose={closeMobileRightRail} />
       </div>
+      {/*
+        Sits in the layout rather than on /virtual-portfolio/ai so the launcher is reachable from
+        every content page at one fixed spot. Its `right: 4.5rem` already clears the 68px right
+        rail, which is the chrome this layout provides, so the position holds on all of them.
+        Mounted last: it is fixed-position and should stack above the rails.
+      */}
+      <AiPortfolioCreatorChat />
     </div>
   );
 }

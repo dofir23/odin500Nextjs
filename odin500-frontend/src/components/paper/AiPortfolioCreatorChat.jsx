@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Wand2, Plus, Send } from 'lucide-react';
-import { useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { Wand2, Plus, Send, MessageCircleQuestion } from 'lucide-react';
+import { useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { ModalCloseIcon } from '../ModalCloseIcon.jsx';
 import { apiUrl } from '../../utils/apiOrigin.js';
 import { ThemedDropdown } from '../ThemedDropdown.jsx';
@@ -10,6 +10,14 @@ import { useAiEngines, useAiPortfolioCreator } from '../../hooks/useAiPortfolioC
 import { usePaperSessionStore } from '../../store/paperSessionStore.js';
 import { useIsLoggedIn } from '../../hooks/useIsLoggedIn.js';
 import { useLoginGateOptional } from '../../context/LoginGateContext.jsx';
+import { useUiStore } from '../../store/uiStore.js';
+/**
+ * This component is mounted by ProtectedLayout, so it renders on every app page — but its
+ * styles live in the paper stylesheet, which only the paper views imported. On /market and the
+ * rest the launcher was shipping completely unstyled. Importing here ties the stylesheet to the
+ * component that needs it; Next dedupes it on pages that already pull it in.
+ */
+import '../../styles/paper-trading.css';
 
 const ENGINE_LABELS = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini' };
 const ENGINE_ORDER = ['claude', 'chatgpt', 'gemini'];
@@ -620,6 +628,57 @@ export function AiPortfolioCreatorChat({ onCreated }) {
   }, [open, requestClose]);
 
   /**
+   * On /virtual-portfolio the launcher is the single AI entry point, because two assistants live
+   * there ("Create AI portfolio" and "Ask Odin AI") and two floating buttons crowd the screen.
+   * Pressing it opens a two-item menu instead of going straight into the creator; on every other
+   * route there is only one action, so it opens the creator directly with no extra tap.
+   */
+  const location = useLocation();
+  const onPortfolioPage =
+    String(location?.pathname || '').replace(/\/+$/, '') === '/virtual-portfolio';
+  const setAssistantOpen = useUiStore((s) => s.setAssistantOpen);
+  // Needed only so the launcher can get out of the way of the assistant's sheet on mobile.
+  const assistantOpen = useUiStore((s) => s.assistantOpen);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuWrapRef = useRef(null);
+
+  const launcherLabel = onPortfolioPage ? 'Odin AI' : 'Create AI Portfolio';
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onDown = (e) => {
+      if (menuWrapRef.current && !menuWrapRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  // The menu only exists on the portfolio page; leaving must not strand it open.
+  useEffect(() => {
+    if (!onPortfolioPage) setMenuOpen(false);
+  }, [onPortfolioPage]);
+
+  const onLauncherClick = useCallback(() => {
+    if (!loggedIn) {
+      loginGate?.showLoginRequired({ returnTo: '/virtual-portfolio/ai' });
+      return;
+    }
+    if (onPortfolioPage) {
+      setMenuOpen((v) => !v);
+      return;
+    }
+    if (open) requestClose();
+    else setOpen(true);
+  }, [loggedIn, loginGate, onPortfolioPage, open, requestClose]);
+
+  /**
    * The model picker sits among the composer's icon buttons, where first-time users miss it.
    * Nudge it once per opening and then get out of the way — it is a hint, not a dialog.
    * Waits for engines to resolve, so it never points at a disabled control.
@@ -823,6 +882,9 @@ export function AiPortfolioCreatorChat({ onCreated }) {
       resetAll();
       setOpen(false);
       onCreated?.(account);
+      // The launcher lives in ProtectedLayout now, so pages that want to refresh after a
+      // portfolio is created can no longer be handed a callback — they listen for this instead.
+      window.dispatchEvent(new CustomEvent('odin-ai-portfolio-created', { detail: account }));
       // Not published yet (that's an explicit later step) — go to the private dashboard,
       // not the public detail page, since the public page 404s until it's published.
       usePaperSessionStore.getState().setActiveAccountId(account.id);
@@ -835,25 +897,70 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     !wizardComplete && !awaitingStep && anyEngineConfigured && wizardLog.length <= 1 && messages.length === 0;
 
   return (
-    <div className={'paper-assistant ai-portfolio-creator' + (open ? ' paper-assistant--open' : '')}>
-      <div className="paper-assistant__toggle ai-portfolio-creator__toggle" role="group" aria-label="Create AI portfolio">
+    <div
+      className={
+        'paper-assistant ai-portfolio-creator' +
+        (open ? ' paper-assistant--open' : '') +
+        (assistantOpen ? ' is-assistant-open' : '')
+      }
+    >
+      <div
+        className="paper-assistant__toggle ai-portfolio-creator__toggle"
+        role="group"
+        aria-label={onPortfolioPage ? 'Odin AI' : 'Create AI portfolio'}
+        ref={menuWrapRef}
+      >
+        {menuOpen ? (
+          <div className="ai-portfolio-creator__menu" role="menu" aria-label="Odin AI actions">
+            <button
+              type="button"
+              role="menuitem"
+              className="ai-portfolio-creator__menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                setAssistantOpen(false);
+                setOpen(true);
+              }}
+            >
+              <Wand2 size={16} strokeWidth={2.25} aria-hidden />
+              Create AI portfolio
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="ai-portfolio-creator__menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                if (open) requestClose();
+                setAssistantOpen(true);
+              }}
+            >
+              <MessageCircleQuestion size={16} strokeWidth={2.25} aria-hidden />
+              Ask Odin AI
+            </button>
+          </div>
+        ) : null}
         <button
           type="button"
-          className={'paper-assistant__toggle-btn' + (open ? ' paper-assistant__toggle-btn--active' : '')}
-          aria-expanded={open}
-          aria-controls="ai-portfolio-creator-panel"
-          title="Create AI Portfolio"
-          onClick={() => {
-            if (!loggedIn) {
-              loginGate?.showLoginRequired({ returnTo: '/virtual-portfolio/ai' });
-              return;
-            }
-            if (open) requestClose();
-            else setOpen(true);
-          }}
+          className={
+            'paper-assistant__toggle-btn' +
+            (open || menuOpen ? ' paper-assistant__toggle-btn--active' : '')
+          }
+          aria-expanded={onPortfolioPage ? menuOpen : open}
+          aria-haspopup={onPortfolioPage ? 'menu' : undefined}
+          aria-controls={onPortfolioPage ? undefined : 'ai-portfolio-creator-panel'}
+          title={onPortfolioPage ? 'Odin AI' : 'Create AI Portfolio'}
+          onClick={onLauncherClick}
         >
+          {/* Wand + label on desktop; a bare + on narrow screens, where the pill's text made it
+              span most of the viewport. CSS swaps them so there is no breakpoint state in JS. */}
           <Wand2 className="paper-assistant__toggle-sparkle" strokeWidth={2.25} aria-hidden />
-          <span className="paper-assistant__toggle-text">Create AI Portfolio</span>
+          <Plus
+            className="paper-assistant__toggle-sparkle ai-portfolio-creator__toggle-plus"
+            strokeWidth={2.5}
+            aria-hidden
+          />
+          <span className="paper-assistant__toggle-text">{launcherLabel}</span>
         </button>
       </div>
 
@@ -1071,7 +1178,7 @@ export function AiPortfolioCreatorChat({ onCreated }) {
                 disabled={!engineOptions.length}
               />
               {showEngineHint ? (
-                <span className="ai-portfolio-creator__engine-tip" role="status">
+                <span className="ai-portfolio-creator__engine-tip ml-2" role="status">
                   Choose your AI model
                 </span>
               ) : null}

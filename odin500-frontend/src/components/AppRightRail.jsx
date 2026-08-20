@@ -1,14 +1,33 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from '@/navigation/appRouterCompat.jsx';
+import { useLocation, useNavigate } from '@/navigation/appRouterCompat.jsx';
 import { useRightRailDock } from '../context/WatchlistDockContext.jsx';
 import { useHeaderProfile } from '../hooks/useHeaderProfile.js';
 import { useNotifications } from '../hooks/useNotifications.js';
 import { getAuthToken } from '../store/apiStore.js';
+import { useUiStore } from '../store/uiStore.js';
 
 /**
  * Fixed narrow right rail (Figma): always visible, not expandable.
  */
+/** AI assistant: a four-point sparkle with a smaller companion, matching the rail icon style. */
+function IcoAiSparkle() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M13.2 3.2l1.6 4.3 4.3 1.6-4.3 1.6-1.6 4.3-1.6-4.3L7.3 9.1l4.3-1.6 1.6-4.3z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.6 14.4l.85 2.25 2.25.85-2.25.85L6.6 20.6l-.85-2.25-2.25-.85 2.25-.85.85-2.25z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function IcoUser() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -110,7 +129,13 @@ function IcoOdinSignals() {
 
 export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const dock = useRightRailDock();
+  const assistantOpen = useUiStore((s) => s.assistantOpen);
+  const toggleAssistant = useUiStore((s) => s.toggleAssistant);
+  // The assistant panel only exists on the private portfolio page, so its trigger only belongs
+  // there — the rail itself is rendered by ProtectedLayout on every route.
+  const showAssistant = String(location?.pathname || '').replace(/\/+$/, '') === '/virtual-portfolio';
   const [profileOpen, setProfileOpen] = useState(false);
   const profileWrapRef = useRef(null);
   const { loggedIn, profileName, initials, avatarUrl, handleSignOut, goToSignIn } =
@@ -289,6 +314,25 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
               <span className="app-right-rail__notify-dot" aria-hidden />
             ) : null}
           </button>
+          {showAssistant ? (
+            <button
+              type="button"
+              className={
+                'app-right-rail__btn app-right-rail__btn--assistant bg-[#2563eb]' +
+                (assistantOpen ? ' app-right-rail__btn--active' : '')
+              }
+              title="Ask Odin AI"
+              aria-label="Ask Odin AI"
+              aria-expanded={assistantOpen}
+              aria-controls="paper-assistant-panel"
+              onClick={() => {
+                setProfileOpen(false);
+                toggleAssistant();
+              }}
+            >
+              <IcoAiSparkle />
+            </button>
+          ) : null}
         </div>
       </aside>
     </>
