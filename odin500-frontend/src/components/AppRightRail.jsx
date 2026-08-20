@@ -314,7 +314,7 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
               <span className="app-right-rail__notify-dot" aria-hidden />
             ) : null}
           </button>
-          {showAssistant ? (
+          {/* {showAssistant ? (
             <button
               type="button"
               className={
@@ -332,7 +332,7 @@ export function AppRightRail({ mobileOpen = false, onRequestClose = null }) {
             >
               <IcoAiSparkle />
             </button>
-          ) : null}
+          ) : null} */}
         </div>
       </aside>
     </>
