@@ -9,7 +9,9 @@ const VISIBLE_H1: Record<string, string> = {
   '/newsletter': 'Weekly U.S. market newsletter',
   '/premium': 'Simple pricing',
   '/virtual-portfolio': 'Virtual portfolio simulator',
-  '/virtual-portfolio/public': 'Public virtual portfolios',
+  /** Must match the client view's own H1 (PublicPortfoliosPage.jsx) — the client layer
+   *  replaces the SSR layer after hydration, so a mismatch shows Google a different H1. */
+  '/virtual-portfolio/public': 'Published Portfolios',
   '/virtual-portfolio/ai': 'AI stock portfolios — Claude & ChatGPT',
   '/virtual-portfolio/ai/users': 'User AI Portfolios',
   '/virtual-portfolio/ai/compare': 'Compare AI Portfolios',

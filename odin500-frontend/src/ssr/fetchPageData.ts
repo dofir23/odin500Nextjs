@@ -7,6 +7,7 @@ import {
   uniqueMarketSummaryTickers
 } from '@/utils/marketReturnsTable.js';
 import { fetchNewsPageData, type NewsPageInitialData } from '@/ssr/fetchNews';
+import { cache } from 'react';
 import { getMarketJson, postMarketJson } from '@/ssr/serverMarketFetch';
 import { rowDateToTimeKey } from '@/utils/chartData.js';
 
@@ -105,6 +106,19 @@ export type AiPortfolioRow = {
 export type AiPortfoliosInitialData = {
   rows: AiPortfolioRow[];
   /** Total published AI-managed books, so the page can say "top 5 of N". */
+  total: number;
+};
+
+export type AiPortfolioEngineGroup = {
+  /** Raw engine key ('claude' | 'chatgpt' | 'gemini' | anything the API adds later). */
+  engine: string;
+  /** Top books for this model by total return; empty when the model has none published. */
+  rows: AiPortfolioRow[];
+};
+
+export type AiPortfolioCompareInitialData = {
+  groups: AiPortfolioEngineGroup[];
+  /** Published AI-managed books across all models, so the page can size the sample. */
   total: number;
 };
 
@@ -481,6 +495,39 @@ export async function fetchIndexPageData(
   };
 }
 
+export type TickerIdentity = {
+  symbol: string;
+  /** Company name from the constituents list, or null when the symbol is not covered. */
+  companyName: string | null;
+  row: Record<string, unknown> | null;
+};
+
+/**
+ * Company name for a symbol, for titles/descriptions/H1s.
+ *
+ * `cache()` is what makes this affordable: generateMetadata and the page body both need it, and
+ * they run in the same request, so React dedupes them to a single upstream call. It cannot be
+ * folded into fetchTickerPageData because metadata must not pay for that function's seven POSTs
+ * — and Next only dedupes GET, so those would genuinely run twice.
+ *
+ * Coverage is the index constituents list (~502 rows), so ETFs and anything off-index return
+ * null. Callers must fall back to the symbol-only copy rather than rendering an empty name.
+ */
+export const getTickerIdentity = cache(async (symbol: string): Promise<TickerIdentity> => {
+  const sym = sanitizeSymbol(symbol);
+  try {
+    const res = await postMarketJson('/api/market/ticker-details', {
+      index: 'sp500',
+      period: 'last-date'
+    });
+    const row = findTickerDetailRow(res, sym);
+    const name = String(row?.security || row?.Security || '').trim();
+    return { symbol: sym, companyName: name || null, row };
+  } catch {
+    return { symbol: sym, companyName: null, row: null };
+  }
+});
+
 export async function fetchTickerPageData(symbol: string): Promise<TickerPageInitialData | null> {
   const sym = sanitizeSymbol(symbol);
   const body = tickerCoreBody(sym);
@@ -489,7 +536,7 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
   oneYearStart.setFullYear(oneYearStart.getFullYear() - 1);
   const ohlcStart = oneYearStart.toISOString().slice(0, 10);
 
-  const [coreRes, spyRes, annualRes, quarterlyRes, monthlyRes, signalRes, detailsRes] =
+  const [coreRes, spyRes, annualRes, quarterlyRes, monthlyRes, signalRes, identity] =
     await Promise.all([
       postMarketJson('/api/market/ticker-core-returns', body),
       postMarketJson('/api/market/ticker-core-returns', { ...body, ticker: BENCHMARK }),
@@ -501,7 +548,8 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
         start_date: ohlcStart,
         end_date: end
       }),
-      postMarketJson('/api/market/ticker-details', { index: 'sp500', period: 'last-date' })
+      // Same cached lookup generateMetadata uses, so the constituents list is fetched once.
+      getTickerIdentity(sym)
     ]);
 
   if (!coreRes && !spyRes) return null;
@@ -520,7 +568,7 @@ export async function fetchTickerPageData(symbol: string): Promise<TickerPageIni
     asOfDate: String(returnsSym?.asOfDate || coreRes?.asOfDate || end).slice(0, 10),
     ohlcRows: signalRows,
     ohlcSignalRows: signalRows,
-    tickerDetail: findTickerDetailRow(detailsRes, sym)
+    tickerDetail: identity.row
   };
 }
 
@@ -600,26 +648,17 @@ function num(v: unknown): number | null {
 }
 
 /**
- * Published AI-managed portfolios for SSR. Uses the public paper endpoint (no auth), so the
- * leaderboard lands in crawlable HTML instead of only appearing after client fetch.
+ * Shared shape mapper for the published AI-portfolio listing endpoint.
  *
  * `ai_only=1` still returns hand-run books, so filter on `ai_managed` rather than trusting the
  * flag — `strategy_mode` reads "manual" even on AI-managed rows and cannot be used for this.
  */
-export async function fetchAiPortfoliosPageData(
-  limit = 25
-): Promise<AiPortfoliosInitialData | null> {
-  const capped = Math.max(1, Math.min(50, Math.trunc(limit) || 25));
-  const payload = await getMarketJson(
-    `/api/public/paper/portfolios?page=1&page_size=50&ai_only=1` +
-      `&sort=total_return_pct&dir=desc`
-  );
-
+function mapAiPortfolioRows(payload: Record<string, unknown> | null, cap: number): AiPortfolioRow[] {
   const list = Array.isArray(payload?.portfolios) ? payload.portfolios : [];
-  const rows: AiPortfolioRow[] = list
+  return list
     .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
     .filter((r) => r.ai_managed === true)
-    .slice(0, capped)
+    .slice(0, cap)
     .map((r) => ({
       id: String(r.id || ''),
       name: String(r.name || '').trim() || 'Untitled portfolio',
@@ -637,9 +676,76 @@ export async function fetchAiPortfoliosPageData(
       publish_description:
         r.publish_description == null ? null : String(r.publish_description)
     }));
+}
 
+/**
+ * Published AI-managed portfolios for SSR. Uses the public paper endpoint (no auth), so the
+ * leaderboard lands in crawlable HTML instead of only appearing after client fetch.
+ */
+export async function fetchAiPortfoliosPageData(
+  limit = 25
+): Promise<AiPortfoliosInitialData | null> {
+  const capped = Math.max(1, Math.min(50, Math.trunc(limit) || 25));
+  const payload = await getMarketJson(
+    `/api/public/paper/portfolios?page=1&page_size=50&ai_only=1` +
+      `&sort=total_return_pct&dir=desc`
+  );
+
+  const rows = mapAiPortfolioRows(payload, capped);
   if (!rows.length) return null;
   return { rows, total: rows.length };
+}
+
+/**
+ * Per-model breakdown for /virtual-portfolio/ai/compare.
+ *
+ * The compare page is selection-driven — its chart is empty until the reader picks series, so
+ * there was nothing for a crawler to read beyond static copy. This supplies the exact content the
+ * page's own FAQ already promises: each model's best published books by total return, with the
+ * three known engines always present (empty rather than hidden) so the sections stay stable.
+ *
+ * One request serves every group; the API already sorts by total return descending, so taking the
+ * first N rows per engine while walking the list yields each model's top N without a second sort.
+ */
+const COMPARE_ENGINE_ORDER = ['claude', 'chatgpt', 'gemini'];
+
+export async function fetchAiPortfolioComparePageData(
+  perEngine = 5
+): Promise<AiPortfolioCompareInitialData | null> {
+  const capped = Math.max(1, Math.min(10, Math.trunc(perEngine) || 5));
+  // The endpoint clamps page_size to 50 (a request for 100 comes back reporting page_size: 50),
+  // so this takes the top 50 books by return in one call. A model whose every book sits below
+  // that cut would render an empty section; with the published set well under 50 that is not yet
+  // reachable, and paging the whole list for a top-5-per-model table would not earn the requests.
+  const payload = await getMarketJson(
+    `/api/public/paper/portfolios?page=1&page_size=50&ai_only=1` +
+      `&sort=total_return_pct&dir=desc`
+  );
+
+  const rows = mapAiPortfolioRows(payload, 50);
+  if (!rows.length) return null;
+
+  const byEngine = new Map<string, AiPortfolioRow[]>();
+  for (const key of COMPARE_ENGINE_ORDER) byEngine.set(key, []);
+  for (const row of rows) {
+    const key = String(row.ai_engine || '').trim().toLowerCase();
+    if (!key) continue;
+    const list = byEngine.get(key);
+    if (!list) {
+      byEngine.set(key, [row]);
+      continue;
+    }
+    if (list.length < capped) list.push(row);
+  }
+
+  // Known engines keep a fixed order so the sections do not reshuffle between rebuilds.
+  const extras = [...byEngine.keys()].filter((k) => !COMPARE_ENGINE_ORDER.includes(k)).sort();
+  const groups = [...COMPARE_ENGINE_ORDER, ...extras].map((engine) => ({
+    engine,
+    rows: (byEngine.get(engine) || []).slice(0, capped)
+  }));
+
+  return { groups, total: rows.length };
 }
 
 export async function fetchTickerReportPageData(

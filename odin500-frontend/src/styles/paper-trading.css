@@ -19,7 +19,7 @@
   max-width: 100%;
   min-width: 0;
   margin: 0 auto;
-  padding: 20px 14px 34px;
+  padding: 20px 14px 0px;
   box-sizing: border-box;
   overflow-x: clip;
   color: var(--paper-text);
@@ -41,7 +41,8 @@
 /* Scrollbars — match strategy watchlist (5px thumb, dark + light) */
 .paper-strategy-wizard,
 .paper-rule-edit-modal,
-.paper-pos-order-modal {
+.paper-pos-order-modal,
+.paper-assistant__panel {
   --paper-scroll-thumb: rgba(148, 163, 184, 0.38);
   --paper-scroll-track: #ffffff08;
   --paper-accent: #3b82f6;
@@ -49,7 +50,8 @@
 
 [data-theme='light'] .paper-strategy-wizard,
 [data-theme='light'] .paper-rule-edit-modal,
-[data-theme='light'] .paper-pos-order-modal {
+[data-theme='light'] .paper-pos-order-modal,
+[data-theme='light'] .paper-assistant__panel {
   --paper-scroll-thumb: rgba(100, 116, 139, 0.42);
   --paper-scroll-track: rgba(226, 232, 240, 0.85);
 }
@@ -63,7 +65,9 @@
 .paper-pos-order-modal .wl-manage-modal__body,
 .paper-checkbox-dropdown__menu,
 .paper-page .paper-table-wrap,
-.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect {
+.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect,
+.paper-assistant__panel .paper-assistant__messages,
+.paper-assistant__panel .paper-assistant__input {
   scrollbar-width: thin;
   scrollbar-color: var(--paper-scroll-thumb) var(--paper-scroll-track);
   -webkit-overflow-scrolling: touch;
@@ -78,7 +82,9 @@
 .paper-pos-order-modal .wl-manage-modal__body::-webkit-scrollbar,
 .paper-checkbox-dropdown__menu::-webkit-scrollbar,
 .paper-page .paper-table-wrap::-webkit-scrollbar,
-.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar {
+.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar,
+.paper-assistant__panel .paper-assistant__messages::-webkit-scrollbar,
+.paper-assistant__panel .paper-assistant__input::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
@@ -92,7 +98,9 @@
 .paper-pos-order-modal .wl-manage-modal__body::-webkit-scrollbar-track,
 .paper-checkbox-dropdown__menu::-webkit-scrollbar-track,
 .paper-page .paper-table-wrap::-webkit-scrollbar-track,
-.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar-track {
+.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar-track,
+.paper-assistant__panel .paper-assistant__messages::-webkit-scrollbar-track,
+.paper-assistant__panel .paper-assistant__input::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -105,7 +113,9 @@
 .paper-pos-order-modal .wl-manage-modal__body::-webkit-scrollbar-thumb,
 .paper-checkbox-dropdown__menu::-webkit-scrollbar-thumb,
 .paper-page .paper-table-wrap::-webkit-scrollbar-thumb,
-.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar-thumb {
+.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar-thumb,
+.paper-assistant__panel .paper-assistant__messages::-webkit-scrollbar-thumb,
+.paper-assistant__panel .paper-assistant__input::-webkit-scrollbar-thumb {
   background: var(--paper-scroll-thumb);
   border-radius: 999px;
 }
@@ -119,7 +129,9 @@
 .paper-pos-order-modal .wl-manage-modal__body::-webkit-scrollbar-thumb:hover,
 .paper-checkbox-dropdown__menu::-webkit-scrollbar-thumb:hover,
 .paper-page .paper-table-wrap::-webkit-scrollbar-thumb:hover,
-.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar-thumb:hover {
+.paper-strategy-rule-form .ticker-symbol-search__dropdown--multiselect::-webkit-scrollbar-thumb:hover,
+.paper-assistant__panel .paper-assistant__messages::-webkit-scrollbar-thumb:hover,
+.paper-assistant__panel .paper-assistant__input::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--paper-scroll-thumb) 85%, var(--paper-accent) 15%);
 }
 
@@ -5975,13 +5987,55 @@
   border-color: rgba(56, 189, 248, 0.32);
 }
 
-/* Short exposure is the one piece of quiet metadata worth flagging — it changes how a
-   return should be read, so it gets a tint while Long stays neutral. */
-.paper-tag--direction[data-direction='short'],
+/*
+ * Index chips. Each index gets its own hue for the same reason the engines do: a row of
+ * uniformly grey chips forces you to read every label to tell two books apart. Kept in the
+ * violet/blue/magenta family so index never reads as an engine (amber/green/sky) or a
+ * direction (green/red/teal).
+ *
+ * This palette is the reference for every surface: PublicPortfoliosTopSummary.jsx (cards) and
+ * home-page.css (homepage strip) mirror these hues. Change one, change all three.
+ */
+.paper-tag--index[data-index='sp500'] {
+  background: rgba(139, 92, 246, 0.16);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.32);
+}
+
+.paper-tag--index[data-index='dow'] {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.32);
+}
+
+.paper-tag--index[data-index='nasdaq'] {
+  background: rgba(217, 70, 239, 0.16);
+  color: #f0abfc;
+  border-color: rgba(217, 70, 239, 0.32);
+}
+
+/*
+ * Direction chips. Colour carries the meaning here, so it follows the market convention the
+ * rest of the app uses: green long, red short, and teal for a hedged long-short that is
+ * neither. Long used to be left neutral grey and short/long-short shared one pink, which made
+ * the two short variants — genuinely different strategies — indistinguishable.
+ */
+.paper-tag--direction[data-direction='long'] {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.32);
+}
+
+.paper-tag--direction[data-direction='short'] {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.32);
+}
+
 .paper-tag--direction[data-direction='long_short'] {
-  background: rgba(244, 114, 182, 0.13);
-  color: #f9a8d4;
-  border-color: rgba(244, 114, 182, 0.26);
+  background: rgba(20, 184, 166, 0.16);
+  color: #5eead4;
+  border-color: rgba(20, 184, 166, 0.32);
 }
 
 .paper-public-table__owner + .paper-tag {
@@ -6077,11 +6131,40 @@
   border-color: rgba(2, 132, 199, 0.24);
 }
 
-[data-theme='light'] .paper-tag--direction[data-direction='short'],
+[data-theme='light'] .paper-tag--index[data-index='sp500'] {
+  background: rgba(124, 58, 237, 0.1);
+  color: #6d28d9;
+  border-color: rgba(124, 58, 237, 0.24);
+}
+
+[data-theme='light'] .paper-tag--index[data-index='dow'] {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+[data-theme='light'] .paper-tag--index[data-index='nasdaq'] {
+  background: rgba(192, 38, 211, 0.1);
+  color: #a21caf;
+  border-color: rgba(192, 38, 211, 0.24);
+}
+
+[data-theme='light'] .paper-tag--direction[data-direction='long'] {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.24);
+}
+
+[data-theme='light'] .paper-tag--direction[data-direction='short'] {
+  background: rgba(225, 29, 72, 0.09);
+  color: #be123c;
+  border-color: rgba(225, 29, 72, 0.22);
+}
+
 [data-theme='light'] .paper-tag--direction[data-direction='long_short'] {
-  background: rgba(219, 39, 119, 0.09);
-  color: #be185d;
-  border-color: rgba(219, 39, 119, 0.22);
+  background: rgba(13, 148, 136, 0.1);
+  color: #0f766e;
+  border-color: rgba(13, 148, 136, 0.24);
 }
 
 [data-theme='light'] .paper-public-table__count {
@@ -6417,6 +6500,38 @@
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
   color: #f1f5f9;
   overflow: hidden;
+  /* Grows out of the launcher button in the bottom-right corner it is anchored to. */
+  transform-origin: bottom right;
+  animation: ai-creator-panel-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Exit is deliberately quicker than entry, and shorter than PANEL_CLOSE_MS in
+   AiPortfolioCreatorChat.jsx so the panel is fully faded before React unmounts it. */
+.paper-assistant__panel.wl-manage-modal.paper-assistant__panel--closing {
+  animation: ai-creator-panel-out 0.17s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
+@keyframes ai-creator-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ai-creator-panel-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.98);
+  }
 }
 
 body.paper-assistant--resizing {
@@ -6815,9 +6930,87 @@ body.paper-assistant--resizing iframe {
   outline-offset: 1px;
 }
 
+/* Composer keeps its single row: model picker and attach sit to the left of the textarea,
+   send to the right, in DOM order. No `order`/`flex-wrap` here on purpose — the textarea's
+   own `flex: 1 1 auto` is what lets it take every pixel the controls do not need. */
+
+/* Wraps the picker only so the hint bubble has something to anchor to. `flex: 0 0 auto`
+   reproduces what .ai-portfolio-creator__engine-dd contributed as a direct flex child. */
+.ai-portfolio-creator__engine-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 .ai-portfolio-creator__engine-dd {
   flex: 0 0 auto;
   max-width: 6.75rem;
+}
+
+/* --- Engine picker nudge -------------------------------------------------- */
+
+/* Ring pulses a few times, then settles — enough to catch the eye without becoming decoration
+   that never stops moving. Drawn on a pseudo-element so it cannot affect dropdown layout. */
+.ai-portfolio-creator__engine-wrap.is-hinting::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 12px;
+  pointer-events: none;
+  animation: ai-creator-engine-pulse 1.15s ease-out 3;
+}
+
+.ai-portfolio-creator__engine-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 3;
+  padding: 0.3rem 0.55rem;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.45);
+  pointer-events: none;
+  transform-origin: bottom center;
+  animation: ai-creator-tip-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Arrow pointing down at the picker. */
+.ai-portfolio-creator__engine-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -4px;
+  border: 4px solid transparent;
+  border-top-color: #2563eb;
+}
+
+@keyframes ai-creator-engine-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(37, 99, 235, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
+
+@keyframes ai-creator-tip-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .ai-portfolio-creator__template-hint {
@@ -6889,6 +7082,35 @@ body.paper-assistant--resizing iframe {
     max-width: 100vw;
     max-height: 85vh;
     border-radius: 16px 16px 0 0;
+    /* Bottom sheet at this width — a corner scale would look wrong edge-to-edge. */
+    transform-origin: bottom center;
+    animation-name: ai-creator-sheet-in;
+  }
+
+  .paper-assistant__panel.wl-manage-modal.paper-assistant__panel--closing {
+    animation-name: ai-creator-sheet-out;
+  }
+
+  @keyframes ai-creator-sheet-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 100%, 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes ai-creator-sheet-out {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, 100%, 0);
+    }
   }
 
   .paper-assistant__resize {
@@ -7041,6 +7263,20 @@ body.paper-assistant--resizing iframe {
   flex-direction: column;
   gap: 0.7rem;
   min-width: 0;
+}
+
+/*
+ * Keep the chart at its natural height inside this column.
+ *
+ * .mkt-center caps itself at calc(100dvh - 60px) and scrolls. On /market it is a grid, whose
+ * rows size to content; here .ai-cmp-main re-declares it as a flex column, and flex children
+ * shrink to fit before the container ever scrolls. That squashed .np-card, and because the card
+ * clips (overflow: hidden) the part lost off the bottom of the canvas was the time axis — so the
+ * chart had no dates and the crosshair had nowhere to draw its date label. Letting the children
+ * keep their height hands the overflow back to .mkt-center, which is built to scroll.
+ */
+.ai-cmp-main > * {
+  flex-shrink: 0;
 }
 
 .ai-cmp-note {
@@ -7316,5 +7552,15 @@ body.paper-assistant--resizing iframe {
   .paper-search {
     flex: 1 1 auto;
     width: 100%;
+  }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-assistant__panel.wl-manage-modal,
+  .paper-assistant__panel.wl-manage-modal.paper-assistant__panel--closing,
+  .ai-portfolio-creator__engine-wrap.is-hinting::before,
+  .ai-portfolio-creator__engine-tip {
+    animation: none;
   }
 }

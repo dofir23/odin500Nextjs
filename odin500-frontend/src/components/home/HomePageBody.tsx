@@ -17,14 +17,27 @@ import {
 import { HomeMarketingImage } from './HomeMarketingImage';
 import { HomeAiPortfoliosLive } from './HomeAiPortfoliosLive';
 
-export function HomePageBody() {
+type HomePageBodyProps = {
+  /**
+   * Namespace for every id this subtree emits.
+   *
+   * FullSsrPage mounts the server copy and the client copy at the same time, so without a
+   * prefix each id existed twice (WCAG 4.1.1). That is not only a validator complaint: an
+   * `aria-labelledby` reference resolves to the FIRST matching id in the document, so every
+   * labelled section pointed at the hidden layer's heading rather than its own.
+   */
+  idPrefix?: string;
+};
+
+export function HomePageBody({ idPrefix = '' }: HomePageBodyProps) {
+  const uid = (name: string) => `${idPrefix}${name}`;
   return (
     <>
-      <main className="home-main" id="main-content">
-        <section className="home-hero" aria-labelledby="home-hero-title">
+      <main className="home-main" id={uid('main-content')}>
+        <section className="home-hero" aria-labelledby={uid('home-hero-title')}>
           <div className="home-hero__copy">
             <p className="home-hero__eyebrow">{HOME_HERO.eyebrow}</p>
-            <h1 id="home-hero-title" className="home-hero__title">
+            <h1 id={uid('home-hero-title')} className="home-hero__title">
               {HOME_HERO.title}
             </h1>
             <p className="home-hero__subtitle">{HOME_HERO.subtitle}</p>
@@ -48,8 +61,8 @@ export function HomePageBody() {
           />
         </section>
 
-        <section className="home-ai-portfolios" aria-labelledby="home-ai-portfolios-title">
-          <h2 id="home-ai-portfolios-title" className="home-section-title home-section-title--center">
+        <section className="home-ai-portfolios" aria-labelledby={uid('home-ai-portfolios-title')}>
+          <h2 id={uid('home-ai-portfolios-title')} className="home-section-title home-section-title--center">
             {HOME_AI_PORTFOLIOS.title}
           </h2>
           <p className="home-section-lead home-section-lead--center">{HOME_AI_PORTFOLIOS.lead}</p>
@@ -84,8 +97,8 @@ export function HomePageBody() {
           </div>
         </section>
 
-        <section className="home-pillars" aria-labelledby="home-pillars-title">
-          <h2 id="home-pillars-title" className="home-section-title home-section-title--center">
+        <section className="home-pillars" aria-labelledby={uid('home-pillars-title')}>
+          <h2 id={uid('home-pillars-title')} className="home-section-title home-section-title--center">
             Built for investors, by market-data practitioners
           </h2>
           <div className="home-pillars__grid">
@@ -98,8 +111,8 @@ export function HomePageBody() {
           </div>
         </section>
 
-        <section className="home-showcase" aria-labelledby="home-showcase-title">
-          <h2 id="home-showcase-title" className="home-section-title home-section-title--center">
+        <section className="home-showcase" aria-labelledby={uid('home-showcase-title')}>
+          <h2 id={uid('home-showcase-title')} className="home-section-title home-section-title--center">
             {HOME_SHOWCASE_INTRO.title}
           </h2>
           <p className="home-section-lead home-section-lead--center">{HOME_SHOWCASE_INTRO.lead}</p>
@@ -128,8 +141,8 @@ export function HomePageBody() {
         </section>
 
 
-        <section className="home-use-cases" aria-labelledby="home-use-cases-title">
-          <h2 id="home-use-cases-title" className="home-section-title">
+        <section className="home-use-cases" aria-labelledby={uid('home-use-cases-title')}>
+          <h2 id={uid('home-use-cases-title')} className="home-section-title">
             Clear insights, confident decisions
           </h2>
           <p className="home-section-lead">
@@ -149,8 +162,8 @@ export function HomePageBody() {
           </div>
         </section>
 
-        <section className="home-coverage" aria-labelledby="home-coverage-title">
-          <h2 id="home-coverage-title" className="home-section-title home-section-title--center">
+        <section className="home-coverage" aria-labelledby={uid('home-coverage-title')}>
+          <h2 id={uid('home-coverage-title')} className="home-section-title home-section-title--center">
             Everything in one place
           </h2>
           <p className="home-section-lead home-section-lead--center">
@@ -159,7 +172,7 @@ export function HomePageBody() {
           </p>
           <div className="home-coverage__grid">
             {HOME_DATA_COVERAGE.map((item) => (
-              <article key={item.id} className="home-coverage-card" id={`coverage-${item.id}`}>
+              <article key={item.id} className="home-coverage-card" id={uid(`coverage-${item.id}`)}>
                 <h3 className="home-coverage-card__title">
                   <a href={item.href}>{item.title}</a>
                 </h3>
@@ -169,15 +182,15 @@ export function HomePageBody() {
           </div>
         </section>
 
-        <section className="home-mission" aria-labelledby="home-mission-title">
-          <h2 id="home-mission-title" className="home-mission__title">
+        <section className="home-mission" aria-labelledby={uid('home-mission-title')}>
+          <h2 id={uid('home-mission-title')} className="home-mission__title">
             {HOME_MISSION.title}
           </h2>
           <p className="home-mission__body">{HOME_MISSION.body}</p>
         </section>
 
-        <section className="home-features" aria-labelledby="home-features-title">
-          <h2 id="home-features-title" className="home-section-title home-section-title--center">
+        <section className="home-features" aria-labelledby={uid('home-features-title')}>
+          <h2 id={uid('home-features-title')} className="home-section-title home-section-title--center">
             Featuring: systematic market insight
           </h2>
           <p className="home-section-lead home-section-lead--center">
@@ -196,8 +209,8 @@ export function HomePageBody() {
           </div>
         </section>
 
-        <section className="home-platform" aria-labelledby="home-platform-title">
-          <h2 id="home-platform-title" className="home-section-title">
+        <section className="home-platform" aria-labelledby={uid('home-platform-title')}>
+          <h2 id={uid('home-platform-title')} className="home-section-title">
             Platform overview for researchers &amp; AI agents
           </h2>
           <div className="home-platform__body">
@@ -228,8 +241,8 @@ export function HomePageBody() {
           </div>
         </section>
 
-        <section className="home-pricing" aria-labelledby="home-pricing-title">
-          <h2 id="home-pricing-title" className="home-section-title">
+        <section className="home-pricing" aria-labelledby={uid('home-pricing-title')}>
+          <h2 id={uid('home-pricing-title')} className="home-section-title">
             {HOME_PRICING_TEASER.title}
           </h2>
           <p className="home-section-lead">{HOME_PRICING_TEASER.body}</p>
@@ -238,8 +251,8 @@ export function HomePageBody() {
           </a>
         </section>
 
-        <section className="home-footer-cta" aria-labelledby="home-footer-cta-title">
-          <h2 id="home-footer-cta-title" className="home-footer-cta__title">
+        <section className="home-footer-cta" aria-labelledby={uid('home-footer-cta-title')}>
+          <h2 id={uid('home-footer-cta-title')} className="home-footer-cta__title">
             {HOME_FOOTER_CTA.title}
           </h2>
           <p className="home-footer-cta__body">{HOME_FOOTER_CTA.body}</p>

@@ -97,9 +97,9 @@ function PerformanceChartSkeleton() {
   return (
     <section className="np-card" aria-label="Loading performance chart">
       <header className="np-card__head">
-        <h1 className="np-card__title">
+        <h2 className="np-card__title">
           <SkelBlock style={{ width: 148, height: 22 }} />
-        </h1>
+        </h2>
         <div className="np-card__head-actions">
           <SkelBlock className="market-fig-shell-skel__icon" style={{ width: 30, height: 30 }} />
           <SkelBlock className="market-fig-shell-skel__icon" style={{ width: 30, height: 30 }} />

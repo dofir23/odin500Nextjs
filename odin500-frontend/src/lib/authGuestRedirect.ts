@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { hasValidAuthSession } from '@/lib/server-api';
+import { peekAuthSessionCookies } from '@/lib/server-api';
 
 const GUEST_AUTH_ENTRY_PATHS = new Set(['/login', '/signup', '/forgot-password']);
 
@@ -11,9 +11,14 @@ function resolveAuthenticatedDest(next?: string | null, fallback = '/virtual-por
   return raw;
 }
 
-/** True when a usable auth session exists (access token or successful refresh). */
+/**
+ * True when session cookies are present. Safe to call from a Server Component.
+ *
+ * Deliberately the read-only probe: the validating version refreshes/clears cookies, which Next
+ * rejects during a component render. See peekAuthSessionCookies() in server-api.ts.
+ */
 export async function hasAuthSession(): Promise<boolean> {
-  return hasValidAuthSession();
+  return peekAuthSessionCookies();
 }
 
 /** Server redirect — keep signed-in users off login/signup entry pages. */

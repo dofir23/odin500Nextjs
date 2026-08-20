@@ -86,6 +86,40 @@ function layoutBadgeTopsPx(keys, getRawY, containerHeight, minGap = 22, pad = 10
 
 const DEFAULT_NP_TIMEFRAME = '6M';
 
+/**
+ * Axis and crosshair labels.
+ *
+ * Portfolio history arrives as intraday snapshots (several per day) while indices are daily, so
+ * the scale runs with `timeVisible`. Left to its own devices that labels a multi-day window with
+ * bare clock times — and `secondsVisible` defaults to true, so they read "09:14:01". These
+ * formatters put the date back on both the tick marks and the crosshair readout.
+ *
+ * `originalTime` is the UTCTimestamp (seconds) handed to setData; rendered in the reader's local
+ * zone to match baselineLabel() in the note underneath the chart.
+ */
+function npTickMarkLabel(originalTime, tickMarkType) {
+  const d = new Date(Number(originalTime) * 1000);
+  if (Number.isNaN(d.getTime())) return '';
+  // TickMarkType: 0 Year, 1 Month, 2 DayOfMonth, 3 Time, 4 TimeWithSeconds
+  if (tickMarkType === 0) return String(d.getFullYear());
+  if (tickMarkType === 1) return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  if (tickMarkType === 2) return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function npCrosshairTimeLabel(originalTime) {
+  const d = new Date(Number(originalTime) * 1000);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
 /** Width available inside the performance chart card (sidebar / tablet layout). */
 function measureNpChartWidth(el) {
   if (!el) return 0;
@@ -212,6 +246,10 @@ function applyNpSnapshotCloneFixes(clonedDoc, clonedRoot) {
  *   rebased there instead — reintroducing the mismatched origins the baseline exists to fix.
  * @param {boolean} [props.showTimeframes] Hide the 1D…10Y row for callers whose window is
  *   derived rather than chosen.
+ * @param {Set<string>|string[]|null} [props.enabledTimeframes] Restrict which of `TF_OPTIONS`
+ *   can be picked; the rest render disabled rather than disappearing, so the row keeps its
+ *   shape and it stays obvious that a longer window exists but does not apply. Omit for all.
+ * @param {string} [props.disabledTimeframeHint] Tooltip on a disabled button, explaining why.
  */
 export function NormalizedPerformanceCard({
   selectedKeys,
@@ -227,6 +265,8 @@ export function NormalizedPerformanceCard({
   baselineMs = null,
   range = null,
   showTimeframes = true,
+  enabledTimeframes = null,
+  disabledTimeframeHint = '',
   emptyHint = ''
 }) {
   const [tfLocal, setTfLocal] = useState(DEFAULT_NP_TIMEFRAME);
@@ -247,6 +287,10 @@ export function NormalizedPerformanceCard({
   const navEpoch = getRouteNavigationEpoch();
   const tf = timeframe || tfLocal;
   const setTf = onTimeframeChange || setTfLocal;
+  const enabledTfSet = useMemo(
+    () => (enabledTimeframes ? new Set(enabledTimeframes) : null),
+    [enabledTimeframes]
+  );
   const activeKeys = Array.isArray(selectedKeys) ? selectedKeys : activeKeysLocal;
   const setActiveKeys = onSelectedKeysChange || setActiveKeysLocal;
 
@@ -470,6 +514,8 @@ export function NormalizedPerformanceCard({
         textColor: isLight ? '#475569' : '#94a3b8',
         attributionLogo: false
       },
+      // Drives the crosshair's time label; without it a hovered point reads as a bare clock time.
+      localization: { timeFormatter: npCrosshairTimeLabel },
       grid: {
         vertLines: { color: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(148, 163, 184, 0.08)' },
         horzLines: { color: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(148, 163, 184, 0.08)' }
@@ -484,7 +530,12 @@ export function NormalizedPerformanceCard({
         barSpacing: 8,
         fixLeftEdge: false,
         fixRightEdge: false,
-        timeVisible: true
+        visible: true,
+        timeVisible: true,
+        // Defaults to true, which renders "09:14:01" on every intraday tick.
+        secondsVisible: false,
+        ticksVisible: true,
+        tickMarkFormatter: npTickMarkLabel
       },
       handleScroll: {
         mouseWheel: true,
@@ -716,9 +767,9 @@ export function NormalizedPerformanceCard({
       >
       {seoNarrative ? <p className="sr-only">{seoNarrative}</p> : null}
       <header className="np-card__head">
-        <h1 className="np-card__title">
+        <h2 className="np-card__title">
           Performance <ChartInfoTip tip={CHART_INFO_TIPS.normalizedPerformance} align="start" />
-        </h1>
+        </h2>
         <div className="np-card__head-actions">
           <button
             type="button"
@@ -744,16 +795,25 @@ export function NormalizedPerformanceCard({
 
       {showTimeframes ? (
         <div className="np-card__tf-row">
-          {TF_OPTIONS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={'np-card__tf' + (tf === id ? ' np-card__tf--active' : '')}
-              onClick={() => setTf(id)}
-            >
-              {id}
-            </button>
-          ))}
+          {TF_OPTIONS.map((id) => {
+            const disabled = Boolean(enabledTfSet) && !enabledTfSet.has(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                className={
+                  'np-card__tf' +
+                  (tf === id ? ' np-card__tf--active' : '') +
+                  (disabled ? ' np-card__tf--disabled' : '')
+                }
+                disabled={disabled}
+                title={disabled ? disabledTimeframeHint || undefined : undefined}
+                onClick={() => !disabled && setTf(id)}
+              >
+                {id}
+              </button>
+            );
+          })}
         </div>
       ) : null}
 

@@ -33,7 +33,13 @@ function SimpleTable({
       <thead>
         <tr>
           {columns.map((c) => (
-            <th key={c.key} className="border border-slate-300 px-2 py-1 font-semibold">
+            // scope is what lets a screen reader tie each cell back to its column header;
+            // without it a data cell is announced bare. Matches StockSplitsPageServer.
+            <th
+              key={c.key}
+              scope="col"
+              className="border border-slate-300 px-2 py-1 font-semibold"
+            >
               {c.label}
             </th>
           ))}
@@ -411,6 +417,90 @@ export function AiPortfolioLeaderboard({ data, limit }: { data: unknown; limit: 
   );
 }
 
+/**
+ * Server-rendered per-model comparison for /virtual-portfolio/ai/compare.
+ *
+ * The page's interactive chart renders nothing until the reader selects series, so this is the
+ * page's only crawlable data. Sections are kept for models with no published books (rather than
+ * dropped) so the page reads consistently and matches what its FAQ states.
+ */
+export function AiPortfolioCompareGroups({ data }: { data: unknown }) {
+  const d = data as { groups?: Array<{ engine?: unknown; rows?: unknown[] }>; total?: unknown } | null;
+  const groups = Array.isArray(d?.groups) ? d.groups : [];
+  if (!groups.length) return null;
+
+  const total = Number(d?.total);
+
+  return (
+    <section className="text-sm">
+      <h2>Best published portfolio from each AI model</h2>
+      <p>
+        {Number.isFinite(total) && total > 0
+          ? `Ranked by total return since publication, drawn from ${total} published AI-managed portfolios.`
+          : 'Ranked by total return since publication.'}{' '}
+        Select any of these on the chart above to plot them against each other and against the
+        index they trade.
+      </p>
+      {groups.map((g) => {
+        const engineKey = String(g.engine ?? '').toLowerCase();
+        const engineName = labelOf(ENGINE_LABELS, engineKey);
+        const rows = asRows(g.rows);
+        return (
+          <section key={engineKey || engineName}>
+            <h3>{engineName} portfolios</h3>
+            {rows.length ? (
+              <SimpleTable
+                caption={`${engineName} — top ${rows.length} published portfolios by total return`}
+                columns={[
+                  { key: 'rank', label: '#' },
+                  { key: 'name', label: 'Portfolio' },
+                  { key: 'index', label: 'Index' },
+                  { key: 'direction', label: 'Direction' },
+                  { key: 'cadence', label: 'Rebalance' },
+                  { key: 'total', label: 'Total return' },
+                  { key: 'age', label: 'Track record' },
+                  { key: 'positions', label: 'Positions' }
+                ]}
+                rows={rows.map((r, i) => ({
+                  rank: i + 1,
+                  name: r.name,
+                  index: labelOf(INDEX_LABELS, r.ai_index_focus),
+                  direction: labelOf(DIRECTION_LABELS, r.ai_direction),
+                  cadence: String(r.ai_rebalance_cadence ?? '—'),
+                  total: pct(r.total_return_pct),
+                  age: ageLabel(r.months_elapsed, r.days_elapsed),
+                  positions: r.positions_count ?? '—'
+                }))}
+              />
+            ) : (
+              <p>No {engineName} portfolios have been published yet.</p>
+            )}
+            {rows.length ? (
+              <ul className="list-disc pl-5">
+                {rows.map((r) =>
+                  r.id ? (
+                    <li key={String(r.id)}>
+                      <a href={`/virtual-portfolio/public/${String(r.id)}`}>
+                        {String(r.name)} — holdings and trade history
+                      </a>
+                    </li>
+                  ) : null
+                )}
+              </ul>
+            ) : null}
+          </section>
+        );
+      })}
+      <p className="mt-2 text-xs opacity-80">
+        Total return is measured since each portfolio was published, so a book running for months
+        has had far longer to accumulate it than one published this week — the track record
+        column is what makes the comparison readable. Simulated paper trading, not investment
+        advice.
+      </p>
+    </section>
+  );
+}
+
 function StaticPageSection({ path }: { path: string }) {
   const staticCopy = STATIC_PAGE_SEO[path];
   if (!staticCopy) return null;
@@ -537,6 +627,17 @@ export function renderServerPageBody(pathname: string, data: unknown): ReactNode
       <>
         <StaticPageSection path={path} />
         <AiPortfolioLeaderboard data={data} limit={25} />
+      </>
+    );
+  }
+
+  // Static copy plus each model's best books — the compare chart itself is selection-driven and
+  // renders nothing a crawler can read.
+  if (path === '/virtual-portfolio/ai/compare') {
+    return (
+      <>
+        <StaticPageSection path={path} />
+        <AiPortfolioCompareGroups data={data} />
       </>
     );
   }

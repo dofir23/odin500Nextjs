@@ -138,15 +138,27 @@ const BADGE_BY_ENGINE = {
   gemini: `${BADGE_BASE} border-sky-300/70 bg-sky-50 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300`
 };
 
-const BADGE_INDEX = `${BADGE_BASE} border-violet-300/70 bg-violet-50 text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300`;
+/**
+ * One hue per index, mirroring .paper-tag--index in paper-trading.css so an index reads the
+ * same colour on these cards, in the leaderboard table, and on the homepage strip. A single
+ * shared violet meant three different books all carried an identical index chip.
+ */
+const BADGE_BY_INDEX = {
+  sp500: `${BADGE_BASE} border-violet-300/70 bg-violet-50 text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300`,
+  dow: `${BADGE_BASE} border-blue-300/70 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300`,
+  nasdaq: `${BADGE_BASE} border-fuchsia-300/70 bg-fuchsia-50 text-fuchsia-800 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/15 dark:text-fuchsia-300`
+};
+
+const BADGE_INDEX_FALLBACK = `${BADGE_BASE} border-violet-300/70 bg-violet-50 text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300`;
 
 /**
  * Which way the book trades, beside the engine and index chips. Colour carries the meaning at a
  * glance — green long, red short, teal for a hedged long-short — so the three never read as the
- * same kind of tag.
+ * same kind of tag. Long is `green` rather than `emerald` to hold it apart from the ChatGPT
+ * engine chip, which owns emerald.
  */
 const BADGE_BY_DIRECTION = {
-  long: `${BADGE_BASE} border-emerald-300/70 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300`,
+  long: `${BADGE_BASE} border-green-300/70 bg-green-50 text-green-800 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300`,
   short: `${BADGE_BASE} border-rose-300/70 bg-rose-50 text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300`,
   long_short: `${BADGE_BASE} border-teal-300/70 bg-teal-50 text-teal-800 dark:border-teal-500/30 dark:bg-teal-500/15 dark:text-teal-300`
 };
@@ -412,7 +424,11 @@ export function PublicPortfoliosTopSummary({ portfolios, loading, limit = 3, car
                   {p.ai_engine.label}
                 </span>
               ) : null}
-              {p.index_focus ? <span className={BADGE_INDEX}>{p.index_focus.label}</span> : null}
+              {p.index_focus ? (
+                <span className={BADGE_BY_INDEX[p.index_focus.id] || BADGE_INDEX_FALLBACK}>
+                  {p.index_focus.label}
+                </span>
+              ) : null}
               {/* Only where direction is real: an AI-managed book carries it as a column, and a
                   tagged one names it in its strategy. On an untagged manual portfolio the
                   heuristic's "long" default would be a guess dressed up as a fact. */}

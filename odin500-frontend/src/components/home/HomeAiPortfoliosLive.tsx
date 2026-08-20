@@ -125,7 +125,9 @@ export function HomeAiPortfoliosLive() {
                         </span>
                       ) : null}
                       {p.index_focus ? (
-                        <span className="home-ai-live__badge home-ai-live__badge--index">
+                        <span
+                          className={`home-ai-live__badge home-ai-live__badge--index home-ai-live__badge--index-${p.index_focus.id}`}
+                        >
                           {p.index_focus.label}
                         </span>
                       ) : null}

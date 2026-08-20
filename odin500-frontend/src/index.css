@@ -5984,6 +5984,15 @@ html[data-theme='light'] .mkt-returns-summary__scroll,
   border-color: rgba(37, 99, 235, 0.5);
 }
 
+/* Windows longer than the data behind them. Dimmed rather than hidden so the row does not
+   reflow every time the selection changes, and so it stays visible that the option exists. */
+.np-card__tf--disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 .np-card__chips-row {
   display: flex;
   flex-wrap: wrap;
@@ -17222,6 +17231,10 @@ html[data-theme="light"] .heatmap-main__viz .sector-treemap__industry-title {
 
 [data-theme="light"] .np-card__tf {
   color: #475569;
+}
+
+[data-theme="light"] .np-card__tf--disabled {
+  opacity: 0.35;
 }
 
 [data-theme="light"] .np-card__tf--active {

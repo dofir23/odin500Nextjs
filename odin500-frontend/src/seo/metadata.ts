@@ -367,6 +367,59 @@ export function resolveRequestMetadata(pathname: string) {
   );
 }
 
+/**
+ * Trim the legal suffix for title use: "American Electric Power Company" -> "American Electric
+ * Power". The full name still appears in the page body and JSON-LD; titles are length-capped by
+ * Google, so the distinguishing words are worth more there than "Co Inc".
+ */
+export function shortCompanyName(name: string): string {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '';
+  const stripped = trimmed
+    // "Berkshire Hathaway Inc. Class B" -> "Berkshire Hathaway Class B": the share class is
+    // distinguishing, the legal form is not.
+    .replace(/[.,]?\s+(Incorporated|Corporation|Company|Inc\.?|Corp\.?|Co\.?)(?=\s+Class)/i, '')
+    .replace(/[.,]?\s+(Incorporated|Corporation|Company|Holdings|Group|plc|Ltd\.?|Limited|Inc\.?|Corp\.?|Co\.?)\s*$/i, '')
+    .replace(/[.,]?\s+(Inc\.?|Corp\.?|Co\.?)\s*$/i, '')
+    .trim();
+  return stripped || trimmed;
+}
+
+/**
+ * Fold the company name into a symbol-keyed title/description.
+ *
+ * Every dynamic symbol route builds copy starting with the bare ticker ("AEP Stock Price…"),
+ * which only matches searches that already know the symbol. Readers search the company name far
+ * more often, and it appeared nowhere in the head — only in a client-rendered H1.
+ *
+ * The name leads so it survives Google's title truncation, and the symbol is kept in parentheses
+ * so symbol searches still match. Returns `meta` untouched when the name is unknown (ETFs and
+ * anything outside the constituents list), so those pages keep their existing copy.
+ */
+export function withCompanyName(
+  meta: { title: string; description: string; canonical?: string },
+  symbol: string,
+  companyName: string | null | undefined
+) {
+  const short = shortCompanyName(companyName || '');
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!short || !sym) return meta;
+  // Avoid "American Electric Power (AEP) American Electric Power …" if copy already carries it.
+  if (meta.title.toLowerCase().includes(short.toLowerCase())) return meta;
+
+  const lead = `${short} (${sym})`;
+  const symPrefix = `${sym} `;
+  return {
+    ...meta,
+    title: meta.title.startsWith(symPrefix)
+      ? `${lead} ${meta.title.slice(symPrefix.length)}`
+      : `${lead} – ${meta.title}`,
+    description: meta.description.startsWith(symPrefix)
+      ? `${lead} ${meta.description.slice(symPrefix.length)}`
+      : `${lead}. ${meta.description}`
+  };
+}
+
 export function toNextMetadata(pathname: string): Metadata {
   const meta = resolveRequestMetadata(pathname);
   const noindex = shouldNoindexPath(pathname);

@@ -85,6 +85,21 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      /**
+       * `/paper-trading/*` was renamed to `/virtual-portfolio/*` (552add2, 2026-08-18).
+       *
+       * `/paper-trading/public` and `/paper-trading/ai` shipped in SITEMAP_STATIC_PATHS right up
+       * to that commit, so Google holds them indexed; without these they answer 404 and the
+       * ranking they earned is discarded rather than passed to the pages that replaced them.
+       * The wildcard also covers `/paper-trading/public/<accountId>` detail pages, which were
+       * only ever discovered through links.
+       */
+      { source: '/paper-trading', destination: '/virtual-portfolio', permanent: true },
+      {
+        source: '/paper-trading/:path*',
+        destination: '/virtual-portfolio/:path*',
+        permanent: true
+      },
       { source: '/tickers', destination: '/odin-signals', permanent: true },
       { source: '/ticker', destination: '/ticker/aapl', permanent: true },
       { source: '/indices', destination: '/indices/sp500', permanent: false },

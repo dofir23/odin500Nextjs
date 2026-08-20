@@ -46,6 +46,11 @@ function faqJsonLdForPath(pathname: string, seoData: unknown) {
   if (path === '/virtual-portfolio/ai') {
     return buildFaqPageJsonLd([...(STATIC_PAGE_SEO['/virtual-portfolio/ai'].faqs || [])]);
   }
+  if (path === '/virtual-portfolio/ai/compare') {
+    return buildFaqPageJsonLd([
+      ...(STATIC_PAGE_SEO['/virtual-portfolio/ai/compare'].faqs || [])
+    ]);
+  }
   if (path.startsWith('/ticker-report/')) {
     const report = (seoData as { report?: { faqs?: Array<{ q?: string; a?: string }> } } | null)?.report;
     const faqs = Array.isArray(report?.faqs)
@@ -80,11 +85,48 @@ export function buildSitewideJsonLd() {
 }
 
 /**
+ * ItemList for /virtual-portfolio/ai/compare, flattened from its per-model groups.
+ *
+ * The compare page ships groups (one per AI model), not a flat `rows` array, so it cannot reuse
+ * the leaderboard shape above.
+ */
+function aiPortfolioCompareListJsonLd(seoData: unknown) {
+  const groups = (seoData as { groups?: Array<{ rows?: Array<Record<string, unknown>> }> } | null)
+    ?.groups;
+  if (!Array.isArray(groups) || !groups.length) return null;
+
+  const pageUrl = `${SITE_ORIGIN}/virtual-portfolio/ai/compare`;
+  const items = groups
+    .flatMap((g) => (Array.isArray(g?.rows) ? g.rows : []))
+    .filter((r) => r && typeof r === 'object');
+  if (!items.length) return null;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'AI stock portfolios compared by model',
+    description:
+      'Best-performing published virtual portfolios for each AI model, comparable against each other and against the index they trade.',
+    url: pageUrl,
+    numberOfItems: items.length,
+    itemListElement: items.slice(0, 25).map((r, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: String(r.name || 'Untitled portfolio'),
+      url: r.id ? `${SITE_ORIGIN}/virtual-portfolio/public/${String(r.id)}` : pageUrl
+    }))
+  };
+}
+
+/**
  * ItemList for the AI portfolio leaderboard, so the ranking is machine-readable rather than
  * only visible as a table. Emitted on `/` and `/virtual-portfolio/ai`, both of which SSR the board.
  */
 function aiPortfolioListJsonLd(pathname: string, seoData: unknown) {
   const path = pathname.split('?')[0].replace(/\/+$/, '') || '/';
+  if (path === '/virtual-portfolio/ai/compare') {
+    return aiPortfolioCompareListJsonLd(seoData);
+  }
   if (path !== '/' && path !== '/virtual-portfolio/ai') return null;
 
   const rows = (seoData as { rows?: Array<Record<string, unknown>> } | null)?.rows;

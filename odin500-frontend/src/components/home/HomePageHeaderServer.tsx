@@ -26,11 +26,17 @@ export function HomePageHeaderServer() {
           </span>
         </a>
         <nav className="home-header__nav" aria-label="Product navigation">
-          {HOME_NAV_PRODUCT.map((item) => (
-            <a key={item.href} href={item.href} className="home-header__nav-link">
-              {item.label}
-            </a>
-          ))}
+          {/* A <ul> so assistive tech announces "list, N items" and offers skip-the-group.
+              Bare sibling anchors are read as N unrelated links (WCAG 1.3.1). */}
+          <ul className="home-header__nav-list">
+            {HOME_NAV_PRODUCT.map((item) => (
+              <li key={item.href}>
+                <a href={item.href} className="home-header__nav-link">
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </nav>
         <div className="home-header__actions">
           <span className="app-main-topbar__theme home-header__theme" aria-hidden>

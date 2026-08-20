@@ -14,6 +14,24 @@ import { useLoginGateOptional } from '../../context/LoginGateContext.jsx';
 const ENGINE_LABELS = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini' };
 const ENGINE_ORDER = ['claude', 'chatgpt', 'gemini'];
 
+/** Must stay in step with .paper-assistant__panel--closing in paper-trading.css. */
+const PANEL_CLOSE_MS = 180;
+
+/** How long the "choose your model" nudge sits over the engine picker after opening. */
+const ENGINE_HINT_MS = 5600;
+
+/**
+ * Animations here are decorative, so honour the OS setting rather than forcing motion.
+ * Read at call time, not at module load — the preference can change mid-session.
+ */
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 const INDEX_OPTIONS = [
   { id: 'sp500', label: 'S&P 500' },
   { id: 'dow', label: 'Dow Jones' },
@@ -444,6 +462,10 @@ export function AiPortfolioCreatorChat({ onCreated }) {
   const { engines, loading: enginesLoading } = useAiEngines({ enabled: loggedIn });
 
   const [open, setOpen] = useState(false);
+  /** Kept mounted for one animation frame after `open` flips, so the panel can animate out. */
+  const [closing, setClosing] = useState(false);
+  const [showEngineHint, setShowEngineHint] = useState(false);
+  const closeTimerRef = useRef(null);
   const [size, setSize] = useState(DEFAULT_SIZE);
   const dragRef = useRef(null);
   const listRef = useRef(null);
@@ -537,7 +559,14 @@ export function AiPortfolioCreatorChat({ onCreated }) {
   // If the session ends while the panel is open (e.g. logged out in another tab), close it —
   // the underlying engines/chat endpoints require auth and would otherwise fail silently.
   useEffect(() => {
-    if (!loggedIn) setOpen(false);
+    if (loggedIn) return;
+    // Session is gone — drop the panel immediately rather than animating a dead surface out.
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setClosing(false);
+    setOpen(false);
   }, [loggedIn]);
 
   useEffect(() => {
@@ -556,14 +585,54 @@ export function AiPortfolioCreatorChat({ onCreated }) {
     el.scrollTop = el.scrollHeight;
   }, [wizardLog, messages, sending, open, proposal]);
 
+  /**
+   * Close through the exit animation. `open` stays true until it finishes, so the panel is not
+   * torn out of the DOM mid-transition; reduced-motion users skip straight to unmount.
+   */
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return;
+    if (prefersReducedMotion()) {
+      setOpen(false);
+      return;
+    }
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      setClosing(false);
+      setOpen(false);
+    }, PANEL_CLOSE_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    },
+    []
+  );
+
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') requestClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, requestClose]);
+
+  /**
+   * The model picker sits among the composer's icon buttons, where first-time users miss it.
+   * Nudge it once per opening and then get out of the way — it is a hint, not a dialog.
+   * Waits for engines to resolve, so it never points at a disabled control.
+   */
+  useEffect(() => {
+    if (!open || !anyEngineConfigured || prefersReducedMotion()) {
+      setShowEngineHint(false);
+      return undefined;
+    }
+    setShowEngineHint(true);
+    const t = window.setTimeout(() => setShowEngineHint(false), ENGINE_HINT_MS);
+    return () => window.clearTimeout(t);
+  }, [open, anyEngineConfigured]);
 
   const persistSize = useCallback((next) => {
     const clamped = clampSize(next);
@@ -779,7 +848,8 @@ export function AiPortfolioCreatorChat({ onCreated }) {
               loginGate?.showLoginRequired({ returnTo: '/virtual-portfolio/ai' });
               return;
             }
-            setOpen((v) => !v);
+            if (open) requestClose();
+            else setOpen(true);
           }}
         >
           <Wand2 className="paper-assistant__toggle-sparkle" strokeWidth={2.25} aria-hidden />
@@ -787,10 +857,13 @@ export function AiPortfolioCreatorChat({ onCreated }) {
         </button>
       </div>
 
-      {open ? (
+      {open || closing ? (
         <section
           id="ai-portfolio-creator-panel"
-          className="paper-assistant__panel wl-manage-modal"
+          className={
+            'paper-assistant__panel wl-manage-modal' +
+            (closing ? ' paper-assistant__panel--closing' : '')
+          }
           role="dialog"
           aria-modal="true"
           aria-labelledby="ai-portfolio-creator-title"
@@ -840,7 +913,7 @@ export function AiPortfolioCreatorChat({ onCreated }) {
               <button
                 type="button"
                 className="wl-manage-modal__close"
-                onClick={() => setOpen(false)}
+                onClick={requestClose}
                 aria-label="Close"
               >
                 <ModalCloseIcon className="wl-manage-modal__close-icon" />
@@ -974,20 +1047,35 @@ export function AiPortfolioCreatorChat({ onCreated }) {
               void handleSend();
             }}
           >
-            <ThemedDropdown
-              size="sm"
-              className="ai-portfolio-creator__engine-dd"
-              value={config.engine}
-              options={engineOptions}
-              onChange={(id) => {
-                persistEngine(id);
-                setConfig((prev) => ({ ...prev, engine: id }));
-              }}
-              title="AI model"
-              ariaLabelPrefix="AI model"
-              labelFallback="Model"
-              disabled={!engineOptions.length}
-            />
+            {/* Wrapper exists to anchor the hint bubble; ThemedDropdown positions its own menu
+                against .app-dropdown, so the extra element does not disturb it. */}
+            <div
+              className={
+                'ai-portfolio-creator__engine-wrap' + (showEngineHint ? ' is-hinting' : '')
+              }
+            >
+              <ThemedDropdown
+                size="sm"
+                className="ai-portfolio-creator__engine-dd"
+                value={config.engine}
+                options={engineOptions}
+                onChange={(id) => {
+                  persistEngine(id);
+                  setConfig((prev) => ({ ...prev, engine: id }));
+                  // Once they have found it, stop nudging.
+                  setShowEngineHint(false);
+                }}
+                title="AI model"
+                ariaLabelPrefix="AI model"
+                labelFallback="Model"
+                disabled={!engineOptions.length}
+              />
+              {showEngineHint ? (
+                <span className="ai-portfolio-creator__engine-tip" role="status">
+                  Choose your AI model
+                </span>
+              ) : null}
+            </div>
             <label
               className={'ai-portfolio-creator__attach-btn' + (importing ? ' is-disabled' : '')}
               title="Upload a filled template (.xlsx)"

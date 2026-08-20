@@ -88,6 +88,28 @@ export async function resolveAccessTokenForRequest(): Promise<string> {
  * True when a valid access token exists (refreshing first if needed).
  * Clears stale refresh cookies when refresh fails so clients stop treating the user as signed in.
  */
+/**
+ * Read-only session probe for Server Components.
+ *
+ * hasValidAuthSession() below refreshes and clears cookies, and Next throws
+ * "Cookies can only be modified in a Server Action or Route Handler" if that happens during a
+ * component render — which crashed /newsletter for any signed-in reader whose short-lived access
+ * cookie had expired. This only reads, so it is safe anywhere.
+ *
+ * It reports cookie presence, not token validity: a stale refresh cookie still reads as signed
+ * in. That is the right trade for an SSR hint — the client reconciles against
+ * GET /api/auth/session on mount, and that route (a Route Handler) still does the real
+ * refresh-or-clear.
+ */
+export async function peekAuthSessionCookies(): Promise<boolean> {
+  const jar = await cookies();
+  return Boolean(jar.get(ACCESS_TOKEN_COOKIE)?.value || jar.get(REFRESH_TOKEN_COOKIE)?.value);
+}
+
+/**
+ * Validity check that may refresh or clear cookies — Route Handlers and Server Actions only.
+ * Server Components must call peekAuthSessionCookies() instead.
+ */
 export async function hasValidAuthSession(): Promise<boolean> {
   const token = await resolveAccessTokenForRequest();
   if (token) return true;

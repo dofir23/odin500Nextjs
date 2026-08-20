@@ -45,12 +45,20 @@ const PUBLIC_CONTENT_PREFIXES = [
  */
 const PRIVATE_PREFIXES = ['/profile', '/accounts', '/admin'];
 
-/** `/virtual-portfolio` is the visitor's own book; its /ai and /public sub-trees are public. */
+/**
+ * `/virtual-portfolio` is the visitor's own book; its /ai and /public sub-trees are public.
+ *
+ * The exemption must cover the whole /ai sub-tree, not just its index. Listing only the exact
+ * `/virtual-portfolio/ai` path left /ai/users and /ai/compare gated: both are in sitemap.xml and
+ * both carry `index, follow` metadata, but Googlebot got a 307 into /login (which is noindex), so
+ * neither URL could ever be indexed. Neither page reads authenticated data.
+ */
 function isPrivatePaperTradingPath(pathname: string) {
   if (pathname === '/virtual-portfolio') return true;
   if (!pathname.startsWith('/virtual-portfolio/')) return false;
   return !(
     pathname === '/virtual-portfolio/ai' ||
+    pathname.startsWith('/virtual-portfolio/ai/') ||
     pathname === '/virtual-portfolio/public' ||
     pathname.startsWith('/virtual-portfolio/public/')
   );

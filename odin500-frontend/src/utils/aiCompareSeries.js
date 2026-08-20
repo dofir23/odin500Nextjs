@@ -10,6 +10,7 @@
  */
 
 import { MARKET_SERIES } from '../components/marketSeriesRegistry.js';
+import { TF_OPTIONS, tfRange } from './marketCalculations.js';
 import { enrichPortfolioTags } from './aiPortfolioTags.js';
 
 /** Index keys offered on this page — the three the AI portfolios actually trade against. */
@@ -67,6 +68,16 @@ export function keyTarget(key) {
   return s;
 }
 
+/**
+ * Prefix on every portfolio badge.
+ *
+ * The axis badges sit next to real index tickers (SPX, NDX, INDU), and an abbreviation like
+ * "ACD" or "N1L" reads exactly like one — so a simulated Odin book looked like a listed
+ * instrument. The prefix marks which lines are ours. Indices keep their real ticker, since
+ * that is what they actually are.
+ */
+const PORTFOLIO_BADGE_PREFIX = 'OD-';
+
 /** Short axis-badge label. Portfolio names are long, so badges get an abbreviation. */
 function badgeLabel(name) {
   const clean = String(name || '').trim();
@@ -116,7 +127,7 @@ export function buildEngineSeries(engineId, portfolios) {
       engineId,
       label: p.name,
       chipLabel: p.name,
-      symbol: badgeLabel(p.name),
+      symbol: `${PORTFOLIO_BADGE_PREFIX}${badgeLabel(p.name)}`,
       color,
       badge: color,
       tone: engineId,
@@ -222,4 +233,47 @@ export function baselineLabel(baselineMs) {
     month: 'short',
     day: 'numeric'
   });
+}
+
+/** Start of a timeframe's window as a timestamp, or NaN if it cannot be parsed. */
+export function tfStartMs(tf) {
+  return Date.parse(`${tfRange(tf).start}T00:00:00Z`);
+}
+
+/**
+ * Which timeframes a selection's history can actually support.
+ *
+ * The indices go back decades, the portfolios do not — so every window that starts before the
+ * youngest selected book's inception gets clamped back to that date and draws exactly the same
+ * chart. Ten buttons where six are identical is a broken control, so only the windows that fit
+ * inside the book's life stay live, plus the first one that covers the whole of it (otherwise
+ * the full history since inception would be unreachable).
+ *
+ * Ordering is by real start date rather than array position, because YTD's length depends on
+ * the month and it does not sit in size order within TF_OPTIONS.
+ *
+ * @param {number|null} inceptionMs youngest selected portfolio's publish date
+ * @returns {Set<string>|null} null when nothing but indices is selected — then all apply
+ */
+export function timeframesForInception(inceptionMs) {
+  if (!Number.isFinite(inceptionMs)) return null;
+
+  // 1D is excluded from the fits/covering maths and simply always offered: it is the "latest
+  // session" view (normalizeRows slices it to the last two points regardless of window), so
+  // it is meaningful at any age, and letting it win the covering slot would strand a
+  // days-old book on a single-session chart with no way to see the rest of its history.
+  const rest = TF_OPTIONS.filter((id) => id !== '1D')
+    .map((id) => ({ id, startMs: tfStartMs(id) }))
+    .filter((x) => Number.isFinite(x.startMs));
+
+  const fits = rest.filter((x) => x.startMs >= inceptionMs);
+  // Of the windows reaching back past inception, the shortest is the one that frames the
+  // book's whole life most tightly — i.e. the latest start among them.
+  const covering = rest
+    .filter((x) => x.startMs < inceptionMs)
+    .sort((a, b) => b.startMs - a.startMs)[0];
+
+  const ids = ['1D', ...fits.map((x) => x.id)];
+  if (covering) ids.push(covering.id);
+  return new Set(ids);
 }

@@ -1,4 +1,4 @@
-import { toNextMetadata } from '@/seo/metadata';
+import { generateTickerReportPageMetadata } from '@/seo/routeMetadataHelpers';
 import { PageServerShell } from '@/seo/PageServerShell';
 import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
 import { fetchTickerReportPageData } from '@/ssr/fetchPageData';
@@ -6,7 +6,7 @@ import TickerReportPage from '@/views/TickerReportPage.jsx';
 
 export async function generateMetadata({ params }: { params: Promise<{ symbol: string }> }) {
   const p = await params;
-  return toNextMetadata('/ticker-report/' + p.symbol);
+  return generateTickerReportPageMetadata(p.symbol);
 }
 export const revalidate = 300;
 

@@ -495,7 +495,11 @@ function AiPortfoliosPageContent({ owner, title, subtitle, emptyText }) {
                                   {p.ai_engine.label}
                                 </span>
                               ) : null}
-                              {p.index_focus ? <span className="paper-tag">{p.index_focus.label}</span> : null}
+                              {p.index_focus ? (
+                                <span className="paper-tag paper-tag--index" data-index={p.index_focus.id}>
+                                  {p.index_focus.label}
+                                </span>
+                              ) : null}
                               <span className="paper-tag paper-tag--direction" data-direction={p.direction.id}>
                                 {p.direction.label}
                               </span>

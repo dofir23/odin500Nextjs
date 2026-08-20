@@ -123,7 +123,12 @@ function PublicPortfolioDetailContent({ accountId: accountIdProp }) {
         });
       }
       if (tagged.index_focus) {
-        tags.push({ key: 'index', label: tagged.index_focus.label, className: 'paper-tag' });
+        tags.push({
+          key: 'index',
+          label: tagged.index_focus.label,
+          className: 'paper-tag paper-tag--index',
+          attrs: { 'data-index': tagged.index_focus.id }
+        });
       }
       if (tagged.direction) {
         tags.push({

@@ -10,7 +10,7 @@ type ServerPageBodyProps = {
  * Full server-rendered page body — heading, description, tables, and SVG charts in HTML.
  */
 export function ServerPageBody({ pathname, data = null }: ServerPageBodyProps) {
-  const { title, description } = resolveServerPageHeading(pathname);
+  const { title, description } = resolveServerPageHeading(pathname, data);
   const body = renderServerPageBody(pathname, data);
 
   return (

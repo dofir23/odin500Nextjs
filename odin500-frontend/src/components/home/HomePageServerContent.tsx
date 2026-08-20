@@ -22,7 +22,8 @@ export function HomePageServerContent({ aiPortfolios = null }: { aiPortfolios?: 
           <a href="/virtual-portfolio/ai">See all AI portfolios, filters, and full trade history →</a>
         </p>
       </section>
-      <HomePageBody />
+      {/* Prefixed so this copy cannot collide with the client layer's ids — see HomePageBody. */}
+      <HomePageBody idPrefix="ssr-" />
     </div>
   );
 }

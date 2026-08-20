@@ -22,7 +22,9 @@ import {
   indexKey,
   isPortfolioKey,
   keyTarget,
-  pickBestPerEngine
+  pickBestPerEngine,
+  tfStartMs,
+  timeframesForInception
 } from '../../utils/aiCompareSeries.js';
 import '../../styles/paper-trading.css';
 
@@ -42,8 +44,8 @@ const DIRECTION_NOUNS = { long: 'long', short: 'short', long_short: 'long-short'
 /** Lead-in before the baseline so a holiday/weekend publish date still has a prior close. */
 const BASELINE_LEAD_IN_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Only reached with nothing but indices selected — there is no portfolio to derive a start from. */
-const INDEX_ONLY_TIMEFRAME = '6M';
+/** Timeframe the page opens on, matching /market's default. */
+const DEFAULT_COMPARE_TIMEFRAME = '6M';
 
 function isoDay(d) {
   return d.toISOString().slice(0, 10);
@@ -254,16 +256,54 @@ export default function AiPortfolioComparePage() {
     setSelectedKeys(defaultKeys);
   }, [defaultKeys]);
 
+  const [timeframe, setTimeframe] = useState(DEFAULT_COMPARE_TIMEFRAME);
+
   // Every series is measured from the youngest selected portfolio's publish date, so a book
   // running two weeks is never compared against six months of an index.
-  const baselineMs = useMemo(() => commonBaselineMs(selectedKeys, metaByKey), [selectedKeys, metaByKey]);
+  const inceptionBaselineMs = useMemo(
+    () => commonBaselineMs(selectedKeys, metaByKey),
+    [selectedKeys, metaByKey]
+  );
 
   /**
-   * The window is derived, not chosen — hence no timeframe buttons on this page. It has to
-   * start at or before the baseline: if the fetch began after it, an index would be truncated
-   * at the window start and rebased there while the portfolio rebased at its own inception,
-   * which is exactly the mismatch the baseline exists to remove. A few days of lead-in cover
-   * the case where the baseline date itself was a market holiday.
+   * Where the comparison starts: the later of the picked timeframe and the youngest selected
+   * portfolio's inception.
+   *
+   * The timeframe can only ever shorten the window, never extend it past a book's first day —
+   * rebasing a series before it existed is the mismatch the baseline exists to remove. So
+   * picking 1Y while a two-week-old book is selected still rebases at that book's publish date
+   * (nothing else is comparable), whereas picking 1M against six-month-old books rebases all of
+   * them one month back, which is a genuinely different and useful view.
+   */
+  const baselineMs = useMemo(() => {
+    const startMs = tfStartMs(timeframe);
+    if (!Number.isFinite(inceptionBaselineMs)) return Number.isFinite(startMs) ? startMs : null;
+    if (!Number.isFinite(startMs)) return inceptionBaselineMs;
+    return Math.max(inceptionBaselineMs, startMs);
+  }, [inceptionBaselineMs, timeframe]);
+
+  const enabledTimeframes = useMemo(
+    () => timeframesForInception(inceptionBaselineMs),
+    [inceptionBaselineMs]
+  );
+
+  /**
+   * Selecting a young portfolio can strand the current timeframe on a now-disabled button —
+   * the chart would keep drawing the clamped window while the row shows a dead selection.
+   * Fall back to the longest window still available, which is the closest thing to what was
+   * asked for.
+   */
+  useEffect(() => {
+    if (!enabledTimeframes || enabledTimeframes.has(timeframe)) return;
+    const fallback = [...enabledTimeframes].sort((a, b) => tfStartMs(a) - tfStartMs(b))[0];
+    if (fallback) setTimeframe(fallback);
+  }, [enabledTimeframes, timeframe]);
+
+  /**
+   * Explicit fetch window. It has to start at or before the baseline: if the fetch began after
+   * it, an index would be truncated at the window start and rebased there while the portfolio
+   * rebased at its own inception. A few days of lead-in cover the case where the baseline date
+   * itself was a market holiday.
    */
   const range = useMemo(() => {
     if (!Number.isFinite(baselineMs)) return null;
@@ -286,7 +326,7 @@ export default function AiPortfolioComparePage() {
       try {
         const payload = await fetchMarketRailSnapshotQuery(
           {
-            timeframe: INDEX_ONLY_TIMEFRAME,
+            timeframe,
             series: indexSeries.map((s) => ({ key: keyTarget(s.key), ticker: s.target }))
           },
           { staleTime: MARKET_STALE.railSnapshot }
@@ -417,7 +457,7 @@ export default function AiPortfolioComparePage() {
         <aside className="mkt-left" aria-label="Series selection">
           <RailCard
             title="Indices"
-            badge={INDEX_ONLY_TIMEFRAME}
+            badge={timeframe}
             series={indexSeries}
             snapshots={indexSnapshots}
             selectedSet={selectedSet}
@@ -453,28 +493,42 @@ export default function AiPortfolioComparePage() {
           <NormalizedPerformanceCard
             selectedKeys={selectedKeys}
             onSelectedKeysChange={setSelectedKeys}
-            timeframe={INDEX_ONLY_TIMEFRAME}
+            timeframe={timeframe}
+            onTimeframeChange={setTimeframe}
+            enabledTimeframes={enabledTimeframes}
+            disabledTimeframeHint="Longer than the selected portfolio has been running"
             loadSeriesRows={loadSeriesRows}
             metaByKey={metaByKey}
             tickerByKey={tickerByKey}
             defaultKeys={defaultKeys}
             baselineMs={baselineMs}
             range={range}
-            showTimeframes={false}
             emptyHint="Pick an index or a portfolio from the left to start comparing."
           />
 
           <p className="ai-cmp-note">
-            {baselineMs ? (
-              <>
-                Rebased to <strong>{baselineLabel(baselineMs)}</strong> — the publish date of the
-                youngest portfolio selected. Every line shows its return since that date, so the
-                comparison covers a window all {selectedPortfolioCount + 1} series share.
-              </>
+            {/* The baseline is the later of the picked timeframe and the youngest inception, so
+                the wording has to say which one actually won — telling someone a line is
+                rebased to "the publish date" when the timeframe clipped it would be wrong. */}
+            {selectedPortfolioCount ? (
+              inceptionBaselineMs && baselineMs === inceptionBaselineMs ? (
+                <>
+                  Rebased to <strong>{baselineLabel(baselineMs)}</strong> — the publish date of the
+                  youngest portfolio selected, which starts later than the {timeframe} window.
+                  Every line shows its return since that date, so the comparison covers a window
+                  all {selectedPortfolioCount + 1} series share.
+                </>
+              ) : (
+                <>
+                  Rebased to <strong>{baselineLabel(baselineMs)}</strong> — the start of the
+                  selected {timeframe} window, which every selected portfolio was already running
+                  by. Every line shows its return since that date.
+                </>
+              )
             ) : (
               <>
-                Showing index performance over the selected timeframe. Add a portfolio and every
-                line rebases to its publish date so the spans stay comparable.
+                Showing index performance over the selected {timeframe} window. Add a portfolio
+                and every line rebases to its publish date so the spans stay comparable.
               </>
             )}{' '}
             Simulated paper trading — not investment advice.

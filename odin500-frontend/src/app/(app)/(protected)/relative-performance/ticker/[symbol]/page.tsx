@@ -1,4 +1,4 @@
-import { toNextMetadata } from '@/seo/metadata';
+import { generateRelativePerformanceMetadata } from '@/seo/routeMetadataHelpers';
 import { PageServerShell } from '@/seo/PageServerShell';
 import { DeferredRoutePage } from '@/ssr/DeferredRoutePage';
 import { fetchRelativeStrengthPageData } from '@/ssr/fetchPageData';
@@ -6,7 +6,7 @@ import RelativeStrengthTickerPage from '@/views/RelativeStrengthTickerPage.jsx';
 
 export async function generateMetadata({ params }: { params: Promise<{ symbol: string }> }) {
   const p = await params;
-  return toNextMetadata('/relative-performance/ticker/' + p.symbol);
+  return generateRelativePerformanceMetadata(p.symbol);
 }
 export const revalidate = 300;
 
